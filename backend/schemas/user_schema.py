@@ -1,7 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
 
-from core.permissions import Role
-
 
 class UserCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=50)
@@ -13,8 +11,8 @@ class UserRead(BaseModel):
     id: str
     name: str
     email: EmailStr
-    role: Role
+    role: str
 
 
 class UserRoleUpdate(BaseModel):
-    role: Role
+    role: str

@@ -15,10 +15,12 @@ import {
   getStoredToken,
 } from '@/services/auth';
 import type { AuthUser } from '@/services/auth';
+import AdminDashboard from '@/components/admin-dashboard';
 
 export default function DashboardScreen() {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -26,17 +28,18 @@ export default function DashboardScreen() {
     let isMounted = true;
 
     async function loadUser() {
-      const token = getStoredToken();
+      const storedToken = getStoredToken();
 
-      if (!token) {
+      if (!storedToken) {
         router.replace('/');
         return;
       }
 
       try {
-        const currentUser = await fetchCurrentUser(token);
+        const currentUser = await fetchCurrentUser(storedToken);
         if (isMounted) {
           setUser(currentUser);
+          setToken(storedToken);
         }
       } catch (currentUserError) {
         clearStoredToken();
@@ -74,6 +77,15 @@ export default function DashboardScreen() {
       </SafeAreaView>
     );
   }
+
+  if (user?.role === 'admin' && token) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <AdminDashboard user={user} token={token} onSignOut={handleSignOut} />
+      </SafeAreaView>
+    );
+  }
+
 
   return (
     <SafeAreaView style={styles.screen}>

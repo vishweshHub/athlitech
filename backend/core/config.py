@@ -11,7 +11,8 @@ MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "athlitech")
 JWT_SECRET = os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY")
 SECRET_KEY = JWT_SECRET
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 FRONTEND_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
@@ -21,12 +22,15 @@ FRONTEND_ORIGINS = [
     if origin.strip()
 ]
 
-encoded_username = quote_plus(MONGODB_USERNAME or "")
-encoded_password = quote_plus(MONGODB_PASSWORD or "")
-MONGODB_URI = (
-    f"mongodb+srv://{encoded_username}:{encoded_password}@{MONGODB_CLUSTER}/"
-    f"?retryWrites=true&w=majority"
-)
+MONGODB_URI = os.getenv("MONGODB_URI")
+
+if not MONGODB_URI:
+    encoded_username = quote_plus(MONGODB_USERNAME or "")
+    encoded_password = quote_plus(MONGODB_PASSWORD or "")
+    MONGODB_URI = (
+        f"mongodb+srv://{encoded_username}:{encoded_password}@{MONGODB_CLUSTER}/"
+        f"?retryWrites=true&w=majority&tls=true"
+    )
 
 if not JWT_SECRET:
     raise ValueError("JWT_SECRET is missing. Add it to your .env file.")

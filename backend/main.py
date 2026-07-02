@@ -6,6 +6,7 @@ from routes.auth_routes import router as auth_router
 from routes.athlete_routes import router as athlete_router
 from routes.user_routes import router as user_router
 from routes.role_routes import router as role_router
+from services.role_service import seed_default_roles
 
 app = FastAPI()
 
@@ -21,6 +22,11 @@ app.include_router(auth_router)
 app.include_router(athlete_router)
 app.include_router(user_router)
 app.include_router(role_router)
+
+
+@app.on_event("startup")
+async def startup_event():
+    await seed_default_roles()
 
 
 @app.get("/")
