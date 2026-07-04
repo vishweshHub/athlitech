@@ -9,13 +9,15 @@ import {
   View,
 } from 'react-native';
 
+import AthleteDashboard from '@/app/athlete-dashboard';
+import CoachDashboard from '@/app/coach-dashboard';
+import AdminDashboard from '@/components/admin-dashboard';
+import type { AuthUser } from '@/services/auth';
 import {
   clearStoredToken,
   fetchCurrentUser,
   getStoredToken,
 } from '@/services/auth';
-import type { AuthUser } from '@/services/auth';
-import AdminDashboard from '@/components/admin-dashboard';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -82,6 +84,22 @@ export default function DashboardScreen() {
     return (
       <SafeAreaView style={styles.screen}>
         <AdminDashboard user={user} token={token} onSignOut={handleSignOut} />
+      </SafeAreaView>
+    );
+  }
+
+  if (user?.role === 'coach' && token) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <CoachDashboard user={user} token={token} onSignOut={handleSignOut} />
+      </SafeAreaView>
+    );
+  }
+
+  if (user?.role === 'athlete' && token) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <AthleteDashboard user={user} token={token} onSignOut={handleSignOut} />
       </SafeAreaView>
     );
   }

@@ -1,0 +1,743 @@
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+
+import type { Athlete, Coach } from '@/services/admin';
+import { fetchAthleteById, fetchCoachById } from '@/services/admin';
+import type { AuthUser } from '@/services/auth';
+import type { Workout } from '@/services/workout';
+import { fetchAthleteWorkouts, updateWorkoutStatus } from '@/services/workout';
+import { Ionicons } from '@expo/vector-icons';
+
+interface AthleteDashboardScreenProps {
+  user: AuthUser | null;
+  token: string;
+  onSignOut: () => void;
+}
+
+export default function AthleteDashboardScreen({ user, token, onSignOut }: AthleteDashboardScreenProps) {
+  const router = useRouter();
+  
+  const [athlete, setAthlete] = useState<Athlete | null>(null);
+  const [coach, setCoach] = useState<Coach | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Workouts State
+  const [workouts, setWorkouts] = useState<Workout[]>([]);
+
+  // Get athlete_id from user - it should be the same as user.id or we need to fetch it
+  const athleteId = user?.id;
+
+  useEffect(() => {
+    if (!athleteId || !token) {
+      return;
+    }
+
+    async function loadDashboardData() {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        let athleteData: Athlete;
+        try {
+          athleteData = await fetchAthleteById(token, athleteId as string);
+          setAthlete(athleteData);
+
+          // Fetch coach details if athlete has a coach assigned
+          if (athleteData.coach_id) {
+            try {
+              const coachData = await fetchCoachById(token, athleteData.coach_id);
+              setCoach(coachData);
+            } catch (coachError) {
+              console.warn('Failed to fetch coach details:', coachError);
+              // Coach details are optional, don't fail the whole page
+            }
+          }
+        } catch (e) {
+          const errMessage = e instanceof Error ? e.message.toLowerCase() : '';
+          const is404 = errMessage.includes('404') || errMessage.includes('not found') || errMessage.includes('no athlete');
+          if (is404 && user) {
+            athleteData = {
+              athlete_id: athleteId as string,
+              name: user.name || 'Athlete User',
+              sport: 'Not specified',
+              weight: 'Not specified',
+              coach_id: '',
+            };
+            setAthlete(athleteData);
+          } else {
+            throw e;
+          }
+        }
+
+        // Fetch athlete workouts
+        const workoutsData = await fetchAthleteWorkouts(token, athleteId as string);
+        setWorkouts(workoutsData);
+
+      } catch (e) {
+        const message = e instanceof Error ? e.message : 'Failed to load dashboard data';
+        console.warn('Error loading athlete dashboard data:', e);
+        setError(message);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadDashboardData();
+  }, [athleteId, token]);
+
+  const handleUpdateStatus = async (workoutId: string, status: 'pending' | 'completed' | 'skipped') => {
+    try {
+      await updateWorkoutStatus(token, workoutId, status);
+      
+      // Update local state immediately
+      setWorkouts(prevWorkouts =>
+        prevWorkouts.map(w =>
+          w.workout_id === workoutId ? { ...w, status } : w
+        )
+      );
+    } catch (e) {
+      console.warn('Failed to update workout status:', e);
+      alert('Failed to update workout status: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    }
+  };
+
+  if (!user || !token) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.centeredStatus}>
+          <Text style={styles.errorText}>Session expired. Please log in again.</Text>
+          <Pressable onPress={onSignOut} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>Go to Login</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerInfo}>
+            <Text style={styles.headerTitle}>My Dashboard</Text>
+            <Text style={styles.headerSubtitle}>{user?.email || 'Athlete'}</Text>
+          </View>
+          <Pressable onPress={onSignOut} style={styles.logoutButton}>
+            <Ionicons name="log-out-outline" size={20} color="#ef4444" />
+            <Text style={styles.logoutText}>Logout</Text>
+          </Pressable>
+        </View>
+
+        {/* Content */}
+        <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
+          {isLoading ? (
+            <View style={styles.loaderContainer}>
+              <ActivityIndicator size="large" color="#3b82f6" />
+              <Text style={styles.loaderText}>Loading your profile...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
+              <Text style={styles.errorText}>{error}</Text>
+              <Pressable onPress={() => router.back()} style={styles.primaryButton}>
+                <Text style={styles.primaryButtonText}>Go Back</Text>
+              </Pressable>
+            </View>
+          ) : !athlete ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="person-outline" size={48} color="#94a3b8" />
+              <Text style={styles.errorText}>Profile not found</Text>
+              <Pressable onPress={() => router.back()} style={styles.primaryButton}>
+                <Text style={styles.primaryButtonText}>Go Back</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <>
+              {/* Profile Card */}
+              <View style={styles.profileCard}>
+                <View style={styles.profileAvatar}>
+                  <Text style={styles.avatarText}>
+                    {athlete.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.profileDetails}>
+                  <Text style={styles.profileName}>{athlete.name}</Text>
+                  <Text style={styles.profileSport}>{athlete.sport || 'No sport specified'}</Text>
+                  
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Athlete ID</Text>
+                      <Text style={styles.infoValue}>{athlete.athlete_id}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Weight</Text>
+                      <Text style={styles.infoValue}>
+                        {athlete.weight ? `${athlete.weight} kg` : 'Not specified'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Role</Text>
+                      <View style={styles.badge}>
+                        <Text style={styles.badgeText}>Athlete</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Coach Information */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>My Coach</Text>
+                {coach ? (
+                  <View style={styles.coachCard}>
+                    <View style={styles.coachHeader}>
+                      <View style={styles.coachAvatar}>
+                        <Text style={styles.coachAvatarText}>
+                          {coach.name.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.coachInfo}>
+                        <Text style={styles.coachName}>{coach.name}</Text>
+                        <Text style={styles.coachEmail}>{coach.email}</Text>
+                        <View style={styles.badge}>
+                          <Text style={styles.badgeText}>{coach.role}</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.emptyCoachCard}>
+                    <Ionicons name="person-outline" size={40} color="#cbd5e1" />
+                    <Text style={styles.emptyCoachText}>No coach assigned yet</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* My Workouts Section */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>My Workouts ({workouts.length})</Text>
+                {workouts.length === 0 ? (
+                  <View style={styles.emptyContainer}>
+                    <Ionicons name="fitness-outline" size={48} color="#cbd5e1" />
+                    <Text style={styles.emptyText}>No workouts assigned to you yet.</Text>
+                  </View>
+                ) : (
+                  <View style={styles.workoutsList}>
+                    {workouts.map((w) => (
+                      <View key={w.workout_id} style={styles.workoutCard}>
+                        <View style={styles.workoutCardHeader}>
+                          <View style={styles.workoutMetaCol}>
+                            <Text style={styles.workoutTitleText}>{w.title}</Text>
+                            <Text style={styles.workoutDate}>Target Date: {w.date}</Text>
+                          </View>
+                          <View style={[
+                            styles.statusBadge,
+                            w.status === 'completed' && styles.statusCompleted,
+                            w.status === 'skipped' && styles.statusSkipped
+                          ]}>
+                            <Text style={[
+                              styles.statusBadgeText,
+                              w.status === 'completed' && styles.statusCompletedText,
+                              w.status === 'skipped' && styles.statusSkippedText
+                            ]}>
+                              {w.status.toUpperCase()}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {w.description ? (
+                          <Text style={styles.workoutDesc}>{w.description}</Text>
+                        ) : null}
+
+                        <View style={styles.exercisesList}>
+                          <Text style={styles.exercisesListTitle}>Exercises:</Text>
+                          {w.exercises.map((ex, idx) => (
+                            <View key={idx} style={styles.exerciseItemRow}>
+                              <Ionicons name="ellipse" size={6} color="#3b82f6" />
+                              <Text style={styles.exerciseItemText}>
+                                {ex.name} — {ex.sets} sets × {ex.reps} reps {ex.duration ? `(${ex.duration})` : ''}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+
+                        {/* Status controls */}
+                        <View style={styles.statusControlsRow}>
+                          <Pressable
+                            style={[
+                              styles.statusControlBtn,
+                              w.status === 'pending' && { backgroundColor: '#f1f5f9', borderColor: '#475569' }
+                            ]}
+                            onPress={() => handleUpdateStatus(w.workout_id, 'pending')}
+                          >
+                            <Text style={[
+                              styles.statusControlBtnText,
+                              w.status === 'pending' && { color: '#475569', fontWeight: '700' }
+                            ]}>Pending</Text>
+                          </Pressable>
+
+                          <Pressable
+                            style={[
+                              styles.statusControlBtn,
+                              w.status === 'completed' && { backgroundColor: '#d1fae5', borderColor: '#10b981' }
+                            ]}
+                            onPress={() => handleUpdateStatus(w.workout_id, 'completed')}
+                          >
+                            <Text style={[
+                              styles.statusControlBtnText,
+                              w.status === 'completed' && { color: '#065f46', fontWeight: '700' }
+                            ]}>Completed</Text>
+                          </Pressable>
+
+                          <Pressable
+                            style={[
+                              styles.statusControlBtn,
+                              w.status === 'skipped' && { backgroundColor: '#fee2e2', borderColor: '#f87171' }
+                            ]}
+                            onPress={() => handleUpdateStatus(w.workout_id, 'skipped')}
+                          >
+                            <Text style={[
+                              styles.statusControlBtnText,
+                              w.status === 'skipped' && { color: '#991b1b', fontWeight: '700' }
+                            ]}>Skipped</Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* Additional Information */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Profile Information</Text>
+                <View style={styles.infoCard}>
+                  <View style={styles.infoRow}>
+                    <Ionicons name="person-outline" size={20} color="#647286" />
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>Full Name</Text>
+                      <Text style={styles.infoValue}>{athlete.name}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.divider} />
+                  
+                  <View style={styles.infoRow}>
+                    <Ionicons name="fitness-outline" size={20} color="#647286" />
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>Sport</Text>
+                      <Text style={styles.infoValue}>{athlete.sport || 'Not specified'}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.divider} />
+
+                  <View style={styles.infoRow}>
+                    <Ionicons name="scale-outline" size={20} color="#647286" />
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>Weight</Text>
+                      <Text style={styles.infoValue}>
+                        {athlete.weight ? `${athlete.weight} kg` : 'Not specified'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.divider} />
+
+                  <View style={styles.infoRow}>
+                    <Ionicons name="ribbon-outline" size={20} color="#647286" />
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>Role</Text>
+                      <Text style={styles.infoValue}>Athlete</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </>
+          )}
+        </ScrollView>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    gap: 12,
+  },
+  headerInfo: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#647286',
+    marginTop: 2,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    backgroundColor: '#fef2f2',
+  },
+  logoutText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ef4444',
+  },
+  content: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  contentInner: {
+    padding: 24,
+    maxWidth: 1400,
+    alignSelf: 'center',
+    width: '100%',
+  },
+  loaderContainer: {
+    paddingVertical: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loaderText: {
+    marginTop: 12,
+    color: '#647286',
+    fontSize: 14,
+  },
+  errorContainer: {
+    padding: 40,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+  },
+  errorText: {
+    color: '#b91c1c',
+    fontSize: 15,
+    marginTop: 12,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  primaryButton: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 6,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  primaryButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  centeredStatus: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  profileCard: {
+    backgroundColor: '#fff',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 24,
+    marginBottom: 24,
+  },
+  profileAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#f59e0b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    alignSelf: 'center',
+  },
+  avatarText: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  profileDetails: {
+    gap: 12,
+  },
+  profileName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#0f172a',
+    textAlign: 'center',
+  },
+  profileSport: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+  },
+  infoItem: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: '#647286',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  infoValue: {
+    fontSize: 14,
+    color: '#0f172a',
+    fontWeight: '500',
+  },
+  badge: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#3b82f6',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#3b82f6',
+  },
+  section: {
+    marginBottom: 32,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 16,
+  },
+  coachCard: {
+    backgroundColor: '#fff',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 20,
+  },
+  coachHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  coachAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#8b5cf6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  coachAvatarText: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  coachInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  coachName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  coachEmail: {
+    fontSize: 13,
+    color: '#647286',
+  },
+  emptyCoachCard: {
+    padding: 40,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+  },
+  emptyCoachText: {
+    color: '#647286',
+    fontSize: 15,
+    marginTop: 12,
+  },
+  infoCard: {
+    backgroundColor: '#fff',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 20,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#f1f5f9',
+    marginVertical: 12,
+  },
+  emptyContainer: {
+    backgroundColor: '#fff',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#647286',
+    textAlign: 'center',
+  },
+  workoutsList: {
+    gap: 16,
+  },
+  workoutCard: {
+    backgroundColor: '#fff',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 16,
+    gap: 12,
+  },
+  workoutCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  workoutMetaCol: {
+    flex: 1,
+  },
+  workoutTitleText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  statusBadge: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  statusCompleted: {
+    backgroundColor: '#d1fae5',
+  },
+  statusCompletedText: {
+    color: '#065f46',
+  },
+  statusSkipped: {
+    backgroundColor: '#fee2e2',
+  },
+  statusSkippedText: {
+    color: '#991b1b',
+  },
+  workoutDesc: {
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 18,
+  },
+  workoutDate: {
+    fontSize: 12,
+    color: '#647286',
+    marginTop: 2,
+  },
+  exercisesList: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 6,
+    padding: 12,
+    gap: 6,
+  },
+  exercisesListTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 2,
+  },
+  exerciseItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  exerciseItemText: {
+    fontSize: 13,
+    color: '#334155',
+  },
+  statusControlsRow: {
+    flexDirection: 'row',
+    borderTopColor: '#f1f5f9',
+    borderTopWidth: 1,
+    paddingTop: 12,
+    gap: 8,
+  },
+  statusControlBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderColor: '#cbd5e1',
+    borderWidth: 1,
+    backgroundColor: '#fff',
+  },
+  statusControlBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#647286',
+  },
+});

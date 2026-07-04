@@ -84,3 +84,58 @@ export async function assignAthleteToCoach(token: string, athleteId: string, coa
   }
   return response.json();
 }
+
+export type Coach = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  coach_id: string;
+};
+
+export type Athlete = {
+  athlete_id: string;
+  name: string;
+  sport: string;
+  weight: string;
+  coach_id: string;
+};
+
+export async function fetchCoachById(token: string, coachId: string): Promise<Coach> {
+  const response = await fetch(`${API_URL}/coaches/${coachId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.detail ?? 'Failed to fetch coach details');
+  }
+  return response.json();
+}
+
+export async function fetchCoachAthletes(token: string, coachId: string): Promise<Athlete[]> {
+  const response = await fetch(`${API_URL}/coaches/${coachId}/athletes`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.detail ?? 'Failed to fetch coach athletes');
+  }
+  return response.json();
+}
+
+export async function fetchAthleteById(token: string, athleteId: string): Promise<Athlete> {
+  const response = await fetch(`${API_URL}/athletes/${athleteId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.detail ?? 'Failed to fetch athlete details');
+  }
+  return response.json();
+}

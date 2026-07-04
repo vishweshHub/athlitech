@@ -1,47 +1,27 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
   Platform,
   Pressable,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
+import type { Role, User } from '@/services/admin';
 import {
-  assignAthleteToCoach,
   createRole,
   fetchAllRoles,
   fetchAllUsers,
   updateUserRole,
 } from '@/services/admin';
-import type { Role, User } from '@/services/admin';
 import type { AuthUser } from '@/services/auth';
-
-const mockStats = {
-  totalUsers: 142,
-  totalCoaches: 18,
-  totalAthletes: 114,
-  totalRoles: 4,
-};
-
-const mockUsers: User[] = [
-  { id: '1', name: 'Coach Sarah', email: 'sarah@athlitech.com', role: 'coach' },
-  { id: '2', name: 'Coach Marcus', email: 'marcus@athlitech.com', role: 'coach' },
-  { id: '3', name: 'John Athlete', email: 'john@athlitech.com', role: 'athlete' },
-  { id: '4', name: 'Elena Athlete', email: 'elena@athlitech.com', role: 'athlete' },
-  { id: '5', name: 'Admin User', email: 'admin@athlitech.com', role: 'admin' },
-];
-
-const mockRoles: Role[] = [
-  { id: 'r1', name: 'admin', permissions: ['all'] },
-  { id: 'r2', name: 'coach', permissions: ['read:athletes', 'write:athletes'] },
-  { id: 'r3', name: 'athlete', permissions: ['read:profile'] },
-];
 
 interface AdminDashboardProps {
   user: AuthUser | null;
@@ -49,16 +29,25 @@ interface AdminDashboardProps {
   onSignOut: () => void;
 }
 
-type TabType = 'overview' | 'users' | 'roles' | 'assign';
+type TabType = 'dashboard' | 'users' | 'roles' | 'coaches' | 'athletes';
+
+// Responsive helpers
+const { width } = Dimensions.get('window');
+const isWeb = Platform.OS === 'web';
+const isLargeScreen = width > 768;
 
 export default function AdminDashboard({ user, token, onSignOut }: AdminDashboardProps) {
-  // Navigation / Tabs state
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const router = useRouter();
+  
+  // Navigation state
+  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(isWeb);
 
   // Backend data state
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [isUsingFallback, setIsUsingFallback] = useState(false);
 
   // Form states
@@ -67,34 +56,30 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
   const [roleFormMessage, setRoleFormMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [isCreatingRole, setIsCreatingRole] = useState(false);
 
-  // Assign Athlete to Coach states
-  const [selectedAthleteId, setSelectedAthleteId] = useState('');
-  const [selectedCoachId, setSelectedCoachId] = useState('');
-  const [assignFormMessage, setAssignFormMessage] = useState<{ text: string; isError: boolean } | null>(null);
-  const [isAssigning, setIsAssigning] = useState(false);
-
   // User Role Editing states
   const [updatingUserRoleMap, setUpdatingUserRoleMap] = useState<{ [userId: string]: string }>({});
   const [userRoleMessage, setUserRoleMessage] = useState<{ [userId: string]: { text: string; isError: boolean } }>({});
   const [userSearchQuery, setUserSearchQuery] = useState('');
 
-  // Fallback / Placeholder numbers
-
-
   // Fetch data
   const loadDashboardData = useCallback(async () => {
     setIsLoadingData(true);
+    setDashboardError(null);
     setIsUsingFallback(false);
     try {
-      const fetchedUsers = await fetchAllUsers(token);
-      const fetchedRoles = await fetchAllRoles(token);
+      const [fetchedUsers, fetchedRoles] = await Promise.all([
+        fetchAllUsers(token),
+        fetchAllRoles(token),
+      ]);
       setUsers(fetchedUsers);
       setRoles(fetchedRoles);
     } catch (e) {
-      console.warn('Backend API connection failed, using high-fidelity placeholders:', e);
+      const message = e instanceof Error ? e.message : 'Unable to load dashboard data.';
+      console.warn('Backend API connection failed:', e);
+      setDashboardError(message);
       setIsUsingFallback(true);
-      setUsers(mockUsers);
-      setRoles(mockRoles);
+      setUsers([]);
+      setRoles([]);
     } finally {
       setIsLoadingData(false);
     }
@@ -104,15 +89,19 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
     loadDashboardData();
   }, [loadDashboardData]);
 
-  // Derived counts
-  const totalUsers = isUsingFallback ? mockStats.totalUsers : users.length;
-  const totalCoaches = isUsingFallback
-    ? mockStats.totalCoaches
-    : users.filter((u) => u.role.toLowerCase() === 'coach').length;
-  const totalAthletes = isUsingFallback
-    ? mockStats.totalAthletes
-    : users.filter((u) => u.role.toLowerCase() === 'athlete').length;
-  const totalRoles = isUsingFallback ? mockStats.totalRoles : roles.length;
+  // Derived counts from backend data
+  const totalUsers = users.length;
+  const totalCoaches = users.filter((u) => u.role.toLowerCase() === 'coach').length;
+  const totalAthletes = users.filter((u) => u.role.toLowerCase() === 'athlete').length;
+  const totalRoles = roles.length;
+  const hasDashboardData = totalUsers > 0 || totalRoles > 0;
+  const dashboardStatusMessage = isLoadingData
+    ? 'Loading dashboard metrics from the backend...'
+    : dashboardError
+      ? 'Unable to load dashboard metrics right now.'
+      : hasDashboardData
+        ? null
+        : 'No dashboard data is available yet.';
 
   // Handlers
   const handleCreateRole = async () => {
@@ -130,7 +119,6 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
         .filter((p) => p.length > 0);
 
       if (isUsingFallback) {
-        // Mock creation
         const newMockRole: Role = {
           id: `r_${Date.now()}`,
           name: newRoleName.trim().toLowerCase(),
@@ -145,7 +133,6 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
         setRoleFormMessage({ text: `Role "${newRoleName}" created successfully!`, isError: false });
         setNewRoleName('');
         setNewRolePermissions('');
-        // Reload
         const fetchedRoles = await fetchAllRoles(token);
         setRoles(fetchedRoles);
       }
@@ -177,7 +164,6 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
           ...prev,
           [userId]: { text: 'Role updated successfully!', isError: false },
         }));
-        // Reload user list
         const fetchedUsers = await fetchAllUsers(token);
         setUsers(fetchedUsers);
       }
@@ -186,39 +172,6 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
         ...prev,
         [userId]: { text: e.message || 'Failed to update role', isError: true },
       }));
-    }
-  };
-
-  const handleAssignAthlete = async () => {
-    setAssignFormMessage(null);
-    if (!selectedAthleteId) {
-      setAssignFormMessage({ text: 'Please select or input an Athlete ID', isError: true });
-      return;
-    }
-    if (!selectedCoachId) {
-      setAssignFormMessage({ text: 'Please select or input a Coach ID', isError: true });
-      return;
-    }
-
-    setIsAssigning(true);
-    try {
-      if (isUsingFallback) {
-        setAssignFormMessage({
-          text: 'Athlete assignment processed locally (Fallback Mode)',
-          isError: false,
-        });
-        setSelectedAthleteId('');
-        setSelectedCoachId('');
-      } else {
-        await assignAthleteToCoach(token, selectedAthleteId, selectedCoachId);
-        setAssignFormMessage({ text: 'Athlete successfully assigned to Coach!', isError: false });
-        setSelectedAthleteId('');
-        setSelectedCoachId('');
-      }
-    } catch (e: any) {
-      setAssignFormMessage({ text: e.message || 'Failed to assign athlete', isError: true });
-    } finally {
-      setIsAssigning(false);
     }
   };
 
@@ -234,572 +187,615 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
   const athletesList = users.filter((u) => u.role.toLowerCase() === 'athlete');
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Top Welcome Panel */}
-      <View style={styles.heroBanner}>
-        <View style={styles.heroTextContainer}>
-          <Text style={styles.heroTitle}>AthliTech Control Center</Text>
-          <Text style={styles.heroSubtitle}>
-            Welcome back, <Text style={styles.boldText}>{user?.name || 'Administrator'}</Text>
-          </Text>
-          {isUsingFallback && (
-            <View style={styles.fallbackBadge}>
-              <Ionicons name="information-circle" size={14} color="#b45309" />
-              <Text style={styles.fallbackText}>API Sandbox (Offline Mock Mode)</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.headerActions}>
-          <Pressable onPress={loadDashboardData} style={styles.iconBtn}>
-            <Ionicons name="refresh" size={20} color="#1e293b" />
-          </Pressable>
-        </View>
-      </View>
-
-      {/* Navigation Tab Bar */}
-      <View style={styles.tabBar}>
-        <Pressable
-          style={[styles.tabButton, activeTab === 'overview' && styles.activeTabButton]}
-          onPress={() => setActiveTab('overview')}
-        >
-          <Ionicons
-            name="grid"
-            size={18}
-            color={activeTab === 'overview' ? '#3b82f6' : '#647286'}
-          />
-          <Text style={[styles.tabText, activeTab === 'overview' && styles.activeTabText]}>
-            Overview
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={[styles.tabButton, activeTab === 'users' && styles.activeTabButton]}
-          onPress={() => setActiveTab('users')}
-        >
-          <Ionicons
-            name="people"
-            size={18}
-            color={activeTab === 'users' ? '#3b82f6' : '#647286'}
-          />
-          <Text style={[styles.tabText, activeTab === 'users' && styles.activeTabText]}>
-            Users
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={[styles.tabButton, activeTab === 'roles' && styles.activeTabButton]}
-          onPress={() => setActiveTab('roles')}
-        >
-          <Ionicons
-            name="shield"
-            size={18}
-            color={activeTab === 'roles' ? '#3b82f6' : '#647286'}
-          />
-          <Text style={[styles.tabText, activeTab === 'roles' && styles.activeTabText]}>
-            Roles
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={[styles.tabButton, activeTab === 'assign' && styles.activeTabButton]}
-          onPress={() => setActiveTab('assign')}
-        >
-          <Ionicons
-            name="git-compare"
-            size={18}
-            color={activeTab === 'assign' ? '#3b82f6' : '#647286'}
-          />
-          <Text style={[styles.tabText, activeTab === 'assign' && styles.activeTabText]}>
-            Assign
-          </Text>
-        </Pressable>
-      </View>
-
-      {isLoadingData ? (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#3b82f6" />
-          <Text style={styles.loaderText}>Loading dashboard workspace...</Text>
-        </View>
-      ) : (
-        <>
-          {/* Metrics Grid */}
-          <View style={styles.metricsContainer}>
-            <View style={[styles.metricCard, { borderLeftColor: '#3b82f6' }]}>
-              <View style={styles.metricHeader}>
-                <Text style={styles.metricLabel}>Total Users</Text>
-                <View style={[styles.iconWrapper, { backgroundColor: '#eff6ff' }]}>
-                  <Ionicons name="people-outline" size={20} color="#3b82f6" />
-                </View>
-              </View>
-              <Text style={styles.metricValue}>{totalUsers}</Text>
+    <SafeAreaView style={styles.wrapper}>
+      <View style={styles.mainContainer}>
+        {/* Sidebar */}
+        {sidebarOpen && (
+          <View style={styles.sidebar}>
+            <View style={styles.sidebarHeader}>
+              <Text style={styles.sidebarBrand}>AthliTech</Text>
+              {isWeb && (
+                <Pressable onPress={() => setSidebarOpen(false)}>
+                  <Ionicons name="close" size={24} color="#647286" />
+                </Pressable>
+              )}
             </View>
 
-            <View style={[styles.metricCard, { borderLeftColor: '#10b981' }]}>
-              <View style={styles.metricHeader}>
-                <Text style={styles.metricLabel}>Coaches</Text>
-                <View style={[styles.iconWrapper, { backgroundColor: '#ecfdf5' }]}>
-                  <Ionicons name="fitness-outline" size={20} color="#10b981" />
-                </View>
-              </View>
-              <Text style={styles.metricValue}>{totalCoaches}</Text>
+            <View style={styles.sidebarNav}>
+              {[
+                { id: 'dashboard', label: 'Dashboard', icon: 'grid' },
+                { id: 'users', label: 'Users', icon: 'people' },
+                { id: 'roles', label: 'Roles', icon: 'shield' },
+                { id: 'coaches', label: 'Coaches', icon: 'fitness' },
+                { id: 'athletes', label: 'Athletes', icon: 'walk' },
+              ].map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={[
+                    styles.sidebarItem,
+                    activeTab === item.id && styles.sidebarItemActive,
+                  ]}
+                  onPress={() => {
+                    setActiveTab(item.id as TabType);
+                    if (!isWeb) {
+                      setSidebarOpen(false);
+                    }
+                  }}
+                >
+                  <Ionicons
+                    name={item.icon as any}
+                    size={20}
+                    color={activeTab === item.id ? '#3b82f6' : '#647286'}
+                  />
+                  <Text
+                    style={[
+                      styles.sidebarItemLabel,
+                      activeTab === item.id && styles.sidebarItemLabelActive,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
 
-            <View style={[styles.metricCard, { borderLeftColor: '#f59e0b' }]}>
-              <View style={styles.metricHeader}>
-                <Text style={styles.metricLabel}>Athletes</Text>
-                <View style={[styles.iconWrapper, { backgroundColor: '#fffbeb' }]}>
-                  <Ionicons name="walk-outline" size={20} color="#f59e0b" />
-                </View>
-              </View>
-              <Text style={styles.metricValue}>{totalAthletes}</Text>
-            </View>
-
-            <View style={[styles.metricCard, { borderLeftColor: '#8b5cf6' }]}>
-              <View style={styles.metricHeader}>
-                <Text style={styles.metricLabel}>Roles</Text>
-                <View style={[styles.iconWrapper, { backgroundColor: '#f5f3ff' }]}>
-                  <Ionicons name="shield-outline" size={20} color="#8b5cf6" />
-                </View>
-              </View>
-              <Text style={styles.metricValue}>{totalRoles}</Text>
+            <View style={styles.sidebarFooter}>
+              <Pressable style={styles.logoutButton} onPress={onSignOut}>
+                <Ionicons name="log-out" size={20} color="#ef4444" />
+                <Text style={styles.logoutLabel}>Logout</Text>
+              </Pressable>
             </View>
           </View>
+        )}
 
-          {/* Tab Views */}
-          {activeTab === 'overview' && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Quick Management Actions</Text>
-              <View style={styles.actionGrid}>
-                <Pressable
-                  style={styles.actionCard}
-                  onPress={() => setActiveTab('users')}
-                >
-                  <Ionicons name="people-circle" size={32} color="#3b82f6" />
-                  <Text style={styles.actionCardTitle}>Manage Users</Text>
-                  <Text style={styles.actionCardDesc}>Review list, assign roles, inspect users.</Text>
-                </Pressable>
-
-                <Pressable
-                  style={styles.actionCard}
-                  onPress={() => setActiveTab('roles')}
-                >
-                  <Ionicons name="shield-checkmark" size={32} color="#10b981" />
-                  <Text style={styles.actionCardTitle}>Manage Roles</Text>
-                  <Text style={styles.actionCardDesc}>Create new roles and update system permissions.</Text>
-                </Pressable>
-
-                <Pressable
-                  style={styles.actionCard}
-                  onPress={() => setActiveTab('assign')}
-                >
-                  <Ionicons name="git-network-outline" size={32} color="#f59e0b" />
-                  <Text style={styles.actionCardTitle}>Assign Athlete</Text>
-                  <Text style={styles.actionCardDesc}>Map athletes to their designated coaches.</Text>
-                </Pressable>
-
-                <Pressable
-                  style={[styles.actionCard, styles.logoutActionCard]}
-                  onPress={onSignOut}
-                >
-                  <Ionicons name="log-out" size={32} color="#ef4444" />
-                  <Text style={[styles.actionCardTitle, { color: '#ef4444' }]}>Logout</Text>
-                  <Text style={styles.actionCardDesc}>Securely sign out of your administrator account.</Text>
-                </Pressable>
-              </View>
+        {/* Main Content */}
+        <View style={styles.contentArea}>
+          {/* Header */}
+          <View style={styles.header}>
+            {!isWeb && (
+              <Pressable
+                onPress={() => setSidebarOpen(!sidebarOpen)}
+                style={styles.hamburgerBtn}
+              >
+                <Ionicons name="menu" size={24} color="#0f172a" />
+              </Pressable>
+            )}
+            <View style={styles.headerInfo}>
+              <Text style={styles.headerTitle}>
+                {activeTab === 'dashboard' && 'Dashboard'}
+                {activeTab === 'users' && 'User Management'}
+                {activeTab === 'roles' && 'Role Management'}
+                {activeTab === 'coaches' && 'Coaches'}
+                {activeTab === 'athletes' && 'Athletes'}
+              </Text>
+              <Text style={styles.headerSubtitle}>{user?.email || 'Admin'}</Text>
             </View>
-          )}
+            <Pressable onPress={loadDashboardData} style={styles.refreshBtn}>
+              <Ionicons name="refresh" size={20} color="#1e293b" />
+            </Pressable>
+          </View>
 
-          {activeTab === 'users' && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>User Registry ({filteredUsers.length})</Text>
-                <TextInput
-                  style={styles.searchBar}
-                  placeholder="Search name, email, or role..."
-                  placeholderTextColor="#94a3b8"
-                  value={userSearchQuery}
-                  onChangeText={setUserSearchQuery}
-                />
+          {/* Content */}
+          <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
+            {isLoadingData ? (
+              <View style={styles.loaderContainer}>
+                <ActivityIndicator size="large" color="#3b82f6" />
+                <Text style={styles.loaderText}>Loading dashboard...</Text>
               </View>
-
-              <View style={styles.userList}>
-                {filteredUsers.length === 0 ? (
-                  <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyText}>No users matched your query</Text>
-                  </View>
-                ) : (
-                  filteredUsers.map((item) => {
-                    const selectedRole = updatingUserRoleMap[item.id] || item.role;
-                    const message = userRoleMessage[item.id];
-                    return (
-                      <View key={item.id} style={styles.userListItem}>
-                        <View style={styles.userInfo}>
-                          <Text style={styles.userNameText}>{item.name}</Text>
-                          <Text style={styles.userEmailText}>{item.email}</Text>
-                          <Text style={styles.userIdText}>ID: {item.id}</Text>
-                          {message && (
-                            <Text
-                              style={[
-                                styles.userItemMessage,
-                                message.isError ? styles.errorText : styles.successText,
-                              ]}
-                            >
-                              {message.text}
-                            </Text>
-                          )}
+            ) : (
+              <>
+                {/* Dashboard Tab */}
+                {activeTab === 'dashboard' && (
+                  <>
+                    {/* Summary Cards */}
+                    <View style={styles.metricsContainer}>
+                      <View style={[styles.metricCard, { borderLeftColor: '#3b82f6' }]}>
+                        <View style={styles.metricHeader}>
+                          <Text style={styles.metricLabel}>Total Users</Text>
+                          <View style={[styles.iconWrapper, { backgroundColor: '#eff6ff' }]}>
+                            <Ionicons name="people-outline" size={20} color="#3b82f6" />
+                          </View>
                         </View>
+                        <Text style={styles.metricValue}>{totalUsers}</Text>
+                      </View>
 
-                        <View style={styles.userRoleEdit}>
-                          <Text style={styles.smallLabel}>Assign Role:</Text>
-                          <View style={styles.rolePickerRow}>
-                            {roles.map((r) => (
-                              <Pressable
-                                key={r.name}
-                                style={[
-                                  styles.roleSelectChip,
-                                  selectedRole === r.name && styles.roleSelectChipActive,
-                                ]}
-                                onPress={() =>
-                                  setUpdatingUserRoleMap((prev) => ({
-                                    ...prev,
-                                    [item.id]: r.name,
-                                  }))
-                                }
-                              >
-                                <Text
-                                  style={[
-                                    styles.roleSelectChipText,
-                                    selectedRole === r.name && styles.roleSelectChipTextActive,
-                                  ]}
-                                >
-                                  {r.name}
-                                </Text>
-                              </Pressable>
+                      <View style={[styles.metricCard, { borderLeftColor: '#10b981' }]}>
+                        <View style={styles.metricHeader}>
+                          <Text style={styles.metricLabel}>Coaches</Text>
+                          <View style={[styles.iconWrapper, { backgroundColor: '#ecfdf5' }]}>
+                            <Ionicons name="fitness-outline" size={20} color="#10b981" />
+                          </View>
+                        </View>
+                        <Text style={styles.metricValue}>{totalCoaches}</Text>
+                      </View>
+
+                      <View style={[styles.metricCard, { borderLeftColor: '#f59e0b' }]}>
+                        <View style={styles.metricHeader}>
+                          <Text style={styles.metricLabel}>Athletes</Text>
+                          <View style={[styles.iconWrapper, { backgroundColor: '#fffbeb' }]}>
+                            <Ionicons name="walk-outline" size={20} color="#f59e0b" />
+                          </View>
+                        </View>
+                        <Text style={styles.metricValue}>{totalAthletes}</Text>
+                      </View>
+
+                      <View style={[styles.metricCard, { borderLeftColor: '#8b5cf6' }]}>
+                        <View style={styles.metricHeader}>
+                          <Text style={styles.metricLabel}>Roles</Text>
+                          <View style={[styles.iconWrapper, { backgroundColor: '#f5f3ff' }]}>
+                            <Ionicons name="shield-outline" size={20} color="#8b5cf6" />
+                          </View>
+                        </View>
+                        <Text style={styles.metricValue}>{totalRoles}</Text>
+                      </View>
+                    </View>
+
+                    {dashboardStatusMessage ? (
+                      <View style={styles.statusCard}>
+                        <Text
+                          style={[
+                            styles.statusText,
+                            dashboardError ? styles.statusErrorText : null,
+                          ]}
+                        >
+                          {dashboardStatusMessage}
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    {/* Quick Actions */}
+                    <View style={styles.section}>
+                      <Text style={styles.sectionTitle}>Quick Actions</Text>
+                      <View style={styles.actionGrid}>
+                        <Pressable
+                          style={styles.actionCard}
+                          onPress={() => setActiveTab('users')}
+                        >
+                          <Ionicons name="people-circle" size={32} color="#3b82f6" />
+                          <Text style={styles.actionCardTitle}>Manage Users</Text>
+                          <Text style={styles.actionCardDesc}>
+                            Review and manage user accounts and roles.
+                          </Text>
+                        </Pressable>
+
+                        <Pressable
+                          style={styles.actionCard}
+                          onPress={() => setActiveTab('roles')}
+                        >
+                          <Ionicons name="shield-checkmark" size={32} color="#10b981" />
+                          <Text style={styles.actionCardTitle}>Manage Roles</Text>
+                          <Text style={styles.actionCardDesc}>
+                            Create and configure system roles.
+                          </Text>
+                        </Pressable>
+
+                        <Pressable
+                          style={styles.actionCard}
+                          onPress={() => setActiveTab('coaches')}
+                        >
+                          <Ionicons name="fitness" size={32} color="#8b5cf6" />
+                          <Text style={styles.actionCardTitle}>Coaches</Text>
+                          <Text style={styles.actionCardDesc}>
+                            View and manage coach accounts.
+                          </Text>
+                        </Pressable>
+
+                        <Pressable
+                          style={styles.actionCard}
+                          onPress={() => setActiveTab('athletes')}
+                        >
+                          <Ionicons name="walk" size={32} color="#f59e0b" />
+                          <Text style={styles.actionCardTitle}>Athletes</Text>
+                          <Text style={styles.actionCardDesc}>
+                            Manage athlete profiles and assignments.
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  </>
+                )}
+
+                {/* Users Tab */}
+                {activeTab === 'users' && (
+                  <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                      <Text style={styles.sectionTitle}>User Registry ({filteredUsers.length})</Text>
+                      <TextInput
+                        style={styles.searchBar}
+                        placeholder="Search name, email, or role..."
+                        placeholderTextColor="#94a3b8"
+                        value={userSearchQuery}
+                        onChangeText={setUserSearchQuery}
+                      />
+                    </View>
+
+                    <View style={styles.userList}>
+                      {filteredUsers.length === 0 ? (
+                        <View style={styles.emptyContainer}>
+                          <Text style={styles.emptyText}>No users matched your query</Text>
+                        </View>
+                      ) : (
+                        filteredUsers.map((item) => {
+                          const selectedRole = updatingUserRoleMap[item.id] || item.role;
+                          const message = userRoleMessage[item.id];
+                          return (
+                            <View key={item.id} style={styles.userListItem}>
+                              <View style={styles.userInfo}>
+                                <Text style={styles.userNameText}>{item.name}</Text>
+                                <Text style={styles.userEmailText}>{item.email}</Text>
+                                <View style={styles.userMetaRow}>
+                                  <Text style={styles.userIdText}>ID: {item.id}</Text>
+                                  <View style={styles.roleBadge}>
+                                    <Text style={styles.roleBadgeText}>{item.role}</Text>
+                                  </View>
+                                </View>
+                                {message && (
+                                  <Text
+                                    style={[
+                                      styles.userItemMessage,
+                                      message.isError ? styles.errorText : styles.successText,
+                                    ]}
+                                  >
+                                    {message.text}
+                                  </Text>
+                                )}
+                              </View>
+
+                              <View style={styles.userRoleEdit}>
+                                <Text style={styles.smallLabel}>Assign Role:</Text>
+                                <View style={styles.rolePickerRow}>
+                                  {roles.map((r) => (
+                                    <Pressable
+                                      key={r.name}
+                                      style={[
+                                        styles.roleSelectChip,
+                                        selectedRole === r.name && styles.roleSelectChipActive,
+                                      ]}
+                                      onPress={() =>
+                                        setUpdatingUserRoleMap((prev) => ({
+                                          ...prev,
+                                          [item.id]: r.name,
+                                        }))
+                                      }
+                                    >
+                                      <Text
+                                        style={[
+                                          styles.roleSelectChipText,
+                                          selectedRole === r.name &&
+                                            styles.roleSelectChipTextActive,
+                                        ]}
+                                      >
+                                        {r.name}
+                                      </Text>
+                                    </Pressable>
+                                  ))}
+                                </View>
+
+                                {selectedRole !== item.role && (
+                                  <Pressable
+                                    style={styles.saveRoleButton}
+                                    onPress={() => handleUpdateUserRole(item.id)}
+                                  >
+                                    <Text style={styles.saveRoleButtonText}>Apply Role</Text>
+                                  </Pressable>
+                                )}
+                              </View>
+                            </View>
+                          );
+                        })
+                      )}
+                    </View>
+                  </View>
+                )}
+
+                {/* Roles Tab */}
+                {activeTab === 'roles' && (
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>System Roles</Text>
+                    <View style={styles.rolesGrid}>
+                      {roles.map((r) => (
+                        <View key={r.name} style={styles.roleDetailCard}>
+                          <View style={styles.roleBadgeHeader}>
+                            <Ionicons name="shield-checkmark" size={16} color="#475569" />
+                            <Text style={styles.roleTitle}>{r.name.toUpperCase()}</Text>
+                          </View>
+                          <View style={styles.permissionsContainer}>
+                            {r.permissions.map((p) => (
+                              <View key={p} style={styles.permissionChip}>
+                                <Text style={styles.permissionText}>{p}</Text>
+                              </View>
                             ))}
                           </View>
-
-                          {selectedRole !== item.role && (
-                            <Pressable
-                              style={styles.saveRoleButton}
-                              onPress={() => handleUpdateUserRole(item.id)}
-                            >
-                              <Text style={styles.saveRoleButtonText}>Apply Role</Text>
-                            </Pressable>
-                          )}
-                        </View>
-                      </View>
-                    );
-                  })
-                )}
-              </View>
-            </View>
-          )}
-
-          {activeTab === 'roles' && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>System Roles</Text>
-              <View style={styles.rolesGrid}>
-                {roles.map((r) => (
-                  <View key={r.name} style={styles.roleDetailCard}>
-                    <View style={styles.roleBadgeHeader}>
-                      <Ionicons name="shield-checkmark" size={16} color="#475569" />
-                      <Text style={styles.roleTitle}>{r.name.toUpperCase()}</Text>
-                    </View>
-                    <View style={styles.permissionsContainer}>
-                      {r.permissions.map((p) => (
-                        <View key={p} style={styles.permissionChip}>
-                          <Text style={styles.permissionText}>{p}</Text>
                         </View>
                       ))}
                     </View>
+
+                    <View style={styles.formCard}>
+                      <Text style={styles.formTitle}>Create Custom Role</Text>
+                      {roleFormMessage && (
+                        <Text
+                          style={[
+                            styles.formMessage,
+                            roleFormMessage.isError ? styles.errorText : styles.successText,
+                          ]}
+                        >
+                          {roleFormMessage.text}
+                        </Text>
+                      )}
+
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>Role Name</Text>
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="e.g. physiotherapist, auditor"
+                          placeholderTextColor="#94a3b8"
+                          value={newRoleName}
+                          onChangeText={setNewRoleName}
+                        />
+                      </View>
+
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>Permissions (comma separated)</Text>
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="e.g. read:stats, write:stats"
+                          placeholderTextColor="#94a3b8"
+                          value={newRolePermissions}
+                          onChangeText={setNewRolePermissions}
+                        />
+                      </View>
+
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.primaryButton,
+                          pressed && styles.buttonPressed,
+                          isCreatingRole && styles.buttonDisabled,
+                        ]}
+                        onPress={handleCreateRole}
+                        disabled={isCreatingRole}
+                      >
+                        {isCreatingRole ? (
+                          <ActivityIndicator color="#fff" size="small" />
+                        ) : (
+                          <Text style={styles.primaryButtonText}>Create Role</Text>
+                        )}
+                      </Pressable>
+                    </View>
                   </View>
-                ))}
-              </View>
-
-              <View style={styles.formCard}>
-                <Text style={styles.formTitle}>Create Custom Role</Text>
-                {roleFormMessage && (
-                  <Text
-                    style={[
-                      styles.formMessage,
-                      roleFormMessage.isError ? styles.errorText : styles.successText,
-                    ]}
-                  >
-                    {roleFormMessage.text}
-                  </Text>
                 )}
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Role Name</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="e.g. physiotherapist, auditor"
-                    placeholderTextColor="#94a3b8"
-                    value={newRoleName}
-                    onChangeText={setNewRoleName}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Permissions (comma separated)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="e.g. read:stats, write:stats"
-                    placeholderTextColor="#94a3b8"
-                    value={newRolePermissions}
-                    onChangeText={setNewRolePermissions}
-                  />
-                </View>
-
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.primaryButton,
-                    pressed && styles.buttonPressed,
-                    isCreatingRole && styles.buttonDisabled,
-                  ]}
-                  onPress={handleCreateRole}
-                  disabled={isCreatingRole}
-                >
-                  {isCreatingRole ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Text style={styles.primaryButtonText}>Create Role</Text>
-                  )}
-                </Pressable>
-              </View>
-            </View>
-          )}
-
-          {activeTab === 'assign' && (
-            <View style={styles.section}>
-              <View style={styles.formCard}>
-                <Text style={styles.formTitle}>Coach–Athlete Assignment</Text>
-                <Text style={styles.formDesc}>
-                  Map athletes to specialized coaches for dynamic performance management.
-                </Text>
-
-                {assignFormMessage && (
-                  <Text
-                    style={[
-                      styles.formMessage,
-                      assignFormMessage.isError ? styles.errorText : styles.successText,
-                    ]}
-                  >
-                    {assignFormMessage.text}
-                  </Text>
+                {/* Coaches Tab */}
+                {activeTab === 'coaches' && (
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Coaches ({coachesList.length})</Text>
+                    <View style={styles.coachesGrid}>
+                      {coachesList.length === 0 ? (
+                        <View style={styles.emptyContainer}>
+                          <Ionicons name="fitness-outline" size={48} color="#cbd5e1" />
+                          <Text style={styles.emptyText}>No coaches registered yet</Text>
+                        </View>
+                      ) : (
+                        coachesList.map((coach) => (
+                          <View key={coach.id} style={styles.coachCard}>
+                            <View style={styles.coachHeader}>
+                              <View style={styles.coachAvatar}>
+                                <Text style={styles.avatarText}>
+                                  {coach.name.charAt(0).toUpperCase()}
+                                </Text>
+                              </View>
+                              <View style={styles.coachInfo}>
+                                <Text style={styles.coachName}>{coach.name}</Text>
+                                <Text style={styles.coachEmail}>{coach.email}</Text>
+                              </View>
+                            </View>
+                              <View style={styles.coachFooter}>
+                                <View style={styles.badge}>
+                                  <Text style={styles.badgeText}>Coach</Text>
+                                </View>
+                                <Pressable
+                                  style={styles.viewBtn}
+                                  onPress={() => router.push(`/coach-details?coachId=${coach.id}`)}
+                                >
+                                  <Text style={styles.viewBtnText}>View</Text>
+                                </Pressable>
+                              </View>
+                          </View>
+                        ))
+                      )}
+                    </View>
+                  </View>
                 )}
 
-                {/* Athlete Select / Input */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Select Athlete</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="Athlete ID (or select from list below)"
-                    placeholderTextColor="#94a3b8"
-                    value={selectedAthleteId}
-                    onChangeText={setSelectedAthleteId}
-                  />
-                </View>
+                {/* Athletes Tab */}
+                {activeTab === 'athletes' && (
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Athletes ({athletesList.length})</Text>
+                    <View style={styles.athletesGrid}>
+                      {athletesList.length === 0 ? (
+                        <View style={styles.emptyContainer}>
+                          <Ionicons name="walk-outline" size={48} color="#cbd5e1" />
+                          <Text style={styles.emptyText}>No athletes registered yet</Text>
+                        </View>
+                      ) : (
+                        athletesList.map((athlete) => (
+                          <View key={athlete.id} style={styles.athleteCard}>
+                            <View style={styles.athleteHeader}>
+                              <View style={styles.athleteAvatar}>
+                                <Text style={styles.avatarText}>
+                                  {athlete.name.charAt(0).toUpperCase()}
+                                </Text>
+                              </View>
+                              <View style={styles.athleteInfo}>
+                                <Text style={styles.athleteName}>{athlete.name}</Text>
+                                <Text style={styles.athleteEmail}>{athlete.email}</Text>
+                              </View>
+                            </View>
+                            <View style={styles.athleteFooter}>
+                              <View style={styles.badge}>
+                                <Text style={styles.badgeText}>Athlete</Text>
+                              </View>
+                                <Pressable
+                                  style={styles.viewBtn}
+                                  onPress={() => router.push(`/athlete-details?athleteId=${athlete.id}`)}
+                                >
+                                  <Text style={styles.viewBtnText}>View</Text>
+                                </Pressable>
+                            </View>
+                          </View>
+                        ))
+                      )}
+                    </View>
+                  </View>
+                )}
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </View>
 
-                {/* Coach Select / Input */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Select Coach</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="Coach ID (or select from list below)"
-                    placeholderTextColor="#94a3b8"
-                    value={selectedCoachId}
-                    onChangeText={setSelectedCoachId}
-                  />
-                </View>
-
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.primaryButton,
-                    pressed && styles.buttonPressed,
-                    isAssigning && styles.buttonDisabled,
-                  ]}
-                  onPress={handleAssignAthlete}
-                  disabled={isAssigning}
-                >
-                  {isAssigning ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Text style={styles.primaryButtonText}>Confirm Mapping</Text>
-                  )}
-                </Pressable>
-              </View>
-
-              {/* Utility lists for easy copy-pasting of IDs */}
-              <View style={styles.helperListsContainer}>
-                <View style={styles.helperList}>
-                  <Text style={styles.helperTitle}>Athletes List</Text>
-                  {athletesList.length === 0 ? (
-                    <Text style={styles.helperEmptyText}>No registered athletes.</Text>
-                  ) : (
-                    athletesList.map((a) => (
-                      <Pressable
-                        key={a.id}
-                        style={[
-                          styles.helperItem,
-                          selectedAthleteId === a.id && styles.helperItemActive,
-                        ]}
-                        onPress={() => setSelectedAthleteId(a.id)}
-                      >
-                        <Text style={styles.helperItemName}>{a.name}</Text>
-                        <Text style={styles.helperItemId}>{a.id}</Text>
-                      </Pressable>
-                    ))
-                  )}
-                </View>
-
-                <View style={styles.helperList}>
-                  <Text style={styles.helperTitle}>Coaches List</Text>
-                  {coachesList.length === 0 ? (
-                    <Text style={styles.helperEmptyText}>No registered coaches.</Text>
-                  ) : (
-                    coachesList.map((c) => (
-                      <Pressable
-                        key={c.id}
-                        style={[
-                          styles.helperItem,
-                          selectedCoachId === c.id && styles.helperItemActive,
-                        ]}
-                        onPress={() => setSelectedCoachId(c.id)}
-                      >
-                        <Text style={styles.helperItemName}>{c.name}</Text>
-                        <Text style={styles.helperItemId}>{c.id}</Text>
-                      </Pressable>
-                    ))
-                  )}
-                </View>
-              </View>
-            </View>
-          )}
-        </>
+      {/* Mobile Sidebar Overlay */}
+      {!isWeb && sidebarOpen && (
+        <Pressable style={styles.overlay} onPress={() => setSidebarOpen(false)} />
       )}
-    </ScrollView>
+    </SafeAreaView>
   );
 }
 
-// Media Query / Responsive helpers
-const { width } = Dimensions.get('window');
-const isWeb = Platform.OS === 'web';
-const isLargeScreen = width > 768;
-
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
     flex: 1,
     backgroundColor: '#f8fafc',
   },
-  contentContainer: {
-    padding: isLargeScreen ? 32 : 16,
-    maxWidth: 1200,
-    width: '100%',
-    alignSelf: 'center',
+  mainContainer: {
+    flex: 1,
+    flexDirection: 'row',
   },
-  heroBanner: {
+  sidebar: {
+    width: isWeb ? 260 : '70%',
+    backgroundColor: '#fff',
+    borderRightWidth: 1,
+    borderRightColor: '#e2e8f0',
+    paddingTop: 16,
+  },
+  sidebarHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
-    borderRadius: 12,
-    padding: 24,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  heroTextContainer: {
-    flex: 1,
-  },
-  heroTitle: {
-    color: '#f8fafc',
-    fontSize: isLargeScreen ? 28 : 22,
-    fontWeight: '800',
-  },
-  heroSubtitle: {
-    color: '#94a3b8',
-    fontSize: 15,
-    marginTop: 6,
-  },
-  boldText: {
-    fontWeight: '700',
-    color: '#3b82f6',
-  },
-  fallbackBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fffbeb',
-    borderColor: '#fef3c7',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    gap: 6,
-  },
-  fallbackText: {
-    color: '#b45309',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  iconBtn: {
-    backgroundColor: '#f1f5f9',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tabBar: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 24,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#cbd5e1',
-    paddingBottom: 8,
+    borderBottomColor: '#e2e8f0',
   },
-  tabButton: {
+  sidebarBrand: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  sidebarNav: {
+    paddingVertical: 16,
+  },
+  sidebarItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 8,
+    borderRadius: 8,
+    gap: 12,
+  },
+  sidebarItemActive: {
+    backgroundColor: '#eff6ff',
+    borderLeftWidth: 3,
+    borderLeftColor: '#3b82f6',
+  },
+  sidebarItemLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#647286',
+  },
+  sidebarItemLabelActive: {
+    color: '#3b82f6',
+    fontWeight: '700',
+  },
+  sidebarFooter: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    marginTop: 'auto',
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#f1f5f9',
-    gap: 8,
+    backgroundColor: '#fef2f2',
+    gap: 10,
   },
-  activeTabButton: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#3b82f6',
-    borderWidth: 1,
-  },
-  tabText: {
+  logoutLabel: {
     fontSize: 14,
-    color: '#647286',
     fontWeight: '600',
+    color: '#ef4444',
   },
-  activeTabText: {
-    color: '#3b82f6',
+  contentArea: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    gap: 12,
+  },
+  hamburgerBtn: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: '#f1f5f9',
+  },
+  headerInfo: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#647286',
+    marginTop: 2,
+  },
+  refreshBtn: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: '#f1f5f9',
+  },
+  content: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  contentInner: {
+    padding: isWeb || isLargeScreen ? 24 : 16,
+    maxWidth: 1400,
+    alignSelf: 'center',
+    width: '100%',
   },
   loaderContainer: {
-    padding: 60,
+    paddingVertical: 60,
     justifyContent: 'center',
     alignItems: 'center',
   },
   loaderText: {
     marginTop: 12,
     color: '#647286',
-    fontSize: 15,
+    fontSize: 14,
   },
   metricsContainer: {
     flexDirection: 'row',
@@ -817,11 +813,6 @@ const styles = StyleSheet.create({
     borderLeftWidth: 5,
     borderRadius: 8,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
   },
   metricHeader: {
     flexDirection: 'row',
@@ -845,6 +836,23 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0f172a',
     marginTop: 8,
+  },
+  statusCard: {
+    backgroundColor: '#fff',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 18,
+  },
+  statusText: {
+    fontSize: 13,
+    color: '#475569',
+  },
+  statusErrorText: {
+    color: '#b91c1c',
+    fontWeight: '600',
   },
   section: {
     marginBottom: 32,
@@ -887,15 +895,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 20,
     gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  logoutActionCard: {
-    borderColor: '#fee2e2',
-    backgroundColor: '#fef2f2',
   },
   actionCardTitle: {
     fontSize: 17,
@@ -918,6 +917,7 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#647286',
     fontSize: 15,
+    marginTop: 12,
   },
   userList: {
     gap: 12,
@@ -1059,11 +1059,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 10,
     padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
     maxWidth: 600,
     width: '100%',
     alignSelf: 'center',
@@ -1072,12 +1067,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#0f172a',
-  },
-  formDesc: {
-    fontSize: 14,
-    color: '#647286',
-    marginTop: 4,
-    marginBottom: 20,
   },
   formMessage: {
     fontSize: 14,
@@ -1128,55 +1117,162 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#b91c1c',
   },
-  helperListsContainer: {
-    flexDirection: isLargeScreen ? 'row' : 'column',
+  coachesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 16,
-    marginTop: 24,
   },
-  helperList: {
-    flex: 1,
+  coachCard: {
+    flex: isWeb || isLargeScreen ? 1 : undefined,
+    width: isWeb || isLargeScreen ? undefined : '100%',
+    minWidth: 280,
     backgroundColor: '#fff',
     borderColor: '#e2e8f0',
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 16,
   },
-  helperTitle: {
+  coachHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  coachAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#8b5cf6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  coachInfo: {
+    flex: 1,
+  },
+  coachName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#334155',
-    marginBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    paddingBottom: 6,
+    color: '#0f172a',
   },
-  helperEmptyText: {
-    color: '#94a3b8',
-    fontSize: 13,
+  coachEmail: {
+    fontSize: 12,
+    color: '#647286',
+    marginTop: 2,
   },
-  helperItem: {
-    padding: 10,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    marginBottom: 6,
-    backgroundColor: '#f8fafc',
+  coachFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: 12,
+    borderTopColor: '#f1f5f9',
+    borderTopWidth: 1,
   },
-  helperItemActive: {
-    borderColor: '#3b82f6',
-    backgroundColor: '#eff6ff',
+  athletesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
   },
-  helperItemName: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1e293b',
+  athleteCard: {
+    flex: isWeb || isLargeScreen ? 1 : undefined,
+    width: isWeb || isLargeScreen ? undefined : '100%',
+    minWidth: 280,
+    backgroundColor: '#fff',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 16,
   },
-  helperItemId: {
-    fontSize: 11,
+  athleteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  athleteAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#f59e0b',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  athleteInfo: {
+    flex: 1,
+  },
+  athleteName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  athleteEmail: {
+    fontSize: 12,
     color: '#647286',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    marginTop: 2,
+  },
+  athleteFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopColor: '#f1f5f9',
+    borderTopWidth: 1,
+  },
+  badge: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#3b82f6',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#3b82f6',
+  },
+  viewBtn: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  viewBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  avatarText: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  userMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  roleBadge: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#3b82f6',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  roleBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1d4ed8',
+    textTransform: 'uppercase',
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 999,
   },
 });

@@ -7,6 +7,7 @@ export type AuthUser = {
   name: string;
   email: string;
   role: string;
+  coach_id?: string;
 };
 
 export type LoginResult = {
@@ -73,7 +74,18 @@ export async function login(email: string, password: string): Promise<LoginResul
   const data = await parseJsonResponse(response);
 
   if (!response.ok) {
-    throw new Error(data?.detail ?? 'Invalid email or password.');
+    let message = 'Invalid email or password.';
+    if (data) {
+      if (typeof data.detail === 'string') {
+        message = data.detail;
+      } else if (Array.isArray(data.detail) && data.detail.length > 0) {
+        // FastAPI validation errors are arrays of objects with 'msg'
+        message = data.detail[0].msg ?? JSON.stringify(data.detail);
+      } else if (typeof data.detail === 'object' && data.detail !== null) {
+        message = data.detail.msg ?? JSON.stringify(data.detail);
+      }
+    }
+    throw new Error(message);
   }
 
   if (!data?.access_token) {
@@ -106,7 +118,17 @@ export async function registerUser(user: RegisterInput) {
   const data = await parseJsonResponse(response);
 
   if (!response.ok) {
-    throw new Error(data?.detail ?? 'Registration failed.');
+    let message = 'Registration failed.';
+    if (data) {
+      if (typeof data.detail === 'string') {
+        message = data.detail;
+      } else if (Array.isArray(data.detail) && data.detail.length > 0) {
+        message = data.detail[0].msg ?? JSON.stringify(data.detail);
+      } else if (typeof data.detail === 'object' && data.detail !== null) {
+        message = data.detail.msg ?? JSON.stringify(data.detail);
+      }
+    }
+    throw new Error(message);
   }
 
   return data;
@@ -128,7 +150,17 @@ export async function fetchCurrentUser(token: string): Promise<AuthUser> {
   const data = await parseJsonResponse(response);
 
   if (!response.ok) {
-    throw new Error(data?.detail ?? 'Session expired.');
+    let message = 'Session expired.';
+    if (data) {
+      if (typeof data.detail === 'string') {
+        message = data.detail;
+      } else if (Array.isArray(data.detail) && data.detail.length > 0) {
+        message = data.detail[0].msg ?? JSON.stringify(data.detail);
+      } else if (typeof data.detail === 'object' && data.detail !== null) {
+        message = data.detail.msg ?? JSON.stringify(data.detail);
+      }
+    }
+    throw new Error(message);
   }
 
   return data;
