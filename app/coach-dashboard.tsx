@@ -16,7 +16,10 @@ import { fetchCoachAthletes, fetchCoachById } from '@/services/admin';
 import type { AuthUser } from '@/services/auth';
 import type { Workout, Exercise } from '@/services/workout';
 import { createWorkout, fetchCoachWorkouts } from '@/services/workout';
+import type { PerformanceRecord } from '@/services/performance';
+import { fetchAthletePerformances, createPerformance } from '@/services/performance';
 import { Ionicons } from '@expo/vector-icons';
+
 
 interface CoachDashboardScreenProps {
   user: AuthUser | null;
@@ -34,13 +37,36 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
   const [error, setError] = useState<string | null>(null);
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'athletes' | 'workouts'>('athletes');
+  const [activeTab, setActiveTab] = useState<'athletes' | 'workouts' | 'performance'>('athletes');
 
   // Workouts State
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [isSavingWorkout, setIsSavingWorkout] = useState(false);
   const [workoutFormMessage, setWorkoutFormMessage] = useState<{ text: string; isError: boolean } | null>(null);
+
+  // Performance State
+  const [selectedAthleteForPerf, setSelectedAthleteForPerf] = useState<Athlete | null>(null);
+  const [athletePerformances, setAthletePerformances] = useState<PerformanceRecord[]>([]);
+  const [isPerfLoading, setIsPerfLoading] = useState(false);
+  const [isSavingPerf, setIsSavingPerf] = useState(false);
+  const [perfError, setPerfError] = useState<string | null>(null);
+  const [showCreatePerfForm, setShowCreatePerfForm] = useState(false);
+  const [perfFormMessage, setPerfFormMessage] = useState<{ text: string; isError: boolean } | null>(null);
+
+  // Create Performance Form State
+  const [newSprintTime, setNewSprintTime] = useState('');
+  const [newWeight, setNewWeight] = useState('');
+  const [newHeight, setNewHeight] = useState('');
+  const [newPerfRemarks, setNewPerfRemarks] = useState('');
+  const [newPerfDate, setNewPerfDate] = useState(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
+
 
   // Create Workout Form State
   const [newWorkoutTitle, setNewWorkoutTitle] = useState('');
@@ -98,6 +124,87 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
 
     loadDashboardData();
   }, [user, token]);
+
+  useEffect(() => {
+    if (!selectedAthleteForPerf || !token) {
+      return;
+    }
+    async function loadAthletePerformances() {
+      setIsPerfLoading(true);
+      setPerfError(null);
+      try {
+        const data = await fetchAthletePerformances(token, selectedAthleteForPerf.athlete_id);
+        const sorted = [...data].sort((a, b) => b.date.localeCompare(a.date));
+        setAthletePerformances(sorted);
+      } catch (err: any) {
+        setPerfError(err.message || 'Failed to fetch performance history');
+      } finally {
+        setIsPerfLoading(false);
+      }
+    }
+    loadAthletePerformances();
+  }, [selectedAthleteForPerf, token]);
+
+  const handleCreatePerformance = async () => {
+    setPerfFormMessage(null);
+    if (!selectedAthleteForPerf) return;
+
+    const sprintFloat = parseFloat(newSprintTime);
+    const weightInt = parseInt(newWeight);
+    const heightInt = parseInt(newHeight);
+
+    if (isNaN(sprintFloat) || sprintFloat <= 0) {
+      setPerfFormMessage({ text: 'Sprint time must be a number greater than 0.', isError: true });
+      return;
+    }
+    if (isNaN(weightInt) || weightInt <= 0) {
+      setPerfFormMessage({ text: 'Weight must be an integer greater than 0.', isError: true });
+      return;
+    }
+    if (isNaN(heightInt) || heightInt <= 0) {
+      setPerfFormMessage({ text: 'Height must be an integer greater than 0.', isError: true });
+      return;
+    }
+    if (!newPerfDate.trim()) {
+      setPerfFormMessage({ text: 'Date cannot be empty.', isError: true });
+      return;
+    }
+
+    setIsSavingPerf(true);
+    try {
+      await createPerformance(token, {
+        athlete_id: selectedAthleteForPerf.athlete_id,
+        date: newPerfDate.trim(),
+        sprint_time: sprintFloat,
+        weight: weightInt,
+        height: heightInt,
+        coach_remarks: newPerfRemarks.trim() || undefined,
+      });
+
+      setPerfFormMessage({ text: 'Performance recorded successfully!', isError: false });
+      
+      // Reset form
+      setNewSprintTime('');
+      setNewWeight('');
+      setNewHeight('');
+      setNewPerfRemarks('');
+      
+      // Reload performances
+      const data = await fetchAthletePerformances(token, selectedAthleteForPerf.athlete_id);
+      const sorted = [...data].sort((a, b) => b.date.localeCompare(a.date));
+      setAthletePerformances(sorted);
+
+      setTimeout(() => {
+        setShowCreatePerfForm(false);
+        setPerfFormMessage(null);
+      }, 1500);
+    } catch (err: any) {
+      setPerfFormMessage({ text: err.message || 'Failed to record performance.', isError: true });
+    } finally {
+      setIsSavingPerf(false);
+    }
+  };
+
 
   const handleAddExerciseField = () => {
     setNewWorkoutExercises([...newWorkoutExercises, { name: '', sets: 3, reps: 10, duration: '' }]);
@@ -271,7 +378,17 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                 Workout Plans
               </Text>
             </Pressable>
+            <Pressable
+              style={[styles.tabButton, activeTab === 'performance' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('performance')}
+            >
+              <Ionicons name="speedometer-outline" size={20} color={activeTab === 'performance' ? '#3b82f6' : '#647286'} />
+              <Text style={[styles.tabButtonText, activeTab === 'performance' && styles.tabButtonTextActive]}>
+                Performance
+              </Text>
+            </Pressable>
           </View>
+
 
           {/* Athletes Tab */}
           {activeTab === 'athletes' && (
@@ -584,6 +701,235 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
               )}
             </View>
           )}
+
+          {/* Performance Tab */}
+          {activeTab === 'performance' && (
+            <View style={styles.section}>
+              {!selectedAthleteForPerf ? (
+                <>
+                  <Text style={styles.sectionTitle}>
+                    Select Athlete for Performance Record
+                  </Text>
+                  
+                  {athletes.length === 0 ? (
+                    <View style={styles.emptyContainer}>
+                      <Ionicons name="people-outline" size={48} color="#cbd5e1" />
+                      <Text style={styles.emptyText}>No athletes assigned yet.</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.athletesList}>
+                      {athletes.map((athlete) => (
+                        <View key={athlete.athlete_id} style={styles.athleteCard}>
+                          <View style={styles.athleteHeader}>
+                            <View style={styles.athleteAvatar}>
+                              <Text style={styles.avatarText}>
+                                {athlete.name.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                            <View style={styles.athleteInfo}>
+                              <Text style={styles.athleteName}>{athlete.name}</Text>
+                              <Text style={styles.athleteSport}>
+                                {athlete.sport || 'No sport specified'}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={styles.athleteFooter}>
+                            <Text style={styles.athleteWeight}>
+                              {athlete.weight ? `${athlete.weight} kg` : 'Weight not specified'}
+                            </Text>
+                            <Pressable
+                              style={styles.viewButton}
+                              onPress={() => setSelectedAthleteForPerf(athlete)}
+                            >
+                              <Text style={styles.viewButtonText}>Select</Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </>
+              ) : (
+                <>
+                  <View style={styles.perfDetailHeader}>
+                    <Pressable
+                      style={styles.backBtn}
+                      onPress={() => {
+                        setSelectedAthleteForPerf(null);
+                        setShowCreatePerfForm(false);
+                        setPerfFormMessage(null);
+                      }}
+                    >
+                      <Ionicons name="arrow-back-outline" size={18} color="#3b82f6" />
+                      <Text style={styles.backBtnText}>Back to Athletes</Text>
+                    </Pressable>
+                    <Text style={styles.sectionTitle}>{selectedAthleteForPerf.name}'s Performance</Text>
+                  </View>
+
+                  <View style={styles.workoutsHeader}>
+                    <Text style={styles.sectionSubtitleText}>Performance History ({athletePerformances.length})</Text>
+                    <Pressable
+                      style={styles.addButton}
+                      onPress={() => {
+                        setShowCreatePerfForm(!showCreatePerfForm);
+                        setPerfFormMessage(null);
+                      }}
+                    >
+                      <Ionicons name={showCreatePerfForm ? 'close-outline' : 'add-outline'} size={20} color="#fff" />
+                      <Text style={styles.addButtonText}>
+                        {showCreatePerfForm ? 'Cancel' : 'Record New'}
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {showCreatePerfForm && (
+                    <View style={styles.formCard}>
+                      <Text style={styles.formTitle}>Record Performance Metric</Text>
+                      
+                      {/* Sprint Time */}
+                      <View style={styles.fieldGroup}>
+                        <Text style={styles.label}>Sprint Time (seconds)</Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="e.g. 4.85"
+                          placeholderTextColor="#94a3b8"
+                          keyboardType="numeric"
+                          value={newSprintTime}
+                          onChangeText={setNewSprintTime}
+                        />
+                      </View>
+
+                      {/* Weight */}
+                      <View style={styles.fieldGroup}>
+                        <Text style={styles.label}>Weight (kg)</Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="e.g. 72"
+                          placeholderTextColor="#94a3b8"
+                          keyboardType="numeric"
+                          value={newWeight}
+                          onChangeText={setNewWeight}
+                        />
+                      </View>
+
+                      {/* Height */}
+                      <View style={styles.fieldGroup}>
+                        <Text style={styles.label}>Height (cm)</Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="e.g. 180"
+                          placeholderTextColor="#94a3b8"
+                          keyboardType="numeric"
+                          value={newHeight}
+                          onChangeText={setNewHeight}
+                        />
+                      </View>
+
+                      {/* Date */}
+                      <View style={styles.fieldGroup}>
+                        <Text style={styles.label}>Date</Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="YYYY-MM-DD"
+                          placeholderTextColor="#94a3b8"
+                          value={newPerfDate}
+                          onChangeText={setNewPerfDate}
+                        />
+                      </View>
+
+                      {/* Remarks */}
+                      <View style={styles.fieldGroup}>
+                        <Text style={styles.label}>Remarks / Feedback</Text>
+                        <TextInput
+                          style={[styles.input, styles.textArea]}
+                          placeholder="Performance notes, areas of improvement..."
+                          placeholderTextColor="#94a3b8"
+                          multiline
+                          numberOfLines={3}
+                          value={newPerfRemarks}
+                          onChangeText={setNewPerfRemarks}
+                        />
+                      </View>
+
+                      {perfFormMessage && (
+                        <Text style={[
+                          styles.formMessageText,
+                          perfFormMessage.isError ? styles.errorMessage : styles.successMessage
+                        ]}>
+                          {perfFormMessage.text}
+                        </Text>
+                      )}
+
+                      <Pressable
+                        disabled={isSavingPerf}
+                        style={[styles.primaryButton, isSavingPerf && styles.buttonDisabled]}
+                        onPress={handleCreatePerformance}
+                      >
+                        {isSavingPerf ? (
+                          <ActivityIndicator color="#fff" />
+                        ) : (
+                          <Text style={styles.primaryButtonText}>Record Metric</Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  )}
+
+                  {/* Performance History List */}
+                  {isPerfLoading ? (
+                    <View style={styles.loaderContainer}>
+                      <ActivityIndicator size="large" color="#3b82f6" />
+                      <Text style={styles.loaderText}>Loading history...</Text>
+                    </View>
+                  ) : perfError ? (
+                    <View style={styles.errorContainer}>
+                      <Text style={styles.errorText}>{perfError}</Text>
+                    </View>
+                  ) : athletePerformances.length === 0 ? (
+                    <View style={styles.emptyContainer}>
+                      <Ionicons name="speedometer-outline" size={48} color="#cbd5e1" />
+                      <Text style={styles.emptyText}>No performance records logged yet.</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.perfList}>
+                      {athletePerformances.map((perf) => (
+                        <View key={perf.performance_id} style={styles.perfCard}>
+                          <View style={styles.perfCardHeader}>
+                            <View style={styles.perfDateCol}>
+                              <Ionicons name="calendar-outline" size={16} color="#647286" />
+                              <Text style={styles.perfDateText}>{perf.date}</Text>
+                            </View>
+                            <View style={styles.perfTimeBadge}>
+                              <Ionicons name="stopwatch-outline" size={14} color="#047857" />
+                              <Text style={styles.perfTimeBadgeText}>{perf.sprint_time}s</Text>
+                            </View>
+                          </View>
+                          
+                          <View style={styles.perfMetricsRow}>
+                            <View style={styles.perfMetricBox}>
+                              <Text style={styles.perfMetricLabel}>Weight</Text>
+                              <Text style={styles.perfMetricVal}>{perf.weight} kg</Text>
+                            </View>
+                            <View style={styles.perfMetricBox}>
+                              <Text style={styles.perfMetricLabel}>Height</Text>
+                              <Text style={styles.perfMetricVal}>{perf.height} cm</Text>
+                            </View>
+                          </View>
+
+                          {perf.coach_remarks ? (
+                            <View style={styles.remarksBox}>
+                              <Text style={styles.remarksLabel}>Coach Remarks:</Text>
+                              <Text style={styles.remarksText}>{perf.coach_remarks}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
+          )}
+
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -1133,5 +1479,119 @@ const styles = StyleSheet.create({
   exerciseItemText: {
     fontSize: 13,
     color: '#334155',
+  },
+  perfDetailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    backgroundColor: '#fff',
+    gap: 6,
+  },
+  backBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#3b82f6',
+  },
+  sectionSubtitleText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  perfList: {
+    gap: 16,
+  },
+  perfCard: {
+    backgroundColor: '#fff',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 16,
+    gap: 12,
+  },
+  perfCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  perfDateCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  perfDateText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  perfTimeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ecfdf5',
+    borderColor: '#a7f3d0',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    gap: 4,
+  },
+  perfTimeBadgeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#047857',
+  },
+  perfMetricsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  perfMetricBox: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+    borderColor: '#cbd5e1',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    alignItems: 'center',
+    gap: 4,
+  },
+  perfMetricLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#647286',
+    textTransform: 'uppercase',
+  },
+  perfMetricVal: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  remarksBox: {
+    backgroundColor: '#faf5ff',
+    borderColor: '#e9d5ff',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    gap: 4,
+  },
+  remarksLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#7e22ce',
+  },
+  remarksText: {
+    fontSize: 13,
+    color: '#581c87',
+    lineHeight: 18,
   },
 });

@@ -8,6 +8,7 @@ from routes.user_routes import router as user_router
 from routes.role_routes import router as role_router
 from routes.workout_routes import router as workout_router
 from services.role_service import seed_default_roles
+from routes.performance_routes import router as performance_router
 
 app = FastAPI()
 
@@ -24,6 +25,7 @@ app.include_router(athlete_router)
 app.include_router(user_router)
 app.include_router(role_router)
 app.include_router(workout_router)
+app.include_router(performance_router)
 
 
 @app.on_event("startup")

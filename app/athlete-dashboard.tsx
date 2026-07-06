@@ -15,6 +15,8 @@ import { fetchAthleteById, fetchCoachById } from '@/services/admin';
 import type { AuthUser } from '@/services/auth';
 import type { Workout } from '@/services/workout';
 import { fetchAthleteWorkouts, updateWorkoutStatus } from '@/services/workout';
+import type { PerformanceRecord } from '@/services/performance';
+import { fetchAthletePerformances } from '@/services/performance';
 import { Ionicons } from '@expo/vector-icons';
 
 interface AthleteDashboardScreenProps {
@@ -31,8 +33,17 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Tab State
+  const [activeTab, setActiveTab] = useState<'workouts' | 'performance'>('workouts');
+
   // Workouts State
   const [workouts, setWorkouts] = useState<Workout[]>([]);
+
+  // Performance State
+  const [performances, setPerformances] = useState<PerformanceRecord[]>([]);
+  const [isPerfLoading, setIsPerfLoading] = useState(false);
+  const [perfError, setPerfError] = useState<string | null>(null);
+
 
   // Get athlete_id from user - it should be the same as user.id or we need to fetch it
   const athleteId = user?.id;
@@ -94,6 +105,31 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
 
     loadDashboardData();
   }, [athleteId, token]);
+
+  useEffect(() => {
+    if (!athleteId || !token || activeTab !== 'performance') {
+      return;
+    }
+
+    async function loadPerformanceData() {
+      setIsPerfLoading(true);
+      setPerfError(null);
+      try {
+        const data = await fetchAthletePerformances(token, athleteId as string);
+        const sorted = [...data].sort((a, b) => b.date.localeCompare(a.date));
+        setPerformances(sorted);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : 'Failed to load performance data';
+        console.warn('Error loading performance data:', e);
+        setPerfError(message);
+      } finally {
+        setIsPerfLoading(false);
+      }
+    }
+
+    loadPerformanceData();
+  }, [athleteId, token, activeTab]);
+
 
   const handleUpdateStatus = async (workoutId: string, status: 'pending' | 'completed' | 'skipped') => {
     try {
@@ -202,174 +238,256 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                 </View>
               </View>
 
-              {/* Coach Information */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>My Coach</Text>
-                {coach ? (
-                  <View style={styles.coachCard}>
-                    <View style={styles.coachHeader}>
-                      <View style={styles.coachAvatar}>
-                        <Text style={styles.coachAvatarText}>
-                          {coach.name.charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                      <View style={styles.coachInfo}>
-                        <Text style={styles.coachName}>{coach.name}</Text>
-                        <Text style={styles.coachEmail}>{coach.email}</Text>
-                        <View style={styles.badge}>
-                          <Text style={styles.badgeText}>{coach.role}</Text>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                ) : (
-                  <View style={styles.emptyCoachCard}>
-                    <Ionicons name="person-outline" size={40} color="#cbd5e1" />
-                    <Text style={styles.emptyCoachText}>No coach assigned yet</Text>
-                  </View>
-                )}
+              {/* Tab Selector */}
+              <View style={styles.tabContainer}>
+                <Pressable
+                  style={[styles.tabButton, activeTab === 'workouts' && styles.tabButtonActive]}
+                  onPress={() => setActiveTab('workouts')}
+                >
+                  <Ionicons name="fitness-outline" size={20} color={activeTab === 'workouts' ? '#3b82f6' : '#647286'} />
+                  <Text style={[styles.tabButtonText, activeTab === 'workouts' && styles.tabButtonTextActive]}>
+                    Workouts
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.tabButton, activeTab === 'performance' && styles.tabButtonActive]}
+                  onPress={() => setActiveTab('performance')}
+                >
+                  <Ionicons name="speedometer-outline" size={20} color={activeTab === 'performance' ? '#3b82f6' : '#647286'} />
+                  <Text style={[styles.tabButtonText, activeTab === 'performance' && styles.tabButtonTextActive]}>
+                    My Performance
+                  </Text>
+                </Pressable>
               </View>
 
-              {/* My Workouts Section */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>My Workouts ({workouts.length})</Text>
-                {workouts.length === 0 ? (
-                  <View style={styles.emptyContainer}>
-                    <Ionicons name="fitness-outline" size={48} color="#cbd5e1" />
-                    <Text style={styles.emptyText}>No workouts assigned to you yet.</Text>
-                  </View>
-                ) : (
-                  <View style={styles.workoutsList}>
-                    {workouts.map((w) => (
-                      <View key={w.workout_id} style={styles.workoutCard}>
-                        <View style={styles.workoutCardHeader}>
-                          <View style={styles.workoutMetaCol}>
-                            <Text style={styles.workoutTitleText}>{w.title}</Text>
-                            <Text style={styles.workoutDate}>Target Date: {w.date}</Text>
-                          </View>
-                          <View style={[
-                            styles.statusBadge,
-                            w.status === 'completed' && styles.statusCompleted,
-                            w.status === 'skipped' && styles.statusSkipped
-                          ]}>
-                            <Text style={[
-                              styles.statusBadgeText,
-                              w.status === 'completed' && styles.statusCompletedText,
-                              w.status === 'skipped' && styles.statusSkippedText
-                            ]}>
-                              {w.status.toUpperCase()}
+              {activeTab === 'workouts' && (
+                <>
+                  {/* Coach Information */}
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>My Coach</Text>
+                    {coach ? (
+                      <View style={styles.coachCard}>
+                        <View style={styles.coachHeader}>
+                          <View style={styles.coachAvatar}>
+                            <Text style={styles.coachAvatarText}>
+                              {coach.name.charAt(0).toUpperCase()}
                             </Text>
                           </View>
-                        </View>
-
-                        {w.description ? (
-                          <Text style={styles.workoutDesc}>{w.description}</Text>
-                        ) : null}
-
-                        <View style={styles.exercisesList}>
-                          <Text style={styles.exercisesListTitle}>Exercises:</Text>
-                          {w.exercises.map((ex, idx) => (
-                            <View key={idx} style={styles.exerciseItemRow}>
-                              <Ionicons name="ellipse" size={6} color="#3b82f6" />
-                              <Text style={styles.exerciseItemText}>
-                                {ex.name} — {ex.sets} sets × {ex.reps} reps {ex.duration ? `(${ex.duration})` : ''}
-                              </Text>
+                          <View style={styles.coachInfo}>
+                            <Text style={styles.coachName}>{coach.name}</Text>
+                            <Text style={styles.coachEmail}>{coach.email}</Text>
+                            <View style={styles.badge}>
+                              <Text style={styles.badgeText}>{coach.role}</Text>
                             </View>
-                          ))}
-                        </View>
-
-                        {/* Status controls */}
-                        <View style={styles.statusControlsRow}>
-                          <Pressable
-                            style={[
-                              styles.statusControlBtn,
-                              w.status === 'pending' && { backgroundColor: '#f1f5f9', borderColor: '#475569' }
-                            ]}
-                            onPress={() => handleUpdateStatus(w.workout_id, 'pending')}
-                          >
-                            <Text style={[
-                              styles.statusControlBtnText,
-                              w.status === 'pending' && { color: '#475569', fontWeight: '700' }
-                            ]}>Pending</Text>
-                          </Pressable>
-
-                          <Pressable
-                            style={[
-                              styles.statusControlBtn,
-                              w.status === 'completed' && { backgroundColor: '#d1fae5', borderColor: '#10b981' }
-                            ]}
-                            onPress={() => handleUpdateStatus(w.workout_id, 'completed')}
-                          >
-                            <Text style={[
-                              styles.statusControlBtnText,
-                              w.status === 'completed' && { color: '#065f46', fontWeight: '700' }
-                            ]}>Completed</Text>
-                          </Pressable>
-
-                          <Pressable
-                            style={[
-                              styles.statusControlBtn,
-                              w.status === 'skipped' && { backgroundColor: '#fee2e2', borderColor: '#f87171' }
-                            ]}
-                            onPress={() => handleUpdateStatus(w.workout_id, 'skipped')}
-                          >
-                            <Text style={[
-                              styles.statusControlBtnText,
-                              w.status === 'skipped' && { color: '#991b1b', fontWeight: '700' }
-                            ]}>Skipped</Text>
-                          </Pressable>
+                          </View>
                         </View>
                       </View>
-                    ))}
+                    ) : (
+                      <View style={styles.emptyCoachCard}>
+                        <Ionicons name="person-outline" size={40} color="#cbd5e1" />
+                        <Text style={styles.emptyCoachText}>No coach assigned yet</Text>
+                      </View>
+                    )}
                   </View>
-                )}
-              </View>
 
-              {/* Additional Information */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Profile Information</Text>
-                <View style={styles.infoCard}>
-                  <View style={styles.infoRow}>
-                    <Ionicons name="person-outline" size={20} color="#647286" />
-                    <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>Full Name</Text>
-                      <Text style={styles.infoValue}>{athlete.name}</Text>
+                  {/* My Workouts Section */}
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>My Workouts ({workouts.length})</Text>
+                    {workouts.length === 0 ? (
+                      <View style={styles.emptyContainer}>
+                        <Ionicons name="fitness-outline" size={48} color="#cbd5e1" />
+                        <Text style={styles.emptyText}>No workouts assigned to you yet.</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.workoutsList}>
+                        {workouts.map((w) => (
+                          <View key={w.workout_id} style={styles.workoutCard}>
+                            <View style={styles.workoutCardHeader}>
+                              <View style={styles.workoutMetaCol}>
+                                <Text style={styles.workoutTitleText}>{w.title}</Text>
+                                <Text style={styles.workoutDate}>Target Date: {w.date}</Text>
+                              </View>
+                              <View style={[
+                                styles.statusBadge,
+                                w.status === 'completed' && styles.statusCompleted,
+                                w.status === 'skipped' && styles.statusSkipped
+                              ]}>
+                                <Text style={[
+                                  styles.statusBadgeText,
+                                  w.status === 'completed' && styles.statusCompletedText,
+                                  w.status === 'skipped' && styles.statusSkippedText
+                                ]}>
+                                  {w.status.toUpperCase()}
+                                </Text>
+                              </View>
+                            </View>
+
+                            {w.description ? (
+                              <Text style={styles.workoutDesc}>{w.description}</Text>
+                            ) : null}
+
+                            <View style={styles.exercisesList}>
+                              <Text style={styles.exercisesListTitle}>Exercises:</Text>
+                              {w.exercises.map((ex, idx) => (
+                                <View key={idx} style={styles.exerciseItemRow}>
+                                  <Ionicons name="ellipse" size={6} color="#3b82f6" />
+                                  <Text style={styles.exerciseItemText}>
+                                    {ex.name} — {ex.sets} sets × {ex.reps} reps {ex.duration ? `(${ex.duration})` : ''}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+
+                            {/* Status controls */}
+                            <View style={styles.statusControlsRow}>
+                              <Pressable
+                                style={[
+                                  styles.statusControlBtn,
+                                  w.status === 'pending' && { backgroundColor: '#f1f5f9', borderColor: '#475569' }
+                                ]}
+                                onPress={() => handleUpdateStatus(w.workout_id, 'pending')}
+                              >
+                                <Text style={[
+                                  styles.statusControlBtnText,
+                                  w.status === 'pending' && { color: '#475569', fontWeight: '700' }
+                                ]}>Pending</Text>
+                              </Pressable>
+
+                              <Pressable
+                                style={[
+                                  styles.statusControlBtn,
+                                  w.status === 'completed' && { backgroundColor: '#d1fae5', borderColor: '#10b981' }
+                                ]}
+                                onPress={() => handleUpdateStatus(w.workout_id, 'completed')}
+                              >
+                                <Text style={[
+                                  styles.statusControlBtnText,
+                                  w.status === 'completed' && { color: '#065f46', fontWeight: '700' }
+                                ]}>Completed</Text>
+                              </Pressable>
+
+                              <Pressable
+                                style={[
+                                  styles.statusControlBtn,
+                                  w.status === 'skipped' && { backgroundColor: '#fee2e2', borderColor: '#f87171' }
+                                ]}
+                                onPress={() => handleUpdateStatus(w.workout_id, 'skipped')}
+                              >
+                                <Text style={[
+                                  styles.statusControlBtnText,
+                                  w.status === 'skipped' && { color: '#991b1b', fontWeight: '700' }
+                                ]}>Skipped</Text>
+                              </Pressable>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Additional Information */}
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Profile Information</Text>
+                    <View style={styles.infoCard}>
+                      <View style={styles.infoRow}>
+                        <Ionicons name="person-outline" size={20} color="#647286" />
+                        <View style={styles.infoContent}>
+                          <Text style={styles.infoLabel}>Full Name</Text>
+                          <Text style={styles.infoValue}>{athlete.name}</Text>
+                        </View>
+                      </View>
+                      
+                      <View style={styles.divider} />
+                      
+                      <View style={styles.infoRow}>
+                        <Ionicons name="fitness-outline" size={20} color="#647286" />
+                        <View style={styles.infoContent}>
+                          <Text style={styles.infoLabel}>Sport</Text>
+                          <Text style={styles.infoValue}>{athlete.sport || 'Not specified'}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.divider} />
+
+                      <View style={styles.infoRow}>
+                        <Ionicons name="scale-outline" size={20} color="#647286" />
+                        <View style={styles.infoContent}>
+                          <Text style={styles.infoLabel}>Weight</Text>
+                          <Text style={styles.infoValue}>
+                            {athlete.weight ? `${athlete.weight} kg` : 'Not specified'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.divider} />
+
+                      <View style={styles.infoRow}>
+                        <Ionicons name="ribbon-outline" size={20} color="#647286" />
+                        <View style={styles.infoContent}>
+                          <Text style={styles.infoLabel}>Role</Text>
+                          <Text style={styles.infoValue}>Athlete</Text>
+                        </View>
+                      </View>
                     </View>
                   </View>
-                  
-                  <View style={styles.divider} />
-                  
-                  <View style={styles.infoRow}>
-                    <Ionicons name="fitness-outline" size={20} color="#647286" />
-                    <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>Sport</Text>
-                      <Text style={styles.infoValue}>{athlete.sport || 'Not specified'}</Text>
+                </>
+              )}
+
+              {activeTab === 'performance' && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>My Performance History ({performances.length})</Text>
+                  {isPerfLoading ? (
+                    <View style={styles.loaderContainer}>
+                      <ActivityIndicator size="large" color="#3b82f6" />
+                      <Text style={styles.loaderText}>Loading history...</Text>
                     </View>
-                  </View>
-
-                  <View style={styles.divider} />
-
-                  <View style={styles.infoRow}>
-                    <Ionicons name="scale-outline" size={20} color="#647286" />
-                    <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>Weight</Text>
-                      <Text style={styles.infoValue}>
-                        {athlete.weight ? `${athlete.weight} kg` : 'Not specified'}
-                      </Text>
+                  ) : perfError ? (
+                    <View style={styles.errorContainer}>
+                      <Text style={styles.errorText}>{perfError}</Text>
                     </View>
-                  </View>
-
-                  <View style={styles.divider} />
-
-                  <View style={styles.infoRow}>
-                    <Ionicons name="ribbon-outline" size={20} color="#647286" />
-                    <View style={styles.infoContent}>
-                      <Text style={styles.infoLabel}>Role</Text>
-                      <Text style={styles.infoValue}>Athlete</Text>
+                  ) : performances.length === 0 ? (
+                    <View style={styles.emptyContainer}>
+                      <Ionicons name="speedometer-outline" size={48} color="#cbd5e1" />
+                      <Text style={styles.emptyText}>No performance records logged by your coach yet.</Text>
                     </View>
-                  </View>
+                  ) : (
+                    <View style={styles.perfList}>
+                      {performances.map((perf) => (
+                        <View key={perf.performance_id} style={styles.perfCard}>
+                          <View style={styles.perfCardHeader}>
+                            <View style={styles.perfDateCol}>
+                              <Ionicons name="calendar-outline" size={16} color="#647286" />
+                              <Text style={styles.perfDateText}>{perf.date}</Text>
+                            </View>
+                            <View style={styles.perfTimeBadge}>
+                              <Ionicons name="stopwatch-outline" size={14} color="#047857" />
+                              <Text style={styles.perfTimeBadgeText}>{perf.sprint_time}s</Text>
+                            </View>
+                          </View>
+                          
+                          <View style={styles.perfMetricsRow}>
+                            <View style={styles.perfMetricBox}>
+                              <Text style={styles.perfMetricLabel}>Weight</Text>
+                              <Text style={styles.perfMetricVal}>{perf.weight} kg</Text>
+                            </View>
+                            <View style={styles.perfMetricBox}>
+                              <Text style={styles.perfMetricLabel}>Height</Text>
+                              <Text style={styles.perfMetricVal}>{perf.height} cm</Text>
+                            </View>
+                          </View>
+
+                          {perf.coach_remarks ? (
+                            <View style={styles.remarksBox}>
+                              <Text style={styles.remarksLabel}>Coach Remarks:</Text>
+                              <Text style={styles.remarksText}>{perf.coach_remarks}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
-              </View>
+              )}
             </>
           )}
         </ScrollView>
@@ -739,5 +857,121 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#647286',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 4,
+    marginBottom: 24,
+    gap: 8,
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 6,
+    gap: 8,
+  },
+  tabButtonActive: {
+    backgroundColor: '#eff6ff',
+  },
+  tabButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#647286',
+  },
+  tabButtonTextActive: {
+    color: '#3b82f6',
+    fontWeight: '700',
+  },
+  perfList: {
+    gap: 16,
+  },
+  perfCard: {
+    backgroundColor: '#fff',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 16,
+    gap: 12,
+  },
+  perfCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  perfDateCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  perfDateText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  perfTimeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ecfdf5',
+    borderColor: '#a7f3d0',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    gap: 4,
+  },
+  perfTimeBadgeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#047857',
+  },
+  perfMetricsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  perfMetricBox: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+    borderColor: '#cbd5e1',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    alignItems: 'center',
+    gap: 4,
+  },
+  perfMetricLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#647286',
+    textTransform: 'uppercase',
+  },
+  perfMetricVal: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  remarksBox: {
+    backgroundColor: '#faf5ff',
+    borderColor: '#e9d5ff',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    gap: 4,
+  },
+  remarksLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#7e22ce',
+  },
+  remarksText: {
+    fontSize: 13,
+    color: '#581c87',
+    lineHeight: 18,
   },
 });
