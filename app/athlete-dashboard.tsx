@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -18,6 +19,25 @@ import { fetchAthleteWorkouts, updateWorkoutStatus } from '@/services/workout';
 import type { PerformanceRecord } from '@/services/performance';
 import { fetchAthletePerformances } from '@/services/performance';
 import { Ionicons } from '@expo/vector-icons';
+
+function SkeletonCard() {
+  return (
+    <View style={styles.skeletonCard}>
+      <View style={styles.skeletonHeader}>
+        <View style={styles.skeletonAvatar} />
+        <View style={styles.skeletonMeta}>
+          <View style={styles.skeletonLineShort} />
+          <View style={styles.skeletonLineLong} />
+        </View>
+      </View>
+      <View style={styles.skeletonDivider} />
+      <View style={styles.skeletonFooter}>
+        <View style={styles.skeletonLineMedium} />
+        <View style={styles.skeletonButton} />
+      </View>
+    </View>
+  );
+}
 
 interface AthleteDashboardScreenProps {
   user: AuthUser | null;
@@ -178,9 +198,9 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
         {/* Content */}
         <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
           {isLoading ? (
-            <View style={styles.loaderContainer}>
-              <ActivityIndicator size="large" color="#3b82f6" />
-              <Text style={styles.loaderText}>Loading your profile...</Text>
+            <View style={styles.skeletonContainer}>
+              <SkeletonCard />
+              <SkeletonCard />
             </View>
           ) : error ? (
             <View style={styles.errorContainer}>
@@ -437,9 +457,9 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>My Performance History ({performances.length})</Text>
                   {isPerfLoading ? (
-                    <View style={styles.loaderContainer}>
-                      <ActivityIndicator size="large" color="#3b82f6" />
-                      <Text style={styles.loaderText}>Loading history...</Text>
+                    <View style={styles.skeletonContainer}>
+                      <SkeletonCard />
+                      <SkeletonCard />
                     </View>
                   ) : perfError ? (
                     <View style={styles.errorContainer}>
@@ -584,6 +604,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
+    ...Platform.select({
+      web: { cursor: 'pointer' } as any,
+      default: {},
+    }),
   },
   primaryButtonText: {
     color: '#fff',
@@ -852,6 +876,10 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5e1',
     borderWidth: 1,
     backgroundColor: '#fff',
+    ...Platform.select({
+      web: { cursor: 'pointer' } as any,
+      default: {},
+    }),
   },
   statusControlBtnText: {
     fontSize: 12,
@@ -876,9 +904,15 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 6,
     gap: 8,
+    ...Platform.select({
+      web: { cursor: 'pointer' } as any,
+      default: {},
+    }),
   },
   tabButtonActive: {
     backgroundColor: '#eff6ff',
+    borderBottomWidth: 2,
+    borderBottomColor: '#3b82f6',
   },
   tabButtonText: {
     fontSize: 14,
@@ -973,5 +1007,65 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#581c87',
     lineHeight: 18,
+  },
+  skeletonContainer: {
+    gap: 12,
+    marginBottom: 20,
+  },
+  skeletonCard: {
+    backgroundColor: '#fff',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 16,
+    gap: 12,
+  },
+  skeletonHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  skeletonAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#e2e8f0',
+  },
+  skeletonMeta: {
+    flex: 1,
+    gap: 8,
+  },
+  skeletonLineShort: {
+    height: 14,
+    width: '40%',
+    backgroundColor: '#e2e8f0',
+    borderRadius: 4,
+  },
+  skeletonLineLong: {
+    height: 10,
+    width: '70%',
+    backgroundColor: '#e2e8f0',
+    borderRadius: 4,
+  },
+  skeletonLineMedium: {
+    height: 12,
+    width: '50%',
+    backgroundColor: '#e2e8f0',
+    borderRadius: 4,
+  },
+  skeletonDivider: {
+    height: 1,
+    backgroundColor: '#f1f5f9',
+  },
+  skeletonFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  skeletonButton: {
+    height: 32,
+    width: 60,
+    backgroundColor: '#e2e8f0',
+    borderRadius: 6,
   },
 });

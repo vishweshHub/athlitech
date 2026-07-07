@@ -60,6 +60,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
   const [updatingUserRoleMap, setUpdatingUserRoleMap] = useState<{ [userId: string]: string }>({});
   const [userRoleMessage, setUserRoleMessage] = useState<{ [userId: string]: { text: string; isError: boolean } }>({});
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [openDropdownUserId, setOpenDropdownUserId] = useState<string | null>(null);
 
   // Fetch data
   const loadDashboardData = useCallback(async () => {
@@ -419,7 +420,13 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                           const selectedRole = updatingUserRoleMap[item.id] || item.role;
                           const message = userRoleMessage[item.id];
                           return (
-                            <View key={item.id} style={styles.userListItem}>
+                            <View
+                              key={item.id}
+                              style={[
+                                styles.userListItem,
+                                openDropdownUserId === item.id ? { zIndex: 10 } : { zIndex: 1 },
+                              ]}
+                            >
                               <View style={styles.userInfo}>
                                 <Text style={styles.userNameText}>{item.name}</Text>
                                 <Text style={styles.userEmailText}>{item.email}</Text>
@@ -443,32 +450,60 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
 
                               <View style={styles.userRoleEdit}>
                                 <Text style={styles.smallLabel}>Assign Role:</Text>
-                                <View style={styles.rolePickerRow}>
-                                  {roles.map((r) => (
-                                    <Pressable
-                                      key={r.name}
-                                      style={[
-                                        styles.roleSelectChip,
-                                        selectedRole === r.name && styles.roleSelectChipActive,
-                                      ]}
-                                      onPress={() =>
-                                        setUpdatingUserRoleMap((prev) => ({
-                                          ...prev,
-                                          [item.id]: r.name,
-                                        }))
+                                <View style={styles.dropdownContainer}>
+                                  <Pressable
+                                    style={styles.dropdownButton}
+                                    onPress={() =>
+                                      setOpenDropdownUserId(
+                                        openDropdownUserId === item.id ? null : item.id
+                                      )
+                                    }
+                                  >
+                                    <Text style={styles.dropdownButtonText}>
+                                      {selectedRole.toUpperCase()}
+                                    </Text>
+                                    <Ionicons
+                                      name={
+                                        openDropdownUserId === item.id ? 'chevron-up' : 'chevron-down'
                                       }
-                                    >
-                                      <Text
-                                        style={[
-                                          styles.roleSelectChipText,
-                                          selectedRole === r.name &&
-                                            styles.roleSelectChipTextActive,
-                                        ]}
-                                      >
-                                        {r.name}
-                                      </Text>
-                                    </Pressable>
-                                  ))}
+                                      size={16}
+                                      color="#647286"
+                                    />
+                                  </Pressable>
+
+                                  {openDropdownUserId === item.id && (
+                                    <View style={styles.dropdownMenu}>
+                                      {roles.map((r) => (
+                                        <Pressable
+                                          key={r.name}
+                                          style={[
+                                            styles.dropdownItem,
+                                            selectedRole === r.name && styles.dropdownItemActive,
+                                          ]}
+                                          onPress={() => {
+                                            setUpdatingUserRoleMap((prev) => ({
+                                              ...prev,
+                                              [item.id]: r.name,
+                                            }));
+                                            setOpenDropdownUserId(null);
+                                          }}
+                                        >
+                                          <Text
+                                            style={[
+                                              styles.dropdownItemText,
+                                              selectedRole === r.name &&
+                                                styles.dropdownItemTextActive,
+                                            ]}
+                                          >
+                                            {r.name.toUpperCase()}
+                                          </Text>
+                                          {selectedRole === r.name && (
+                                            <Ionicons name="checkmark" size={16} color="#3b82f6" />
+                                          )}
+                                        </Pressable>
+                                      ))}
+                                    </View>
+                                  )}
                                 </View>
 
                                 {selectedRole !== item.role && (
@@ -967,30 +1002,63 @@ const styles = StyleSheet.create({
     color: '#647286',
     fontWeight: '600',
   },
-  rolePickerRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  dropdownContainer: {
+    position: 'relative',
+    width: 200,
+    zIndex: 50,
   },
-  roleSelectChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#f1f5f9',
+  dropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
     borderColor: '#cbd5e1',
     borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    width: '100%',
   },
-  roleSelectChipActive: {
-    backgroundColor: '#dbeafe',
-    borderColor: '#3b82f6',
+  dropdownButtonText: {
+    fontSize: 12,
+    color: '#0f172a',
+    fontWeight: '600',
   },
-  roleSelectChipText: {
+  dropdownMenu: {
+    position: 'absolute',
+    top: 42,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingVertical: 4,
+    zIndex: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+  },
+  dropdownItemActive: {
+    backgroundColor: '#eff6ff',
+  },
+  dropdownItemText: {
     fontSize: 12,
     color: '#475569',
     fontWeight: '500',
   },
-  roleSelectChipTextActive: {
-    color: '#1d4ed8',
+  dropdownItemTextActive: {
+    color: '#3b82f6',
     fontWeight: '700',
   },
   saveRoleButton: {
