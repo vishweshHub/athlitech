@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Platform,
   Pressable,
   SafeAreaView,
@@ -13,6 +12,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 
 import type { Role, User } from '@/services/admin';
@@ -34,16 +34,22 @@ interface AdminDashboardProps {
 type TabType = 'dashboard' | 'users' | 'roles' | 'coaches' | 'athletes';
 
 // Responsive helpers
-const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
-const isLargeScreen = width > 768;
+const isLargeScreenStatic = true;
 
 export default function AdminDashboard({ user, token, onSignOut }: AdminDashboardProps) {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isLargeScreen = width > 768;
   
   // Navigation state
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(isWeb);
+  const [sidebarOpen, setSidebarOpen] = useState(isLargeScreen);
+
+  // Sync sidebar state when screen size changes
+  useEffect(() => {
+    setSidebarOpen(isLargeScreen);
+  }, [isLargeScreen]);
 
   // Backend data state
   const [users, setUsers] = useState<User[]>([]);
@@ -236,10 +242,13 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
       <View style={styles.mainContainer}>
         {/* Sidebar */}
         {sidebarOpen && (
-          <View style={styles.sidebar}>
+          <View style={[styles.sidebar, !isLargeScreen && styles.sidebarFloating]}>
             <View style={styles.sidebarHeader}>
-              <Text style={styles.sidebarBrand}>AthliTech</Text>
-              {isWeb && (
+              <View style={styles.brandRow}>
+                <Ionicons name="flash" size={22} color="#3b82f6" />
+                <Text style={styles.sidebarBrand}>AthliTech</Text>
+              </View>
+              {!isLargeScreen && (
                 <Pressable onPress={() => setSidebarOpen(false)}>
                   <Ionicons name="close" size={24} color="#647286" />
                 </Pressable>
@@ -248,11 +257,11 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
 
             <View style={styles.sidebarNav}>
               {[
-                { id: 'dashboard', label: 'Dashboard', icon: 'grid' },
-                { id: 'users', label: 'Users', icon: 'people' },
-                { id: 'roles', label: 'Roles', icon: 'shield' },
-                { id: 'coaches', label: 'Coaches', icon: 'fitness' },
-                { id: 'athletes', label: 'Athletes', icon: 'walk' },
+                { id: 'dashboard', label: 'Dashboard', icon: 'grid', count: null },
+                { id: 'users', label: 'Users', icon: 'people', count: totalUsers },
+                { id: 'roles', label: 'Roles', icon: 'shield', count: totalRoles },
+                { id: 'coaches', label: 'Coaches', icon: 'fitness', count: totalCoaches },
+                { id: 'athletes', label: 'Athletes', icon: 'walk', count: totalAthletes },
               ].map((item) => (
                 <Pressable
                   key={item.id}
@@ -262,7 +271,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                   ]}
                   onPress={() => {
                     setActiveTab(item.id as TabType);
-                    if (!isWeb) {
+                    if (!isLargeScreen) {
                       setSidebarOpen(false);
                     }
                   }}
@@ -280,6 +289,23 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                   >
                     {item.label}
                   </Text>
+                  {item.count !== null && item.count !== undefined && (
+                    <View
+                      style={[
+                        styles.sidebarBadge,
+                        activeTab === item.id && styles.sidebarBadgeActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.sidebarBadgeText,
+                          activeTab === item.id && styles.sidebarBadgeTextActive,
+                        ]}
+                      >
+                        {item.count}
+                      </Text>
+                    </View>
+                  )}
                 </Pressable>
               ))}
             </View>
@@ -297,7 +323,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
         <View style={styles.contentArea}>
           {/* Header */}
           <View style={styles.header}>
-            {!isWeb && (
+            {(!isLargeScreen || !sidebarOpen) && (
               <Pressable
                 onPress={() => setSidebarOpen(!sidebarOpen)}
                 style={styles.hamburgerBtn}
@@ -321,7 +347,13 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
           </View>
 
           {/* Content */}
-          <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
+          <ScrollView
+            style={styles.content}
+            contentContainerStyle={[
+              styles.contentInner,
+              { padding: isWeb || isLargeScreen ? 24 : 16 },
+            ]}
+          >
             {isLoadingData ? (
               <View style={styles.loaderContainer}>
                 <ActivityIndicator size="large" color="#3b82f6" />
@@ -393,7 +425,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                       <Text style={styles.sectionTitle}>Quick Actions</Text>
                       <View style={styles.actionGrid}>
                         <Pressable
-                          style={styles.actionCard}
+                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
                           onPress={() => setActiveTab('users')}
                         >
                           <Ionicons name="people-circle" size={32} color="#3b82f6" />
@@ -404,7 +436,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                         </Pressable>
 
                         <Pressable
-                          style={styles.actionCard}
+                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
                           onPress={() => setActiveTab('roles')}
                         >
                           <Ionicons name="shield-checkmark" size={32} color="#10b981" />
@@ -415,7 +447,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                         </Pressable>
 
                         <Pressable
-                          style={styles.actionCard}
+                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
                           onPress={() => setActiveTab('coaches')}
                         >
                           <Ionicons name="fitness" size={32} color="#8b5cf6" />
@@ -426,7 +458,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                         </Pressable>
 
                         <Pressable
-                          style={styles.actionCard}
+                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
                           onPress={() => setActiveTab('athletes')}
                         >
                           <Ionicons name="walk" size={32} color="#f59e0b" />
@@ -443,10 +475,18 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                 {/* Users Tab */}
                 {activeTab === 'users' && (
                   <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
+                    <View
+                      style={[
+                        styles.sectionHeader,
+                        {
+                          flexDirection: isLargeScreen ? 'row' : 'column',
+                          alignItems: isLargeScreen ? 'center' : 'stretch',
+                        },
+                      ]}
+                    >
                       <Text style={styles.sectionTitle}>User Registry ({filteredUsers.length})</Text>
                       <TextInput
-                        style={styles.searchBar}
+                        style={[styles.searchBar, { width: isLargeScreen ? 300 : '100%' }]}
                         placeholder="Search name, email, or role..."
                         placeholderTextColor="#94a3b8"
                         value={userSearchQuery}
@@ -468,6 +508,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                               key={item.id}
                               style={[
                                 styles.userListItem,
+                                { flexDirection: isLargeScreen ? 'row' : 'column' },
                                 openDropdownUserId === item.id ? { zIndex: 10 } : { zIndex: 1 },
                               ]}
                             >
@@ -492,7 +533,12 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                                 )}
                               </View>
 
-                              <View style={styles.userRoleEdit}>
+                              <View
+                                style={[
+                                  styles.userRoleEdit,
+                                  { alignItems: isLargeScreen ? 'flex-end' : 'flex-start' },
+                                ]}
+                              >
                                 <Text style={styles.smallLabel}>Assign Role:</Text>
                                 <View style={styles.dropdownContainer}>
                                   <Pressable
@@ -740,8 +786,8 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
         </View>
       </View>
 
-      {/* Mobile Sidebar Overlay */}
-      {!isWeb && sidebarOpen && (
+      {/* Sidebar Overlay (Mobile & Tablet) */}
+      {!isLargeScreen && sidebarOpen && (
         <Pressable style={styles.overlay} onPress={() => setSidebarOpen(false)} />
       )}
     </SafeAreaView>
@@ -764,6 +810,25 @@ const styles = StyleSheet.create({
     borderRightColor: '#e2e8f0',
     paddingTop: 16,
   },
+  sidebarFloating: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    height: '100%',
+    zIndex: 1000,
+    width: 260,
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   sidebarHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -771,7 +836,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#f1f5f9',
   },
   sidebarBrand: {
     fontSize: 20,
@@ -785,17 +850,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     marginHorizontal: 8,
+    marginVertical: 2,
     borderRadius: 8,
     gap: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: 'transparent',
   },
   sidebarItemActive: {
     backgroundColor: '#eff6ff',
-    borderLeftWidth: 3,
     borderLeftColor: '#3b82f6',
   },
   sidebarItemLabel: {
+    flex: 1,
     fontSize: 14,
     fontWeight: '600',
     color: '#647286',
@@ -803,6 +871,26 @@ const styles = StyleSheet.create({
   sidebarItemLabelActive: {
     color: '#3b82f6',
     fontWeight: '700',
+  },
+  sidebarBadge: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    minWidth: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sidebarBadgeActive: {
+    backgroundColor: '#3b82f6',
+  },
+  sidebarBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#647286',
+  },
+  sidebarBadgeTextActive: {
+    color: '#fff',
   },
   sidebarFooter: {
     paddingHorizontal: 16,
@@ -869,7 +957,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   contentInner: {
-    padding: isWeb || isLargeScreen ? 24 : 16,
     maxWidth: 1400,
     alignSelf: 'center',
     width: '100%',
@@ -891,8 +978,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   metricCard: {
-    flex: isWeb || isLargeScreen ? 1 : undefined,
-    width: isWeb || isLargeScreen ? undefined : '100%',
+    flex: isWeb || isLargeScreenStatic ? 1 : undefined,
+    width: isWeb || isLargeScreenStatic ? undefined : '100%',
     minWidth: 200,
     backgroundColor: '#fff',
     borderColor: '#e2e8f0',
@@ -945,9 +1032,9 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   sectionHeader: {
-    flexDirection: isLargeScreen ? 'row' : 'column',
+    flexDirection: isLargeScreenStatic ? 'row' : 'column',
     justifyContent: 'space-between',
-    alignItems: isLargeScreen ? 'center' : 'stretch',
+    alignItems: isLargeScreenStatic ? 'center' : 'stretch',
     marginBottom: 16,
     gap: 12,
   },
@@ -963,7 +1050,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 14,
     height: 40,
-    width: isLargeScreen ? 300 : '100%',
+    width: isLargeScreenStatic ? 300 : '100%',
     fontSize: 14,
     color: '#0f172a',
   },
@@ -974,7 +1061,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   actionCard: {
-    width: isLargeScreen ? '48%' : '100%',
+    width: isLargeScreenStatic ? '48%' : '100%',
     minWidth: 260,
     backgroundColor: '#fff',
     borderColor: '#e2e8f0',
@@ -1010,7 +1097,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   userListItem: {
-    flexDirection: isLargeScreen ? 'row' : 'column',
+    flexDirection: isLargeScreenStatic ? 'row' : 'column',
     justifyContent: 'space-between',
     backgroundColor: '#fff',
     borderColor: '#e2e8f0',
@@ -1046,7 +1133,7 @@ const styles = StyleSheet.create({
   },
   userRoleEdit: {
     justifyContent: 'center',
-    alignItems: isLargeScreen ? 'flex-end' : 'flex-start',
+    alignItems: isLargeScreenStatic ? 'flex-end' : 'flex-start',
     gap: 8,
   },
   smallLabel: {
@@ -1151,8 +1238,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   roleDetailCard: {
-    flex: isWeb || isLargeScreen ? 1 : undefined,
-    width: isWeb || isLargeScreen ? undefined : '100%',
+    flex: isWeb || isLargeScreenStatic ? 1 : undefined,
+    width: isWeb || isLargeScreenStatic ? undefined : '100%',
     minWidth: 260,
     backgroundColor: '#fff',
     borderColor: '#e2e8f0',
@@ -1262,8 +1349,8 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   coachCard: {
-    flex: isWeb || isLargeScreen ? 1 : undefined,
-    width: isWeb || isLargeScreen ? undefined : '100%',
+    flex: isWeb || isLargeScreenStatic ? 1 : undefined,
+    width: isWeb || isLargeScreenStatic ? undefined : '100%',
     minWidth: 280,
     backgroundColor: '#fff',
     borderColor: '#e2e8f0',
@@ -1312,8 +1399,8 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   athleteCard: {
-    flex: isWeb || isLargeScreen ? 1 : undefined,
-    width: isWeb || isLargeScreen ? undefined : '100%',
+    flex: isWeb || isLargeScreenStatic ? 1 : undefined,
+    width: isWeb || isLargeScreenStatic ? undefined : '100%',
     minWidth: 280,
     backgroundColor: '#fff',
     borderColor: '#e2e8f0',
