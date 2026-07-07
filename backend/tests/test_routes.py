@@ -8,6 +8,10 @@ class FakeResult:
         self.matched_count = matched
         self.modified_count = modified
 
+class FakeDeleteResult:
+    def __init__(self, deleted_count=1):
+        self.deleted_count = deleted_count
+
 class FakeCollection:
     def __init__(self, initial=None):
         self.data = initial or {}
@@ -16,7 +20,7 @@ class FakeCollection:
         for v in self.data.values():
             match = True
             for k, val in query.items():
-                if v.get(k) != val:
+                if str(v.get(k)) != str(val):
                     match = False
                     break
             if match:
@@ -25,18 +29,35 @@ class FakeCollection:
 
     async def update_one(self, query, update):
         for k, v in self.data.items():
-            if all(v.get(fk) == fv for fk, fv in query.items()):
+            match = True
+            for qk, qv in query.items():
+                if str(v.get(qk)) != str(qv):
+                    match = False
+                    break
+            if match:
                 set_ops = update.get("$set", {})
                 v.update(set_ops)
                 return FakeResult(matched=1, modified=1)
         return FakeResult(matched=0, modified=0)
+
+    async def delete_one(self, query):
+        for k, v in list(self.data.items()):
+            match = True
+            for qk, qv in query.items():
+                if str(v.get(qk)) != str(qv):
+                    match = False
+                    break
+            if match:
+                del self.data[k]
+                return FakeDeleteResult(deleted_count=1)
+        return FakeDeleteResult(deleted_count=0)
 
     async def find(self, query=None):
         query = query or {}
         for v in self.data.values():
             match = True
             for k, val in query.items():
-                if v.get(k) != val:
+                if str(v.get(k)) != str(val):
                     match = False
                     break
             if match:
@@ -48,7 +69,10 @@ def setup_fakes():
     from routes import athlete_routes
 
     athletes = {"a1": {"athlete_id": "ath-1", "name": "A1", "sport": "s1", "weight": 70, "coach_id": None}}
-    users = {"u1": {"_id": "u1", "name": "Coach1", "email": "c1@example.com", "role": "coach", "coach_id": "coach-1"}}
+    users = {
+        "u1": {"_id": "u1", "name": "Coach1", "email": "c1@example.com", "role": "coach", "coach_id": "coach-1"},
+        "6a4369de519959ce63a0022a": {"_id": "6a4369de519959ce63a0022a", "name": "Coach1", "email": "c1@example.com", "role": "coach", "coach_id": "coach-1"}
+    }
     fake_ath = FakeCollection(athletes)
     fake_users = FakeCollection(users)
 
@@ -63,6 +87,10 @@ def setup_fakes():
     from services import athlete_service
     athlete_service.athletes_collection = fake_ath
     athlete_service.users_collection = fake_users
+
+    # replace names imported in user_service module
+    from services import user_service
+    user_service.users_collection = fake_users
 
     return
 
@@ -113,6 +141,20 @@ def run_tests():
     mongodb.athletes_collection.data["a2"] = {"athlete_id": "ath-2", "name": "A2", "sport": "s2", "weight": 60, "coach_id": "coach-1", "owner_id": "other_user"}
     rab = client.get("/athletes/ath-2")
     print("athlete access other", rab.status_code, rab.json())
+
+    # now test user deletion as admin
+    app.dependency_overrides[get_current_user] = lambda: {"id": "admin1", "role": "admin", "email": "admin@example.com"}
+    r_del = client.delete("/users/6a4369de519959ce63a0022a")
+    print("admin delete user status", r_del.status_code, r_del.json())
+    
+    # delete non-existent user
+    r_del_missing = client.delete("/users/6a4369de519959ce63a0022b")
+    print("admin delete missing user status", r_del_missing.status_code, r_del_missing.json())
+
+    # delete as non-admin (athlete should be forbidden)
+    app.dependency_overrides[get_current_user] = lambda: {"id": "ath_user", "role": "athlete", "email": "ath@example.com"}
+    r_del_forbidden = client.delete("/users/6a4369de519959ce63a0022a")
+    print("athlete delete user status", r_del_forbidden.status_code, r_del_forbidden.json())
 
 
 if __name__ == '__main__':

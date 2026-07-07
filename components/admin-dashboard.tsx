@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   Platform,
   Pressable,
@@ -17,6 +18,7 @@ import {
 import type { Role, User } from '@/services/admin';
 import {
   createRole,
+  deleteUser,
   fetchAllRoles,
   fetchAllUsers,
   updateUserRole,
@@ -172,6 +174,48 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
       setUserRoleMessage((prev) => ({
         ...prev,
         [userId]: { text: e.message || 'Failed to update role', isError: true },
+      }));
+    }
+  };
+
+  const handleDeletePress = (targetUser: User) => {
+    if (Platform.OS === 'web') {
+      const confirmDelete = window.confirm(
+        `Are you sure you want to delete user "${targetUser.name}"? This action cannot be undone.`
+      );
+      if (confirmDelete) {
+        executeDeleteUser(targetUser.id);
+      }
+    } else {
+      Alert.alert(
+        'Delete User',
+        `Are you sure you want to delete user "${targetUser.name}"? This action cannot be undone.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: () => executeDeleteUser(targetUser.id) },
+        ]
+      );
+    }
+  };
+
+  const executeDeleteUser = async (userId: string) => {
+    setUserRoleMessage((prev) => ({ ...prev, [userId]: { text: 'Deleting...', isError: false } }));
+    try {
+      if (isUsingFallback) {
+        setUsers((prevUsers) => prevUsers.filter((u) => u.id !== userId));
+        setUserRoleMessage((prev) => ({
+          ...prev,
+          [userId]: { text: 'User deleted locally (Fallback Mode)', isError: false },
+        }));
+      } else {
+        await deleteUser(token, userId);
+        const fetchedUsers = await fetchAllUsers(token);
+        setUsers(fetchedUsers);
+      }
+    } catch (e: any) {
+      setUserRoleMessage((prev) => ({
+        ...prev,
+        [userId]: { text: e.message || 'Failed to delete user', isError: true },
       }));
     }
   };
@@ -514,6 +558,14 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                                     <Text style={styles.saveRoleButtonText}>Apply Role</Text>
                                   </Pressable>
                                 )}
+
+                                <Pressable
+                                  style={styles.deleteUserButton}
+                                  onPress={() => handleDeletePress(item)}
+                                >
+                                  <Ionicons name="trash-outline" size={14} color="#ef4444" />
+                                  <Text style={styles.deleteUserButtonText}>Delete User</Text>
+                                </Pressable>
                               </View>
                             </View>
                           );
@@ -1070,6 +1122,25 @@ const styles = StyleSheet.create({
   },
   saveRoleButtonText: {
     color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  deleteUserButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fef2f2',
+    borderColor: '#fee2e2',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+    marginTop: 8,
+    width: 200,
+  },
+  deleteUserButtonText: {
+    color: '#ef4444',
     fontSize: 12,
     fontWeight: '700',
   },

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 
 from schemas.user_schema import UserRoleUpdate
 from services.auth_service import get_current_user, require_admin, require_admin_or_self
-from services.user_service import get_all_users, get_user_by_id, update_user_role
+from services.user_service import get_all_users, get_user_by_id, update_user_role, delete_user_by_id
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -24,3 +24,11 @@ async def change_user_role(
     current_user: dict = Depends(get_current_user)
 ):
     return await update_user_role(user_id, role_update)
+
+
+@router.delete("/{user_id}", dependencies=[Depends(require_admin)])
+async def delete_user(
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    return await delete_user_by_id(user_id)

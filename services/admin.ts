@@ -55,6 +55,20 @@ export async function updateUserRole(token: string, userId: string, role: string
   return response.json();
 }
 
+export async function deleteUser(token: string, userId: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_URL}/users/${userId}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.detail ?? 'Failed to delete user');
+  }
+  return response.json();
+}
+
 export async function createRole(token: string, name: string, permissions: string[] = []): Promise<Role> {
   const response = await fetch(`${API_URL}/roles/`, {
     method: 'POST',
