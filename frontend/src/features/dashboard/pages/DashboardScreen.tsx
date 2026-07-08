@@ -9,15 +9,15 @@ import {
   View,
 } from 'react-native';
 
-import AthleteDashboard from '@/app/athlete-dashboard';
-import CoachDashboard from '@/app/coach-dashboard';
-import AdminDashboard from '@/components/admin-dashboard';
-import type { AuthUser } from '@/services/auth';
+import AthleteDashboard from '@/features/athletes/pages/AthleteDashboardScreen';
+import CoachDashboard from '@/features/coaches/pages/CoachDashboardScreen';
+import AdminDashboard from '@/features/admin/components/AdminDashboard';
+import type { AuthUser } from '@/api/auth';
 import {
   clearStoredToken,
   fetchCurrentUser,
   getStoredToken,
-} from '@/services/auth';
+} from '@/api/auth';
 
 export default function DashboardScreen() {
   const router = useRouter();

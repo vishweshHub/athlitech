@@ -1,15 +1,11 @@
-from database.mongodb import performance_collection, athletes_collection, users_collection
+from repositories.performance_repository import performance_repository
 from models.performance_model import Performance
-from fastapi import HTTPException
 
 
 async def add_performance(performance: Performance):
-    await performance_collection.insert_one(performance.dict())
+    await performance_repository.create(performance.dict())
     return {"message": "Performance record added", "performance_id": performance.performance_id}
 
 
 async def get_athlete_performances(athlete_id: str):
-    records = []
-    async for perf in performance_collection.find({"athlete_id": athlete_id}):
-        records.append(perf)
-    return records
+    return await performance_repository.get_by_athlete(athlete_id)

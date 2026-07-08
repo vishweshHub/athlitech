@@ -71,6 +71,17 @@ async def run_tests():
     except HTTPException as e:
         print("invalid coach:", e.status_code, e.detail)
 
+    # Test overwrite by admin
+    res_overwrite = await athlete_service.assign_athlete_to_coach("ath-456", coach_id, overwrite=True)
+    print("res_overwrite:", res_overwrite)
+
+    # Test auto-create when athlete not in athletes_collection but exists in user registry
+    fake_users.update({
+        "u3": {"_id": "ath-new", "name": "New Athlete", "role": "athlete"}
+    })
+    res_autocreate = await athlete_service.assign_athlete_to_coach("ath-new", coach_id)
+    print("res_autocreate:", res_autocreate)
+
 
 if __name__ == '__main__':
     asyncio.run(run_tests())

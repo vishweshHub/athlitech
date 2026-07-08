@@ -15,15 +15,17 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
-import type { Role, User } from '@/services/admin';
+import type { Role, User, Athlete } from '@/api/admin';
 import {
   createRole,
   deleteUser,
   fetchAllRoles,
   fetchAllUsers,
   updateUserRole,
-} from '@/services/admin';
-import type { AuthUser } from '@/services/auth';
+  assignAthleteToCoach,
+  fetchAllAthletes,
+} from '@/api/admin';
+import type { AuthUser } from '@/api/auth';
 
 interface AdminDashboardProps {
   user: AuthUser | null;
@@ -70,18 +72,29 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [openDropdownUserId, setOpenDropdownUserId] = useState<string | null>(null);
 
+  // Athlete Coach assignment states
+  const [athletesData, setAthletesData] = useState<Athlete[]>([]);
+  const [updatingAthleteCoachMap, setUpdatingAthleteCoachMap] = useState<{ [athleteId: string]: string }>({});
+  const [athleteCoachMessage, setAthleteCoachMessage] = useState<{ [athleteId: string]: { text: string; isError: boolean } }>({});
+  const [openCoachDropdownAthleteId, setOpenCoachDropdownAthleteId] = useState<string | null>(null);
+
   // Fetch data
   const loadDashboardData = useCallback(async () => {
     setIsLoadingData(true);
     setDashboardError(null);
     setIsUsingFallback(false);
     try {
-      const [fetchedUsers, fetchedRoles] = await Promise.all([
+      const [fetchedUsers, fetchedRoles, fetchedAthletes] = await Promise.all([
         fetchAllUsers(token),
         fetchAllRoles(token),
+        fetchAllAthletes(token).catch((e: any) => {
+          console.warn('Failed to fetch athletes list:', e);
+          return [];
+        }),
       ]);
       setUsers(fetchedUsers);
       setRoles(fetchedRoles);
+      setAthletesData(fetchedAthletes);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Unable to load dashboard data.';
       console.warn('Backend API connection failed:', e);
@@ -89,6 +102,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
       setIsUsingFallback(true);
       setUsers([]);
       setRoles([]);
+      setAthletesData([]);
     } finally {
       setIsLoadingData(false);
     }
@@ -222,6 +236,41 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
       setUserRoleMessage((prev) => ({
         ...prev,
         [userId]: { text: e.message || 'Failed to delete user', isError: true },
+      }));
+    }
+  };
+
+  const handleAssignCoach = async (athleteId: string, coachId: string) => {
+    setAthleteCoachMessage((prev) => ({ ...prev, [athleteId]: { text: 'Saving...', isError: false } }));
+    try {
+      if (isUsingFallback) {
+        // Update local mock state
+        setAthletesData((prevAthletes) => {
+          const exists = prevAthletes.some((a) => a.athlete_id === athleteId);
+          if (exists) {
+            return prevAthletes.map((a) => (a.athlete_id === athleteId ? { ...a, coach_id: coachId } : a));
+          } else {
+            return [...prevAthletes, { athlete_id: athleteId, name: '', sport: 'Sprinting', weight: '70', coach_id: coachId }];
+          }
+        });
+        setAthleteCoachMessage((prev) => ({
+          ...prev,
+          [athleteId]: { text: 'Coach assigned locally (Fallback Mode)', isError: false },
+        }));
+      } else {
+        await assignAthleteToCoach(token, athleteId, coachId);
+        setAthleteCoachMessage((prev) => ({
+          ...prev,
+          [athleteId]: { text: 'Coach assigned successfully!', isError: false },
+        }));
+        // Refresh athletes data immediately
+        const fetchedAthletes = await fetchAllAthletes(token);
+        setAthletesData(fetchedAthletes);
+      }
+    } catch (e: any) {
+      setAthleteCoachMessage((prev) => ({
+        ...prev,
+        [athleteId]: { text: e.message || 'Failed to assign coach', isError: true },
       }));
     }
   };
@@ -750,32 +799,150 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                           <Text style={styles.emptyText}>No athletes registered yet</Text>
                         </View>
                       ) : (
-                        athletesList.map((athlete) => (
-                          <View key={athlete.id} style={styles.athleteCard}>
-                            <View style={styles.athleteHeader}>
-                              <View style={styles.athleteAvatar}>
-                                <Text style={styles.avatarText}>
-                                  {athlete.name.charAt(0).toUpperCase()}
-                                </Text>
+                        athletesList.map((athlete) => {
+                          const athleteDoc = athletesData.find((a) => a.athlete_id === athlete.id);
+                          const currentCoachId = athleteDoc?.coach_id;
+                          const currentCoach = coachesList.find(
+                            (c) => c.coach_id === currentCoachId || c.id === currentCoachId
+                          );
+                          const selectedCoachId = updatingAthleteCoachMap[athlete.id] !== undefined
+                            ? updatingAthleteCoachMap[athlete.id]
+                            : currentCoachId || '';
+                          const selectedCoach = coachesList.find(
+                            (c) => c.coach_id === selectedCoachId || c.id === selectedCoachId
+                          );
+                          const message = athleteCoachMessage[athlete.id];
+
+                          return (
+                            <View
+                              key={athlete.id}
+                              style={[
+                                styles.athleteCard,
+                                openCoachDropdownAthleteId === athlete.id ? { zIndex: 10 } : { zIndex: 1 },
+                              ]}
+                            >
+                              <View style={styles.athleteHeader}>
+                                <View style={styles.athleteAvatar}>
+                                  <Text style={styles.avatarText}>
+                                    {athlete.name.charAt(0).toUpperCase()}
+                                  </Text>
+                                </View>
+                                <View style={styles.athleteInfo}>
+                                  <Text style={styles.athleteName}>{athlete.name}</Text>
+                                  <Text style={styles.athleteEmail}>{athlete.email}</Text>
+                                  <Text style={{ fontSize: 12, color: '#647286', marginTop: 4 }}>
+                                    Current Coach: {currentCoach ? currentCoach.name : 'No coach assigned'}
+                                  </Text>
+                                </View>
                               </View>
-                              <View style={styles.athleteInfo}>
-                                <Text style={styles.athleteName}>{athlete.name}</Text>
-                                <Text style={styles.athleteEmail}>{athlete.email}</Text>
+
+                              {/* Assign Coach UI */}
+                              <View style={{ 
+                                marginVertical: 12, 
+                                borderTopWidth: 1, 
+                                borderTopColor: '#f1f5f9', 
+                                paddingTop: 12, 
+                                gap: 8,
+                                zIndex: openCoachDropdownAthleteId === athlete.id ? 20 : 1
+                              }}>
+                                <Text style={styles.smallLabel}>Assign Coach:</Text>
+                                <View style={[styles.dropdownContainer, { width: '100%' }]}>
+                                  <Pressable
+                                    style={styles.dropdownButton}
+                                    onPress={() =>
+                                      setOpenCoachDropdownAthleteId(
+                                        openCoachDropdownAthleteId === athlete.id ? null : athlete.id
+                                      )
+                                    }
+                                  >
+                                    <Text style={styles.dropdownButtonText}>
+                                      {selectedCoach ? selectedCoach.name : 'Select Coach...'}
+                                    </Text>
+                                    <Ionicons
+                                      name={openCoachDropdownAthleteId === athlete.id ? 'chevron-up' : 'chevron-down'}
+                                      size={16}
+                                      color="#647286"
+                                    />
+                                  </Pressable>
+
+                                  {openCoachDropdownAthleteId === athlete.id && (
+                                    <View style={styles.dropdownMenu}>
+                                      {coachesList.length === 0 ? (
+                                        <View style={{ padding: 10 }}>
+                                          <Text style={{ fontSize: 12, color: '#94a3b8' }}>No coaches registered</Text>
+                                        </View>
+                                      ) : (
+                                        coachesList.map((coach) => {
+                                          const coachKey = coach.coach_id || coach.id;
+                                          return (
+                                            <Pressable
+                                              key={coach.id}
+                                              style={[
+                                                styles.dropdownItem,
+                                                selectedCoachId === coachKey && styles.dropdownItemActive,
+                                              ]}
+                                              onPress={() => {
+                                                setUpdatingAthleteCoachMap((prev) => ({
+                                                  ...prev,
+                                                  [athlete.id]: coachKey,
+                                                }));
+                                                setOpenCoachDropdownAthleteId(null);
+                                              }}
+                                            >
+                                              <Text
+                                                style={[
+                                                  styles.dropdownItemText,
+                                                  selectedCoachId === coachKey && styles.dropdownItemTextActive,
+                                                ]}
+                                              >
+                                                {coach.name}
+                                              </Text>
+                                              {selectedCoachId === coachKey && (
+                                                <Ionicons name="checkmark" size={16} color="#3b82f6" />
+                                              )}
+                                            </Pressable>
+                                          );
+                                        })
+                                      )}
+                                    </View>
+                                  )}
+                                </View>
+
+                                {selectedCoachId !== (currentCoachId || '') && selectedCoachId !== '' && (
+                                  <Pressable
+                                    style={[styles.saveRoleButton, { marginTop: 4, alignSelf: 'stretch', alignItems: 'center' }]}
+                                    onPress={() => handleAssignCoach(athlete.id, selectedCoachId)}
+                                  >
+                                    <Text style={styles.saveRoleButtonText}>Apply Coach</Text>
+                                  </Pressable>
+                                )}
+
+                                {message && (
+                                  <Text
+                                    style={[
+                                      styles.userItemMessage,
+                                      message.isError ? styles.errorText : styles.successText,
+                                    ]}
+                                  >
+                                    {message.text}
+                                  </Text>
+                                )}
                               </View>
-                            </View>
-                            <View style={styles.athleteFooter}>
-                              <View style={styles.badge}>
-                                <Text style={styles.badgeText}>Athlete</Text>
-                              </View>
+
+                              <View style={styles.athleteFooter}>
+                                <View style={styles.badge}>
+                                  <Text style={styles.badgeText}>Athlete</Text>
+                                </View>
                                 <Pressable
                                   style={styles.viewBtn}
                                   onPress={() => router.push(`/athlete-details?athleteId=${athlete.id}`)}
                                 >
-                                  <Text style={styles.viewBtnText}>View</Text>
+                                  <Text style={styles.viewBtnText}>View Details</Text>
                                 </Pressable>
+                              </View>
                             </View>
-                          </View>
-                        ))
+                          );
+                        })
                       )}
                     </View>
                   </View>

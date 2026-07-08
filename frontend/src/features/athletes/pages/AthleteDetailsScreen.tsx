@@ -8,36 +8,37 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View,
+  View
 } from 'react-native';
 
-import type { Athlete, Coach } from '@/services/admin';
-import { fetchCoachAthletes, fetchCoachById } from '@/services/admin';
-import type { AuthUser } from '@/services/auth';
-import { getStoredToken, fetchCurrentUser, clearStoredToken } from '@/services/auth';
+import type { Athlete, Coach } from '@/api/admin';
+import { fetchAthleteById, fetchCoachById } from '@/api/admin';
+import type { AuthUser } from '@/api/auth';
+import { getStoredToken, fetchCurrentUser, clearStoredToken } from '@/api/auth';
 import { Ionicons } from '@expo/vector-icons';
 
 const isWeb = Platform.OS === 'web';
 
-interface CoachDetailsScreenProps {
+interface AthleteDetailsScreenProps {
   user: AuthUser | null;
   token: string;
   onSignOut: () => void;
 }
 
-export default function CoachDetailsScreen({ user: propUser, token: propToken, onSignOut: propOnSignOut }: CoachDetailsScreenProps) {
+export default function AthleteDetailsScreen({ user: propUser, token: propToken, onSignOut: propOnSignOut }: AthleteDetailsScreenProps) {
   const router = useRouter();
-  const params = useLocalSearchParams<{ coachId: string }>();
+  const params = useLocalSearchParams<{ athleteId: string }>();
   
   const [user, setUser] = useState<AuthUser | null>(propUser);
   const [token, setToken] = useState<string | null>(propToken);
   const [isAuthLoading, setIsAuthLoading] = useState(!propUser || !propToken);
+  const [athlete, setAthlete] = useState<Athlete | null>(null);
   const [coach, setCoach] = useState<Coach | null>(null);
-  const [athletes, setAthletes] = useState<Athlete[]>([]);
+  const [isCoachLoading, setIsCoachLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const coachId = params.coachId;
+  const athleteId = params.athleteId;
 
   // Restore session from storage if not passed via props
   useEffect(() => {
@@ -65,35 +66,46 @@ export default function CoachDetailsScreen({ user: propUser, token: propToken, o
     restoreSession();
   }, [propUser, propToken]);
 
-  // Load coach details once token is available
+  // Load athlete details once token is available
   useEffect(() => {
-    if (!coachId || !token) {
+    if (!athleteId || !token) {
       return;
     }
 
-    async function loadCoachDetails() {
+    async function loadAthleteDetails() {
       setIsLoading(true);
       setError(null);
+      setCoach(null);
+      setIsCoachLoading(false);
       
       try {
-        const [coachData, athletesData] = await Promise.all([
-          fetchCoachById(token as string, coachId),
-          fetchCoachAthletes(token as string, coachId),
-        ]);
-        
-        setCoach(coachData);
-        setAthletes(athletesData);
+        const athleteData = await fetchAthleteById(token as string, athleteId);
+        setAthlete(athleteData);
+
+        // Fetch coach details if athlete has a coach assigned
+        if (athleteData.coach_id) {
+          setIsCoachLoading(true);
+          try {
+            const coachData = await fetchCoachById(token as string, athleteData.coach_id);
+            setCoach(coachData);
+          } catch (coachError) {
+            console.warn('Failed to fetch coach details:', coachError);
+            // Coach details are optional, don't fail the whole page
+          } finally {
+            setIsCoachLoading(false);
+          }
+        }
       } catch (e) {
-        const message = e instanceof Error ? e.message : 'Failed to load coach details';
-        console.warn('Error loading coach details:', e);
+        const message = e instanceof Error ? e.message : 'Failed to load athlete details';
+        console.warn('Error loading athlete details:', e);
         setError(message);
       } finally {
         setIsLoading(false);
       }
     }
 
-    loadCoachDetails();
-  }, [coachId, token]);
+    loadAthleteDetails();
+  }, [athleteId, token]);
 
   const handleSignOut = () => {
     if (propOnSignOut) {
@@ -149,7 +161,7 @@ export default function CoachDetailsScreen({ user: propUser, token: propToken, o
             <Ionicons name="arrow-back" size={24} color="#0f172a" />
           </Pressable>
           <View style={styles.headerInfo}>
-            <Text style={styles.headerTitle}>Coach Details</Text>
+            <Text style={styles.headerTitle}>Athlete Details</Text>
             <Text style={styles.headerSubtitle}>{user?.email || 'Admin'}</Text>
           </View>
         </View>
@@ -169,7 +181,7 @@ export default function CoachDetailsScreen({ user: propUser, token: propToken, o
           {isLoading ? (
             <View style={styles.loaderContainer}>
               <ActivityIndicator size="large" color="#3b82f6" />
-              <Text style={styles.loaderText}>Loading coach details...</Text>
+              <Text style={styles.loaderText}>Loading athlete details...</Text>
             </View>
           ) : error ? (
             <View style={styles.errorContainer}>
@@ -179,75 +191,118 @@ export default function CoachDetailsScreen({ user: propUser, token: propToken, o
                 <Text style={styles.primaryButtonText}>Go Back</Text>
               </Pressable>
             </View>
-          ) : !coach ? (
+          ) : !athlete ? (
             <View style={styles.errorContainer}>
               <Ionicons name="person-outline" size={48} color="#94a3b8" />
-              <Text style={styles.errorText}>Coach not found</Text>
+              <Text style={styles.errorText}>Athlete not found</Text>
               <Pressable onPress={() => router.back()} style={styles.primaryButton}>
                 <Text style={styles.primaryButtonText}>Go Back</Text>
               </Pressable>
             </View>
           ) : (
             <>
-              {/* Coach Info Card */}
-              <View style={styles.coachInfoCard}>
-                <View style={styles.coachAvatar}>
+              {/* Athlete Info Card */}
+              <View style={styles.athleteInfoCard}>
+                <View style={styles.athleteAvatar}>
                   <Text style={styles.avatarText}>
-                    {coach.name.charAt(0).toUpperCase()}
+                    {athlete.name.charAt(0).toUpperCase()}
                   </Text>
                 </View>
-                <View style={styles.coachDetails}>
-                  <Text style={styles.coachName}>{coach.name}</Text>
-                  <Text style={styles.coachEmail}>{coach.email}</Text>
-                  <View style={styles.coachMetaRow}>
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeText}>{coach.role}</Text>
-                    </View>
-                    <Text style={styles.coachIdText}>ID: {coach.id}</Text>
-                  </View>
-                  <View style={styles.statsRow}>
-                    <View style={styles.statItem}>
-                      <Ionicons name="people-outline" size={20} color="#3b82f6" />
-                      <Text style={styles.statValue}>{athletes.length}</Text>
-                      <Text style={styles.statLabel}>Assigned Athletes</Text>
+                <View style={styles.athleteDetails}>
+                  <Text style={styles.athleteName}>{athlete.name}</Text>
+                  <Text style={styles.athleteSport}>{athlete.sport || 'No sport specified'}</Text>
+                  
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Athlete ID</Text>
+                      <Text style={styles.infoValue}>{athlete.athlete_id}</Text>
                     </View>
                   </View>
+
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Weight</Text>
+                      <Text style={styles.infoValue}>
+                        {athlete.weight ? `${athlete.weight} kg` : 'Not specified'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.infoRow}>
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Assigned Coach</Text>
+                      <Text style={styles.infoValue}>
+                        {isCoachLoading ? 'Loading...' : coach ? coach.name : 'No coach assigned'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {coach && (
+                    <View style={styles.coachCard}>
+                      <Text style={styles.coachCardTitle}>Coach Information</Text>
+                      <View style={styles.coachInfoRow}>
+                        <View style={styles.coachAvatarSmall}>
+                          <Text style={styles.coachAvatarText}>
+                            {coach.name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={styles.coachInfoDetails}>
+                          <Text style={styles.coachName}>{coach.name}</Text>
+                          <Text style={styles.coachEmail}>{coach.email}</Text>
+                          <View style={styles.badge}>
+                            <Text style={styles.badgeText}>{coach.role}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  )}
                 </View>
               </View>
 
-              {/* Assigned Athletes Section */}
+              {/* Additional Information */}
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Assigned Athletes ({athletes.length})</Text>
-                
-                {athletes.length === 0 ? (
-                  <View style={styles.emptyContainer}>
-                    <Ionicons name="person-outline" size={48} color="#cbd5e1" />
-                    <Text style={styles.emptyText}>No athletes assigned to this coach yet</Text>
+                <Text style={styles.sectionTitle}>Profile Information</Text>
+                <View style={styles.infoCard}>
+                  <View style={styles.infoRow}>
+                    <Ionicons name="person-outline" size={20} color="#647286" />
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>Full Name</Text>
+                      <Text style={styles.infoValue}>{athlete.name}</Text>
+                    </View>
                   </View>
-                ) : (
-                  <View style={styles.athletesList}>
-                    {athletes.map((athlete) => (
-                      <View key={athlete.athlete_id} style={styles.athleteCard}>
-                        <View style={styles.athleteHeader}>
-                          <View style={styles.athleteAvatar}>
-                            <Text style={styles.avatarText}>
-                              {athlete.name.charAt(0).toUpperCase()}
-                            </Text>
-                          </View>
-                          <View style={styles.athleteInfo}>
-                            <Text style={styles.athleteName}>{athlete.name}</Text>
-                            <Text style={styles.athleteSport}>{athlete.sport || 'No sport specified'}</Text>
-                          </View>
-                        </View>
-                        <View style={styles.athleteFooter}>
-                          <Text style={styles.athleteWeight}>
-                            {athlete.weight ? `Weight: ${athlete.weight}` : 'Weight not specified'}
-                          </Text>
-                        </View>
-                      </View>
-                    ))}
+                  
+                  <View style={styles.divider} />
+                  
+                  <View style={styles.infoRow}>
+                    <Ionicons name="fitness-outline" size={20} color="#647286" />
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>Sport</Text>
+                      <Text style={styles.infoValue}>{athlete.sport || 'Not specified'}</Text>
+                    </View>
                   </View>
-                )}
+
+                  <View style={styles.divider} />
+
+                  <View style={styles.infoRow}>
+                    <Ionicons name="scale-outline" size={20} color="#647286" />
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>Weight</Text>
+                      <Text style={styles.infoValue}>
+                        {athlete.weight ? `${athlete.weight} kg` : 'Not specified'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.divider} />
+
+                  <View style={styles.infoRow}>
+                    <Ionicons name="ribbon-outline" size={20} color="#647286" />
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>Role</Text>
+                      <Text style={styles.infoValue}>Athlete</Text>
+                    </View>
+                  </View>
+                </View>
               </View>
             </>
           )}
@@ -352,7 +407,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
   },
-  coachInfoCard: {
+  athleteInfoCard: {
     backgroundColor: '#fff',
     borderColor: '#e2e8f0',
     borderWidth: 1,
@@ -360,11 +415,11 @@ const styles = StyleSheet.create({
     padding: 24,
     marginBottom: 24,
   },
-  coachAvatar: {
+  athleteAvatar: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#8b5cf6',
+    backgroundColor: '#f59e0b',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -374,23 +429,82 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#fff',
   },
-  coachDetails: {
-    gap: 8,
+  athleteDetails: {
+    gap: 12,
   },
-  coachName: {
+  athleteName: {
     fontSize: 22,
     fontWeight: '700',
     color: '#0f172a',
   },
-  coachEmail: {
+  athleteSport: {
     fontSize: 14,
     color: '#475569',
   },
-  coachMetaRow: {
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     marginTop: 8,
+  },
+  infoItem: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: '#647286',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  infoValue: {
+    fontSize: 14,
+    color: '#0f172a',
+    fontWeight: '500',
+  },
+  coachCard: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 16,
+  },
+  coachCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 12,
+  },
+  coachInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  coachAvatarSmall: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#8b5cf6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  coachAvatarText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  coachInfoDetails: {
+    flex: 1,
+  },
+  coachName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  coachEmail: {
+    fontSize: 12,
+    color: '#647286',
+    marginTop: 2,
   },
   badge: {
     backgroundColor: '#eff6ff',
@@ -399,39 +513,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    alignSelf: 'flex-start',
+    marginTop: 4,
   },
   badgeText: {
     fontSize: 12,
     fontWeight: '600',
     color: '#3b82f6',
-  },
-  coachIdText: {
-    fontSize: 12,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    color: '#94a3b8',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#647286',
-    fontWeight: '600',
   },
   section: {
     marginBottom: 32,
@@ -442,63 +530,19 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     marginBottom: 16,
   },
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-  },
-  emptyText: {
-    color: '#647286',
-    fontSize: 15,
-    marginTop: 12,
-  },
-  athletesList: {
-    gap: 12,
-  },
-  athleteCard: {
+  infoCard: {
     backgroundColor: '#fff',
     borderColor: '#e2e8f0',
     borderWidth: 1,
-    borderRadius: 8,
-    padding: 16,
+    borderRadius: 10,
+    padding: 20,
   },
-  athleteHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-  },
-  athleteAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#f59e0b',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  athleteInfo: {
+  infoContent: {
     flex: 1,
   },
-  athleteName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  athleteSport: {
-    fontSize: 12,
-    color: '#647286',
-    marginTop: 2,
-  },
-  athleteFooter: {
-    paddingTop: 12,
-    borderTopColor: '#f1f5f9',
-    borderTopWidth: 1,
-  },
-  athleteWeight: {
-    fontSize: 13,
-    color: '#475569',
+  divider: {
+    height: 1,
+    backgroundColor: '#f1f5f9',
+    marginVertical: 12,
   },
 });

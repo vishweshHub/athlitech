@@ -12,6 +12,7 @@ class UserRead(BaseModel):
     name: str
     email: EmailStr
     role: str
+    coach_id: str | None = None
 
 
 class UserRoleUpdate(BaseModel):

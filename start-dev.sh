@@ -14,7 +14,7 @@ sleep 2
 
 echo "Starting frontend..."
 (
-  cd "$SCRIPT_DIR"
+  cd "$SCRIPT_DIR/frontend"
   npm start
 ) &
 FRONTEND_PID=$!

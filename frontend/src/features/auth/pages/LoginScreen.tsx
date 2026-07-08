@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 
-import { fetchCurrentUser, getStoredToken, login, storeToken } from '@/services/auth';
+import { fetchCurrentUser, getStoredToken, login, storeToken } from '@/api/auth';
 import { Ionicons } from '@expo/vector-icons';
 
 const DASHBOARD_ROUTE = '/dashboard' as Href;

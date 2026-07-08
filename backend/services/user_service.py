@@ -2,7 +2,7 @@ from bson import ObjectId
 from fastapi import HTTPException
 
 from core.permissions import normalize_role
-from repositories import user_repository
+from repositories.user_repository import user_repository
 from schemas.user_schema import UserRead, UserRoleUpdate
 
 
@@ -13,7 +13,8 @@ async def get_all_users():
             id=str(user["_id"]),
             name=user["name"],
             email=user["email"],
-            role=normalize_role(user.get("role", "athlete"))
+            role=normalize_role(user.get("role", "athlete")),
+            coach_id=user.get("coach_id")
         )
         for user in users
     ]
@@ -32,7 +33,8 @@ async def get_user_by_id(user_id: str):
         id=str(user["_id"]),
         name=user["name"],
         email=user["email"],
-        role=normalize_role(user.get("role", "athlete"))
+        role=normalize_role(user.get("role", "athlete")),
+        coach_id=user.get("coach_id")
     )
 
 
@@ -54,7 +56,8 @@ async def update_user_role(user_id: str, role_update: UserRoleUpdate):
         id=str(user["_id"]),
         name=user["name"],
         email=user["email"],
-        role=normalize_role(user.get("role", "athlete"))
+        role=normalize_role(user.get("role", "athlete")),
+        coach_id=user.get("coach_id")
     )
 
 

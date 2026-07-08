@@ -11,17 +11,24 @@ router = APIRouter(tags=["Athletes"])
 async def assign_athlete(athlete_id: str, coach_id: str, current_user: dict = Depends(get_current_user)):
     if current_user.get("role") == "coach":
         user = await users_collection.find_one({"email": current_user.get("email")})
-        if not user or user.get("coach_id") != coach_id:
+        if not user:
+            raise HTTPException(status_code=403, detail="Coaches can only assign athletes to themselves")
+        user_coach_id = user.get("coach_id") or str(user["_id"])
+        if user_coach_id != coach_id:
             raise HTTPException(status_code=403, detail="Coaches can only assign athletes to themselves")
 
-    return await assign_athlete_to_coach(athlete_id, coach_id)
+    overwrite = current_user.get("role") == "admin"
+    return await assign_athlete_to_coach(athlete_id, coach_id, overwrite=overwrite)
 
 
 @router.get("/coaches/{coach_id}/athletes", dependencies=[Depends(require_coach_or_admin)], tags=["Coaches"])
 async def get_coach_athletes(coach_id: str, current_user: dict = Depends(get_current_user)):
     if current_user.get("role") == "coach":
         user = await users_collection.find_one({"email": current_user.get("email")})
-        if not user or user.get("coach_id") != coach_id:
+        if not user:
+            raise HTTPException(status_code=403, detail="Coaches can only view their own athletes")
+        user_coach_id = user.get("coach_id") or str(user["_id"])
+        if user_coach_id != coach_id:
             raise HTTPException(status_code=403, detail="Coaches can only view their own athletes")
 
     athletes = []
@@ -34,6 +41,20 @@ async def get_coach_athletes(coach_id: str, current_user: dict = Depends(get_cur
             "coach_id": a.get("coach_id"),
         })
 
+    return athletes
+
+
+@router.get("/athletes/", dependencies=[Depends(require_coach_or_admin)], tags=["Athletes"])
+async def list_athletes(current_user: dict = Depends(get_current_user)):
+    athletes = []
+    async for a in athletes_collection.find():
+        athletes.append({
+            "athlete_id": a.get("athlete_id"),
+            "name": a.get("name"),
+            "sport": a.get("sport"),
+            "weight": a.get("weight"),
+            "coach_id": a.get("coach_id"),
+        })
     return athletes
 
 
@@ -60,20 +81,34 @@ async def get_coach_by_id(coach_id: str):
 @router.get("/athletes/{athlete_id}", tags=["Athletes"])
 async def get_athlete_by_id(athlete_id: str, current_user: dict = Depends(get_current_user)):
     athlete = await athletes_collection.find_one({"athlete_id": athlete_id})
+    from bson.objectid import ObjectId
+
     if not athlete:
-        raise HTTPException(status_code=404, detail="Athlete not found")
+        user = await users_collection.find_one({"_id": ObjectId(athlete_id)}) if ObjectId.is_valid(athlete_id) else None
+        if user and user.get("role", "").lower() == "athlete":
+            athlete = {
+                "athlete_id": athlete_id,
+                "name": user.get("name"),
+                "sport": "Sprinting",
+                "weight": 70,
+                "coach_id": None,
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Athlete not found")
 
     if current_user.get("role") == "admin":
         pass
     elif current_user.get("role") == "coach":
         user = await users_collection.find_one({"email": current_user.get("email")})
-        if not user or user.get("coach_id") != athlete.get("coach_id"):
+        if not user:
+            raise HTTPException(status_code=403, detail="Coaches can only access their assigned athletes")
+        user_coach_id = user.get("coach_id") or str(user["_id"])
+        if user_coach_id != athlete.get("coach_id"):
             raise HTTPException(status_code=403, detail="Coaches can only access their assigned athletes")
     elif current_user.get("role") == "athlete":
-        if athlete.get("owner_id") and athlete.get("owner_id") != current_user.get("id"):
+        is_owner = athlete.get("owner_id") == current_user.get("id") or athlete.get("athlete_id") == current_user.get("id")
+        if not is_owner:
             raise HTTPException(status_code=403, detail="Athletes can only access their own profile")
-        if not athlete.get("owner_id"):
-            raise HTTPException(status_code=403, detail="Athletes cannot access this profile")
 
     return {
         "athlete_id": athlete.get("athlete_id"),

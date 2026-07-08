@@ -4,7 +4,8 @@ from services.auth_service import get_current_user
 from services.performance_service import add_performance, get_athlete_performances
 from schemas.performance_schema import PerformanceCreate, PerformanceRead
 from models.performance_model import Performance
-from database.mongodb import athletes_collection, users_collection
+from repositories.coach_repository import coach_repository
+from repositories.athlete_repository import athlete_repository
 from bson.objectid import ObjectId
 
 router = APIRouter(prefix="/performances", tags=["Performance"])
@@ -21,15 +22,13 @@ async def create_performance(
     # Resolve coach internal ID
     if not ObjectId.is_valid(current_user.get("id")):
         raise HTTPException(status_code=400, detail="Invalid user ID format")
-    coach_doc = await users_collection.find_one({"_id": ObjectId(current_user.get("id"))})
+    coach_doc = await coach_repository.find_by_id(current_user.get("id"))
     if not coach_doc:
         raise HTTPException(status_code=404, detail="Coach not found")
-    coach_id = coach_doc.get("coach_id")
-    if not coach_id:
-        raise HTTPException(status_code=400, detail="Coach ID not configured for this user")
+    coach_id = coach_doc.get("coach_id") or str(coach_doc["_id"])
 
     # Verify athlete exists
-    athlete = await athletes_collection.find_one({"athlete_id": perf_data.athlete_id})
+    athlete = await athlete_repository.find_by_id(perf_data.athlete_id)
     if not athlete:
         raise HTTPException(status_code=404, detail="Athlete not found")
 
@@ -61,11 +60,11 @@ async def get_athlete_performance_history(
     elif current_user.get("role") == "coach":
         if not ObjectId.is_valid(current_user.get("id")):
             raise HTTPException(status_code=400, detail="Invalid user ID format")
-        coach_doc = await users_collection.find_one({"_id": ObjectId(current_user.get("id"))})
+        coach_doc = await coach_repository.find_by_id(current_user.get("id"))
         if not coach_doc:
             raise HTTPException(status_code=404, detail="Coach not found")
-        coach_id = coach_doc.get("coach_id")
-        athlete = await athletes_collection.find_one({"athlete_id": athlete_id})
+        coach_id = coach_doc.get("coach_id") or str(coach_doc["_id"])
+        athlete = await athlete_repository.find_by_id(athlete_id)
         if not athlete or athlete.get("coach_id") != coach_id:
             raise HTTPException(status_code=403, detail="Coaches can only view performances of their assigned athletes")
     elif current_user.get("role") != "admin":
@@ -73,4 +72,3 @@ async def get_athlete_performance_history(
 
     records = await get_athlete_performances(athlete_id)
     return [PerformanceRead(**rec) for rec in records]
-

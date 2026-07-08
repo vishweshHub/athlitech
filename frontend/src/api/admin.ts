@@ -5,6 +5,7 @@ export type User = {
   name: string;
   email: string;
   role: string;
+  coach_id?: string;
 };
 
 export type Role = {
@@ -150,6 +151,19 @@ export async function fetchAthleteById(token: string, athleteId: string): Promis
   if (!response.ok) {
     const data = await response.json().catch(() => null);
     throw new Error(data?.detail ?? 'Failed to fetch athlete details');
+  }
+  return response.json();
+}
+
+export async function fetchAllAthletes(token: string): Promise<Athlete[]> {
+  const response = await fetch(`${API_URL}/athletes/`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.detail ?? 'Failed to fetch athletes');
   }
   return response.json();
 }

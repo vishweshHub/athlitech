@@ -11,13 +11,13 @@ import {
   View,
 } from 'react-native';
 
-import type { Athlete, Coach } from '@/services/admin';
-import { fetchAthleteById, fetchCoachById } from '@/services/admin';
-import type { AuthUser } from '@/services/auth';
-import type { Workout } from '@/services/workout';
-import { fetchAthleteWorkouts, updateWorkoutStatus } from '@/services/workout';
-import type { PerformanceRecord } from '@/services/performance';
-import { fetchAthletePerformances } from '@/services/performance';
+import type { Athlete, Coach } from '@/api/admin';
+import { fetchAthleteById, fetchCoachById } from '@/api/admin';
+import type { AuthUser } from '@/api/auth';
+import type { Workout } from '@/api/workout';
+import { fetchAthleteWorkouts, updateWorkoutStatus } from '@/api/workout';
+import type { PerformanceRecord } from '@/api/performance';
+import { fetchAthletePerformances } from '@/api/performance';
 import { Ionicons } from '@expo/vector-icons';
 
 function SkeletonCard() {

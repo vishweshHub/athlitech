@@ -12,13 +12,13 @@ import {
   View,
 } from 'react-native';
 
-import type { Athlete } from '@/services/admin';
-import { fetchCoachAthletes, fetchCoachById } from '@/services/admin';
-import type { AuthUser } from '@/services/auth';
-import type { Workout, Exercise } from '@/services/workout';
-import { createWorkout, fetchCoachWorkouts } from '@/services/workout';
-import type { PerformanceRecord } from '@/services/performance';
-import { fetchAthletePerformances, createPerformance } from '@/services/performance';
+import type { Athlete } from '@/api/admin';
+import { fetchCoachAthletes, fetchCoachById } from '@/api/admin';
+import type { AuthUser } from '@/api/auth';
+import type { Workout, Exercise } from '@/api/workout';
+import { createWorkout, fetchCoachWorkouts } from '@/api/workout';
+import type { PerformanceRecord } from '@/api/performance';
+import { fetchAthletePerformances, createPerformance } from '@/api/performance';
 import { Ionicons } from '@expo/vector-icons';
 
 function SkeletonCard() {
@@ -119,7 +119,11 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
         // If coach_id is not present directly on user, fetch the full coach details to obtain coach_id.
         if (!actualCoachId && user?.id) {
           const coachData = await fetchCoachById(token, user.id);
-          actualCoachId = coachData.coach_id;
+          actualCoachId = coachData.coach_id || coachData.id;
+        }
+
+        if (!actualCoachId && user?.id) {
+          actualCoachId = user.id;
         }
 
         if (!actualCoachId) {
@@ -320,8 +324,8 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
     const query = searchQuery.toLowerCase();
     const filtered = athletes.filter(
       (athlete) =>
-        athlete.name.toLowerCase().includes(query) ||
-        athlete.sport.toLowerCase().includes(query)
+        (athlete.name && athlete.name.toLowerCase().includes(query)) ||
+        (athlete.sport && athlete.sport.toLowerCase().includes(query))
     );
     setFilteredAthletes(filtered);
   }, [searchQuery, athletes]);
@@ -786,7 +790,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                       <Ionicons name="arrow-back-outline" size={18} color="#3b82f6" />
                       <Text style={styles.backBtnText}>Back to Athletes</Text>
                     </Pressable>
-                    <Text style={styles.sectionTitle}>{selectedAthleteForPerf.name}'s Performance</Text>
+                    <Text style={styles.sectionTitle}>{selectedAthleteForPerf.name}&apos;s Performance</Text>
                   </View>
 
                   <View style={styles.workoutsHeader}>
