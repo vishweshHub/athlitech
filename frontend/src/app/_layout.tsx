@@ -6,7 +6,7 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export const unstable_settings = {
-  initialRouteName: 'index',
+  initialRouteName: 'landing',
 };
 
 export default function RootLayout() {
@@ -15,7 +15,10 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
+        <Stack.Screen name="landing" options={{ headerShown: false }} />
         <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="register" options={{ headerShown: false }} />
+        <Stack.Screen name="dashboard" options={{ headerShown: false }} />
         <Stack.Screen name="coach-dashboard" options={{ headerShown: false }} />
         <Stack.Screen name="athlete-dashboard" options={{ headerShown: false }} />
         <Stack.Screen name="coach-details" options={{ title: 'Coach Details' }} />
