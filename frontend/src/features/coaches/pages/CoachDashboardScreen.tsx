@@ -435,7 +435,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
 
   const selectedAthlete = athletes.find(a => a.athlete_id === newWorkoutAthleteId);
   const displayValue = selectedAthlete && !isDropdownOpen
-    ? `${selectedAthlete.name} (${selectedAthlete.sport || 'General'})`
+    ? `${selectedAthlete.name} (ID: ${selectedAthlete.athlete_id}) (${selectedAthlete.sport || 'General'})`
     : dropdownSearch;
 
   return (
@@ -562,7 +562,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                           </Text>
                         </View>
                         <View style={styles.athleteInfo}>
-                          <Text style={styles.athleteName}>{athlete.name}</Text>
+                          <Text style={styles.athleteName}>{athlete.name} (ID: {athlete.athlete_id})</Text>
                           <Text style={styles.athleteSport}>
                             {athlete.sport || 'No sport specified'}
                           </Text>
@@ -630,7 +630,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                     ) : athletes.length === 1 ? (
                       <TextInput
                         style={[styles.input, styles.readOnlyInput]}
-                        value={`${athletes[0].name} (${athletes[0].sport || 'General'})`}
+                        value={`${athletes[0].name} (ID: ${athletes[0].athlete_id}) (${athletes[0].sport || 'General'})`}
                         editable={false}
                       />
                     ) : (
@@ -645,7 +645,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                               setDropdownSearch(val);
                               setIsDropdownOpen(true);
                               const matched = athletes.find(
-                                (a) => `${a.name} (${a.sport || 'General'})`.toLowerCase() === val.toLowerCase()
+                                (a) => `${a.name} (ID: ${a.athlete_id}) (${a.sport || 'General'})`.toLowerCase() === val.toLowerCase()
                               );
                               if (matched) {
                                 setNewWorkoutAthleteId(matched.athlete_id);
@@ -682,12 +682,12 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                                   style={styles.dropdownItem}
                                   onPress={() => {
                                     setNewWorkoutAthleteId(ath.athlete_id);
-                                    setDropdownSearch(`${ath.name} (${ath.sport || 'General'})`);
+                                    setDropdownSearch(`${ath.name} (ID: ${ath.athlete_id}) (${ath.sport || 'General'})`);
                                     setIsDropdownOpen(false);
                                   }}
                                 >
                                   <Text style={styles.dropdownItemText}>
-                                    {ath.name} ({ath.sport || 'General'})
+                                    {ath.name} (ID: {ath.athlete_id}) ({ath.sport || 'General'})
                                   </Text>
                                 </Pressable>
                               ))}
@@ -950,7 +950,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                               </Text>
                             </View>
                             <View style={styles.athleteInfo}>
-                              <Text style={styles.athleteName}>{athlete.name}</Text>
+                              <Text style={styles.athleteName}>{athlete.name} (ID: {athlete.athlete_id})</Text>
                               <Text style={styles.athleteSport}>
                                 {athlete.sport || 'No sport specified'}
                               </Text>
@@ -986,7 +986,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                       <Ionicons name="arrow-back-outline" size={18} color="#3b82f6" />
                       <Text style={styles.backBtnText}>Back to Athletes</Text>
                     </Pressable>
-                    <Text style={styles.sectionTitle}>{selectedAthleteForPerf.name}&apos;s Performance</Text>
+                    <Text style={styles.sectionTitle}>{selectedAthleteForPerf.name} (ID: {selectedAthleteForPerf.athlete_id})&apos;s Performance</Text>
                   </View>
 
                   <View style={styles.workoutsHeader}>
@@ -1110,42 +1110,84 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                   ) : athletePerformances.length === 0 ? (
                     <View style={styles.emptyContainer}>
                       <Ionicons name="speedometer-outline" size={48} color="#cbd5e1" />
-                      <Text style={styles.emptyText}>No performance records logged yet.</Text>
+                      <Text style={styles.emptyText}>No performance history available.</Text>
                     </View>
                   ) : (
                     <View style={styles.perfList}>
-                      {athletePerformances.map((perf) => (
-                        <View key={perf.performance_id} style={styles.perfCard}>
-                          <View style={styles.perfCardHeader}>
-                            <View style={styles.perfDateCol}>
-                              <Ionicons name="calendar-outline" size={16} color="#647286" />
-                              <Text style={styles.perfDateText}>{perf.date}</Text>
-                            </View>
-                            <View style={styles.perfTimeBadge}>
-                              <Ionicons name="stopwatch-outline" size={14} color="#047857" />
-                              <Text style={styles.perfTimeBadgeText}>{perf.sprint_time}s</Text>
-                            </View>
-                          </View>
+                      {athletePerformances.map((perf) => {
+                        const linkedWorkout = workouts.find((w) => w.workout_id === perf.workout_id);
+                        
+                        const athleteName = selectedAthleteForPerf ? selectedAthleteForPerf.name : 'Unknown Athlete';
+                        const workoutTitle = linkedWorkout ? linkedWorkout.title : 'N/A';
+                        const workoutStatus = linkedWorkout ? linkedWorkout.status : 'completed';
+                        const completionDate = linkedWorkout?.completed_at || perf.recorded_at || perf.date || 'N/A';
+                        
+                        const exerciseDurations = linkedWorkout?.exercises
+                          ?.map((e) => e.duration)
+                          ?.filter((d) => !!d && d.trim().length > 0);
+                        const workoutDuration = exerciseDurations && exerciseDurations.length > 0
+                          ? exerciseDurations.join(', ')
+                          : 'N/A';
                           
-                          <View style={styles.perfMetricsRow}>
-                            <View style={styles.perfMetricBox}>
-                              <Text style={styles.perfMetricLabel}>Weight</Text>
-                              <Text style={styles.perfMetricVal}>{perf.weight} kg</Text>
+                        const athleteNotes = linkedWorkout?.athlete_notes || 'No notes provided';
+                        const coachFeedback = perf.feedback || perf.coach_remarks || 'No feedback provided';
+                        const performanceValue = perf.value !== undefined 
+                          ? `${perf.value} ${perf.unit || ''}` 
+                          : `${perf.sprint_time || 0}s`;
+                        const eventName = perf.sport_event || 'General';
+
+                        return (
+                          <View key={perf.performance_id} style={styles.perfCard}>
+                            <View style={styles.perfCardHeader}>
+                              <View style={styles.perfHeaderLeft}>
+                                <Ionicons name="speedometer-outline" size={20} color="#ec4899" />
+                                <Text style={styles.perfEventTitle}>{eventName}</Text>
+                              </View>
+                              <View style={styles.perfValueBadge}>
+                                <Text style={styles.perfValueBadgeText}>{performanceValue}</Text>
+                              </View>
                             </View>
-                            <View style={styles.perfMetricBox}>
-                              <Text style={styles.perfMetricLabel}>Height</Text>
-                              <Text style={styles.perfMetricVal}>{perf.height} cm</Text>
+
+                            <View style={styles.perfDetailsGrid}>
+                              <View style={styles.perfDetailRow}>
+                                <Text style={styles.perfDetailLabel}>Athlete:</Text>
+                                <Text style={styles.perfDetailValue}>{athleteName}</Text>
+                              </View>
+                              <View style={styles.perfDetailRow}>
+                                <Text style={styles.perfDetailLabel}>Workout Title:</Text>
+                                <Text style={styles.perfDetailValue}>{workoutTitle}</Text>
+                              </View>
+                              <View style={styles.perfDetailRow}>
+                                <Text style={styles.perfDetailLabel}>Workout Status:</Text>
+                                <Text style={[
+                                  styles.perfDetailValue, 
+                                  { color: workoutStatus === 'completed' ? '#10b981' : '#f59e0b', fontWeight: 'bold' }
+                                ]}>
+                                  {workoutStatus.toUpperCase()}
+                                </Text>
+                              </View>
+                              <View style={styles.perfDetailRow}>
+                                <Text style={styles.perfDetailLabel}>Completion Date:</Text>
+                                <Text style={styles.perfDetailValue}>{completionDate}</Text>
+                              </View>
+                              <View style={styles.perfDetailRow}>
+                                <Text style={styles.perfDetailLabel}>Duration:</Text>
+                                <Text style={styles.perfDetailValue}>{workoutDuration}</Text>
+                              </View>
+                            </View>
+
+                            <View style={styles.perfNotesSection}>
+                              <Text style={styles.notesSectionLabel}>Athlete Notes</Text>
+                              <Text style={styles.notesSectionText}>{athleteNotes}</Text>
+                            </View>
+
+                            <View style={[styles.perfNotesSection, { borderTopColor: '#f1f5f9', borderTopWidth: 1, paddingTop: 10 }]}>
+                              <Text style={[styles.notesSectionLabel, { color: '#0f172a' }]}>Coach Feedback</Text>
+                              <Text style={styles.notesSectionText}>{coachFeedback}</Text>
                             </View>
                           </View>
-
-                          {perf.coach_remarks ? (
-                            <View style={styles.remarksBox}>
-                              <Text style={styles.remarksLabel}>Coach Remarks:</Text>
-                              <Text style={styles.remarksText}>{perf.coach_remarks}</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      ))}
+                        );
+                      })}
                     </View>
                   )}
                 </>
@@ -2228,5 +2270,67 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#ffffff',
+  },
+  perfHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  perfEventTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  perfValueBadge: {
+    backgroundColor: '#fdf2f8',
+    borderColor: '#fbcfe8',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  perfValueBadgeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#db2777',
+  },
+  perfDetailsGrid: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#cbd5e1',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    gap: 8,
+    marginVertical: 12,
+  },
+  perfDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  perfDetailLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  perfDetailValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  perfNotesSection: {
+    marginTop: 10,
+    gap: 4,
+  },
+  notesSectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+    textTransform: 'uppercase',
+  },
+  notesSectionText: {
+    fontSize: 13,
+    color: '#334155',
+    lineHeight: 18,
   },
 });

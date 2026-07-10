@@ -1215,6 +1215,11 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                                 </View>
                                 <View style={styles.athleteInfo}>
                                   <Text style={styles.athleteName}>{athlete.name}</Text>
+                                  <Text style={styles.athleteShortId}>
+                                    {athlete.id.length > 8
+                                      ? `${athlete.id.substring(0, 4)}...${athlete.id.substring(athlete.id.length - 4)}`
+                                      : athlete.id}
+                                  </Text>
                                   <Text style={styles.athleteEmail}>{athlete.email}</Text>
                                   <Text style={{ fontSize: 12, color: '#647286', marginTop: 4 }}>
                                     Current Coach: {currentCoach ? currentCoach.name : 'No coach assigned'}
@@ -1992,6 +1997,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#0f172a',
+  },
+  athleteShortId: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#94a3b8',
+    marginTop: 2,
+    fontFamily: Platform.OS === 'web' ? 'monospace' : undefined,
   },
   athleteEmail: {
     fontSize: 12,

@@ -75,10 +75,13 @@ async def delete_user_by_id(user_id: str):
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
 
-    from database.mongodb import athletes_collection
+    from database.mongodb import athletes_collection, workouts_collection, performance_collection
     if role == "athlete":
         # Deleting an athlete removes all coach assignments / deletes athlete profile record
         await athletes_collection.delete_one({"athlete_id": user_id})
+        # Prevent orphan references by deleting their workouts and performance history
+        await workouts_collection.delete_many({"athlete_id": user_id})
+        await performance_collection.delete_many({"athlete_id": user_id})
     elif role == "coach":
         # Deleting a coach removes athlete assignments (sets coach_id to None)
         coach_id = user.get("coach_id") or user_id

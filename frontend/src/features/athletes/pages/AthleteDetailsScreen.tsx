@@ -15,6 +15,10 @@ import type { Athlete, Coach } from '@/api/admin';
 import { fetchAthleteById, fetchCoachById } from '@/api/admin';
 import type { AuthUser } from '@/api/auth';
 import { getStoredToken, fetchCurrentUser, clearStoredToken } from '@/api/auth';
+import type { Workout } from '@/api/workout';
+import { fetchAthleteWorkouts } from '@/api/workout';
+import type { PerformanceRecord } from '@/api/performance';
+import { fetchAthletePerformances } from '@/api/performance';
 import { Ionicons } from '@expo/vector-icons';
 
 const isWeb = Platform.OS === 'web';
@@ -35,6 +39,9 @@ export default function AthleteDetailsScreen({ user: propUser, token: propToken,
   const [athlete, setAthlete] = useState<Athlete | null>(null);
   const [coach, setCoach] = useState<Coach | null>(null);
   const [isCoachLoading, setIsCoachLoading] = useState(false);
+  const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [performances, setPerformances] = useState<PerformanceRecord[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,19 +89,37 @@ export default function AthleteDetailsScreen({ user: propUser, token: propToken,
         const athleteData = await fetchAthleteById(token as string, athleteId);
         setAthlete(athleteData);
 
-        // Fetch coach details if athlete has a coach assigned
-        if (athleteData.coach_id) {
-          setIsCoachLoading(true);
-          try {
-            const coachData = await fetchCoachById(token as string, athleteData.coach_id);
-            setCoach(coachData);
-          } catch (coachError) {
-            console.warn('Failed to fetch coach details:', coachError);
-            // Coach details are optional, don't fail the whole page
-          } finally {
-            setIsCoachLoading(false);
-          }
-        }
+        setIsCoachLoading(true);
+        setIsHistoryLoading(true);
+
+        const coachPromise = athleteData.coach_id
+          ? fetchCoachById(token as string, athleteData.coach_id).catch((err) => {
+              console.warn('Failed to fetch coach details:', err);
+              return null;
+            })
+          : Promise.resolve(null);
+
+        const workoutsPromise = fetchAthleteWorkouts(token as string, athleteId).catch((err) => {
+          console.warn('Failed to fetch athlete workouts:', err);
+          return [];
+        });
+
+        const performancesPromise = fetchAthletePerformances(token as string, athleteId).catch((err) => {
+          console.warn('Failed to fetch athlete performances:', err);
+          return [];
+        });
+
+        const [coachData, workoutsData, performancesData] = await Promise.all([
+          coachPromise,
+          workoutsPromise,
+          performancesPromise,
+        ]);
+
+        setCoach(coachData);
+        setWorkouts(workoutsData);
+        setPerformances(performancesData);
+        setIsCoachLoading(false);
+        setIsHistoryLoading(false);
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Failed to load athlete details';
         console.warn('Error loading athlete details:', e);
@@ -303,6 +328,87 @@ export default function AthleteDetailsScreen({ user: propUser, token: propToken,
                     </View>
                   </View>
                 </View>
+              </View>
+
+              {/* Workout History Section */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Workout History ({workouts.length})</Text>
+                {isHistoryLoading ? (
+                  <ActivityIndicator size="small" color="#3b82f6" />
+                ) : workouts.length === 0 ? (
+                  <View style={styles.emptyHistoryContainer}>
+                    <Text style={styles.emptyHistoryText}>No history available.</Text>
+                  </View>
+                ) : (
+                  <View style={styles.historyList}>
+                    {workouts.map((w) => (
+                      <View key={w.workout_id} style={styles.historyCard}>
+                        <View style={styles.historyHeader}>
+                          <Text style={styles.historyTitle}>{w.title}</Text>
+                          <View style={[
+                            styles.statusBadge, 
+                            { backgroundColor: w.status === 'completed' ? '#ecfdf5' : '#fffbeb', borderColor: w.status === 'completed' ? '#10b981' : '#f59e0b' }
+                          ]}>
+                            <Text style={[
+                              styles.statusBadgeText, 
+                              { color: w.status === 'completed' ? '#047857' : '#d97706' }
+                            ]}>
+                              {w.status.toUpperCase()}
+                            </Text>
+                          </View>
+                        </View>
+                        {w.description ? (
+                          <Text style={styles.historyDesc}>{w.description}</Text>
+                        ) : null}
+                        {w.completed_at ? (
+                          <Text style={styles.historyDateText}>Completed At: {w.completed_at}</Text>
+                        ) : (
+                          <Text style={styles.historyDateText}>Date Assigned: {w.date}</Text>
+                        )}
+                        {w.athlete_notes ? (
+                          <View style={styles.notesSubBox}>
+                            <Text style={styles.notesSubLabel}>Athlete Notes:</Text>
+                            <Text style={styles.notesSubText}>{w.athlete_notes}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* Performance History Section */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Performance & Feedback History ({performances.length})</Text>
+                {isHistoryLoading ? (
+                  <ActivityIndicator size="small" color="#3b82f6" />
+                ) : performances.length === 0 ? (
+                  <View style={styles.emptyHistoryContainer}>
+                    <Text style={styles.emptyHistoryText}>No history available.</Text>
+                  </View>
+                ) : (
+                  <View style={styles.historyList}>
+                    {performances.map((perf) => {
+                      const valStr = perf.value !== undefined ? `${perf.value} ${perf.unit || ''}` : `${perf.sprint_time || 0}s`;
+                      const feedbackStr = perf.feedback || perf.coach_remarks || 'No feedback provided';
+                      return (
+                        <View key={perf.performance_id} style={styles.historyCard}>
+                          <View style={styles.historyHeader}>
+                            <Text style={styles.historyTitle}>{perf.sport_event || 'Sprint Time'}</Text>
+                            <View style={styles.perfValueBadge}>
+                              <Text style={styles.perfValueBadgeText}>{valStr}</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.historyDateText}>Recorded At: {perf.recorded_at || perf.date || 'N/A'}</Text>
+                          <View style={styles.notesSubBox}>
+                            <Text style={styles.notesSubLabel}>Coach Feedback:</Text>
+                            <Text style={styles.notesSubText}>{feedbackStr}</Text>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             </>
           )}
@@ -544,5 +650,92 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#f1f5f9',
     marginVertical: 12,
+  },
+  emptyHistoryContainer: {
+    backgroundColor: '#fff',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyHistoryText: {
+    fontSize: 14,
+    color: '#94a3b8',
+    fontStyle: 'italic',
+  },
+  historyList: {
+    gap: 16,
+  },
+  historyCard: {
+    backgroundColor: '#fff',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 16,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  historyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  statusBadge: {
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  historyDesc: {
+    fontSize: 13,
+    color: '#647286',
+    marginBottom: 8,
+  },
+  historyDateText: {
+    fontSize: 12,
+    color: '#94a3b8',
+    fontWeight: '600',
+  },
+  notesSubBox: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#cbd5e1',
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: 10,
+    marginTop: 10,
+    gap: 4,
+  },
+  notesSubLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+    textTransform: 'uppercase',
+  },
+  notesSubText: {
+    fontSize: 13,
+    color: '#334155',
+    lineHeight: 18,
+  },
+  perfValueBadge: {
+    backgroundColor: '#fdf2f8',
+    borderColor: '#fbcfe8',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  perfValueBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#db2777',
   },
 });
