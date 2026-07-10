@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
-from services.auth_service import get_current_user
+from services.auth_service import get_current_user, require_admin
 from services.performance_service import add_performance, get_athlete_performances
 from schemas.performance_schema import PerformanceCreate, PerformanceRead
 from models.performance_model import Performance
 from repositories.coach_repository import coach_repository
 from repositories.athlete_repository import athlete_repository
+from repositories.workout_repository import workout_repository
 from bson.objectid import ObjectId
 
 router = APIRouter(prefix="/performances", tags=["Performance"])
@@ -36,6 +37,14 @@ async def create_performance(
     if athlete.get("coach_id") != coach_id:
         raise HTTPException(status_code=403, detail="Athlete is not assigned to this coach")
 
+    # Verify workout exists and is completed (if provided)
+    if perf_data.workout_id:
+        workout = await workout_repository.find_by_workout_id(perf_data.workout_id)
+        if not workout:
+            raise HTTPException(status_code=404, detail="Workout not found")
+        if workout.get("status") != "completed":
+            raise HTTPException(status_code=400, detail="Performance record can only be created for completed workouts")
+
     performance = Performance(
         athlete_id=perf_data.athlete_id,
         coach_id=coach_id,
@@ -44,6 +53,13 @@ async def create_performance(
         weight=perf_data.weight,
         height=perf_data.height,
         coach_remarks=perf_data.coach_remarks,
+        # New linked fields
+        workout_id=perf_data.workout_id,
+        sport_event=perf_data.sport_event,
+        value=perf_data.value,
+        unit=perf_data.unit,
+        feedback=perf_data.feedback,
+        recorded_at=perf_data.recorded_at,
     )
     return await add_performance(performance)
 
@@ -71,4 +87,13 @@ async def get_athlete_performance_history(
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     records = await get_athlete_performances(athlete_id)
+    return [PerformanceRead(**rec) for rec in records]
+
+
+@router.get("/", response_model=List[PerformanceRead], dependencies=[Depends(require_admin)])
+async def get_all_performances(current_user: dict = Depends(get_current_user)):
+    records = []
+    from database.mongodb import performance_collection
+    async for rec in performance_collection.find():
+        records.append(rec)
     return [PerformanceRead(**rec) for rec in records]

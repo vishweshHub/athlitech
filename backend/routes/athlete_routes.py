@@ -117,3 +117,41 @@ async def get_athlete_by_id(athlete_id: str, current_user: dict = Depends(get_cu
         "weight": athlete.get("weight"),
         "coach_id": athlete.get("coach_id"),
     }
+
+
+@router.delete("/athletes/{athlete_id}/assign", dependencies=[Depends(require_coach_or_admin)], tags=["Coaches"])
+async def unassign_athlete(athlete_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") == "coach":
+        user = await users_collection.find_one({"email": current_user.get("email")})
+        if not user:
+            raise HTTPException(status_code=403, detail="Coaches can only unassign their own athletes")
+        user_coach_id = user.get("coach_id") or str(user["_id"])
+
+        athlete = await athletes_collection.find_one({"athlete_id": athlete_id})
+        if not athlete or athlete.get("coach_id") != user_coach_id:
+            raise HTTPException(status_code=403, detail="Coaches can only unassign their own athletes")
+
+    result = await athletes_collection.update_one(
+        {"athlete_id": athlete_id},
+        {"$set": {"coach_id": None}}
+    )
+    if result.matched_count == 0:
+        from bson.objectid import ObjectId
+        user = None
+        if ObjectId.is_valid(athlete_id):
+            user = await users_collection.find_one({"_id": ObjectId(athlete_id)})
+        if not user:
+            user = await users_collection.find_one({"_id": athlete_id})
+
+        if not user:
+            raise HTTPException(status_code=404, detail="Athlete not found")
+
+        await athletes_collection.insert_one({
+            "athlete_id": athlete_id,
+            "name": user["name"],
+            "sport": "Sprinting",
+            "weight": 70,
+            "coach_id": None,
+        })
+
+    return {"message": "Coach assignment removed successfully"}

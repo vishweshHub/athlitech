@@ -21,6 +21,9 @@ class WorkoutCreate(BaseModel):
 
 class WorkoutUpdateStatus(BaseModel):
     status: str = Field(..., pattern="^(pending|completed|skipped)$")
+    completed_at: Optional[str] = None
+    completion_percentage: Optional[int] = Field(None, ge=0, le=100)
+    athlete_notes: Optional[str] = None
 
 
 class WorkoutRead(BaseModel):
@@ -32,4 +35,7 @@ class WorkoutRead(BaseModel):
     exercises: List[ExerciseSchema]
     date: str
     status: str
+    completed_at: Optional[str] = None
+    completion_percentage: Optional[int] = None
+    athlete_notes: Optional[str] = None
     created_at: datetime

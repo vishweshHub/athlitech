@@ -36,10 +36,24 @@ class WorkoutRepository:
     async def find_by_workout_id(self, workout_id: str) -> dict | None:
         return await self.collection.find_one({"workout_id": workout_id})
 
-    async def update_status(self, workout_id: str, status: str):
+    async def update_status(
+        self,
+        workout_id: str,
+        status: str,
+        completed_at: str | None = None,
+        completion_percentage: int | None = None,
+        athlete_notes: str | None = None
+    ):
+        update_data = {"status": status}
+        if completed_at is not None:
+            update_data["completed_at"] = completed_at
+        if completion_percentage is not None:
+            update_data["completion_percentage"] = completion_percentage
+        if athlete_notes is not None:
+            update_data["athlete_notes"] = athlete_notes
         return await self.collection.update_one(
             {"workout_id": workout_id},
-            {"$set": {"status": status}}
+            {"$set": update_data}
         )
 
 workout_repository = WorkoutRepository()

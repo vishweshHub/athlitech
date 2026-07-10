@@ -20,4 +20,7 @@ class Workout(BaseModel):
     exercises: List[Exercise]
     date: str
     status: str = "pending"
+    completed_at: Optional[str] = None
+    completion_percentage: Optional[int] = None
+    athlete_notes: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)

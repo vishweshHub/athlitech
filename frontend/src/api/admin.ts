@@ -167,3 +167,47 @@ export async function fetchAllAthletes(token: string): Promise<Athlete[]> {
   }
   return response.json();
 }
+
+export async function removeAthleteCoachAssignment(token: string, athleteId: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_URL}/athletes/${athleteId}/assign`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.detail ?? 'Failed to remove coach assignment');
+  }
+  return response.json();
+}
+
+export async function updateRolePermissions(token: string, roleName: string, permissions: string[]): Promise<{ message: string }> {
+  const response = await fetch(`${API_URL}/roles/${roleName}/permissions`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(permissions),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.detail ?? 'Failed to update role permissions');
+  }
+  return response.json();
+}
+
+export async function deleteRole(token: string, roleName: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_URL}/roles/${roleName}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.detail ?? 'Failed to delete role');
+  }
+  return response.json();
+}

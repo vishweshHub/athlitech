@@ -65,9 +65,26 @@ async def delete_user_by_id(user_id: str):
     if not ObjectId.is_valid(user_id):
         raise HTTPException(status_code=400, detail="Invalid user id")
 
-    success = await user_repository.delete_user_by_id(user_id)
+    user = await user_repository.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
 
+    role = normalize_role(user.get("role", "athlete"))
+
+    success = await user_repository.delete_user_by_id(user_id)
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
+
+    from database.mongodb import athletes_collection
+    if role == "athlete":
+        # Deleting an athlete removes all coach assignments / deletes athlete profile record
+        await athletes_collection.delete_one({"athlete_id": user_id})
+    elif role == "coach":
+        # Deleting a coach removes athlete assignments (sets coach_id to None)
+        coach_id = user.get("coach_id") or user_id
+        await athletes_collection.update_many(
+            {"coach_id": coach_id},
+            {"$set": {"coach_id": None}}
+        )
 
     return {"message": "User deleted successfully"}

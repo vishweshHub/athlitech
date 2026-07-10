@@ -9,6 +9,8 @@ import {
   StyleSheet,
   Text,
   View,
+  Modal,
+  TextInput,
 } from 'react-native';
 
 import type { Athlete, Coach } from '@/api/admin';
@@ -63,6 +65,13 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
   const [performances, setPerformances] = useState<PerformanceRecord[]>([]);
   const [isPerfLoading, setIsPerfLoading] = useState(false);
   const [perfError, setPerfError] = useState<string | null>(null);
+
+  // Completion modal state
+  const [selectedWorkoutForCompletion, setSelectedWorkoutForCompletion] = useState<Workout | null>(null);
+  const [completionStatus, setCompletionStatus] = useState<'completed' | 'skipped' | 'pending' | null>(null);
+  const [completionPercentage, setCompletionPercentage] = useState('100');
+  const [athleteNotes, setAthleteNotes] = useState('');
+  const [isSavingCompletion, setIsSavingCompletion] = useState(false);
 
 
   // Get athlete_id from user - it should be the same as user.id or we need to fetch it
@@ -136,7 +145,11 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
       setPerfError(null);
       try {
         const data = await fetchAthletePerformances(token, athleteId as string);
-        const sorted = [...data].sort((a, b) => b.date.localeCompare(a.date));
+        const sorted = [...data].sort((a, b) => {
+          const dateA = a.date || a.recorded_at || '';
+          const dateB = b.date || b.recorded_at || '';
+          return dateB.localeCompare(dateA);
+        });
         setPerformances(sorted);
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Failed to load performance data';
@@ -158,12 +171,31 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
       // Update local state immediately
       setWorkouts(prevWorkouts =>
         prevWorkouts.map(w =>
-          w.workout_id === workoutId ? { ...w, status } : w
+          w.workout_id === workoutId
+            ? {
+                ...w,
+                status,
+                completed_at: undefined,
+                completion_percentage: undefined,
+                athlete_notes: undefined
+              }
+            : w
         )
       );
     } catch (e) {
       console.warn('Failed to update workout status:', e);
       alert('Failed to update workout status: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    }
+  };
+
+  const handleUpdateStatusClick = (workout: Workout, status: 'pending' | 'completed' | 'skipped') => {
+    if (status === 'pending') {
+      handleUpdateStatus(workout.workout_id, 'pending');
+    } else {
+      setSelectedWorkoutForCompletion(workout);
+      setCompletionStatus(status);
+      setCompletionPercentage(status === 'completed' ? '100' : '0');
+      setAthleteNotes('');
     }
   };
 
@@ -365,7 +397,7 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                                   styles.statusControlBtn,
                                   w.status === 'pending' && { backgroundColor: '#f1f5f9', borderColor: '#475569' }
                                 ]}
-                                onPress={() => handleUpdateStatus(w.workout_id, 'pending')}
+                                onPress={() => handleUpdateStatusClick(w, 'pending')}
                               >
                                 <Text style={[
                                   styles.statusControlBtnText,
@@ -378,7 +410,7 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                                   styles.statusControlBtn,
                                   w.status === 'completed' && { backgroundColor: '#d1fae5', borderColor: '#10b981' }
                                 ]}
-                                onPress={() => handleUpdateStatus(w.workout_id, 'completed')}
+                                onPress={() => handleUpdateStatusClick(w, 'completed')}
                               >
                                 <Text style={[
                                   styles.statusControlBtnText,
@@ -391,7 +423,7 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                                   styles.statusControlBtn,
                                   w.status === 'skipped' && { backgroundColor: '#fee2e2', borderColor: '#f87171' }
                                 ]}
-                                onPress={() => handleUpdateStatus(w.workout_id, 'skipped')}
+                                onPress={() => handleUpdateStatusClick(w, 'skipped')}
                               >
                                 <Text style={[
                                   styles.statusControlBtnText,
@@ -399,6 +431,24 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                                 ]}>Skipped</Text>
                               </Pressable>
                             </View>
+
+                            {/* Completion Details Preview */}
+                            {(w.status === 'completed' || w.status === 'skipped') && (w.completed_at || w.completion_percentage !== undefined) ? (
+                              <View style={styles.completionDetailsCard}>
+                                <Text style={styles.completionDetailsTitle}>Completion Record</Text>
+                                <Text style={styles.completionDetailsText}>
+                                  Date: {w.completed_at || 'Not recorded'}
+                                </Text>
+                                <Text style={styles.completionDetailsText}>
+                                  Percentage: {w.completion_percentage ?? 100}%
+                                </Text>
+                                {w.athlete_notes ? (
+                                  <Text style={styles.completionDetailsText}>
+                                    Notes: "{w.athlete_notes}"
+                                  </Text>
+                                ) : null}
+                              </View>
+                            ) : null}
                           </View>
                         ))}
                       </View>
@@ -472,38 +522,76 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                     </View>
                   ) : (
                     <View style={styles.perfList}>
-                      {performances.map((perf) => (
-                        <View key={perf.performance_id} style={styles.perfCard}>
-                          <View style={styles.perfCardHeader}>
-                            <View style={styles.perfDateCol}>
-                              <Ionicons name="calendar-outline" size={16} color="#647286" />
-                              <Text style={styles.perfDateText}>{perf.date}</Text>
-                            </View>
-                            <View style={styles.perfTimeBadge}>
-                              <Ionicons name="stopwatch-outline" size={14} color="#047857" />
-                              <Text style={styles.perfTimeBadgeText}>{perf.sprint_time}s</Text>
-                            </View>
-                          </View>
-                          
-                          <View style={styles.perfMetricsRow}>
-                            <View style={styles.perfMetricBox}>
-                              <Text style={styles.perfMetricLabel}>Weight</Text>
-                              <Text style={styles.perfMetricVal}>{perf.weight} kg</Text>
-                            </View>
-                            <View style={styles.perfMetricBox}>
-                              <Text style={styles.perfMetricLabel}>Height</Text>
-                              <Text style={styles.perfMetricVal}>{perf.height} cm</Text>
-                            </View>
-                          </View>
+                      {performances.map((perf) => {
+                        const linkedWorkout = workouts.find((w) => w.workout_id === perf.workout_id);
+                        const isLinked = !!perf.workout_id;
+                        
+                        return (
+                          <View key={perf.performance_id} style={styles.perfCard}>
+                            {isLinked ? (
+                              <>
+                                <View style={styles.perfCardHeader}>
+                                  <View style={styles.perfDateCol}>
+                                    <Ionicons name="calendar-outline" size={16} color="#647286" />
+                                    <Text style={styles.perfDateText}>{perf.recorded_at || (perf.created_at ? String(perf.created_at).substring(0, 10) : '')}</Text>
+                                  </View>
+                                  <View style={styles.perfTimeBadge}>
+                                    <Ionicons name="trophy-outline" size={14} color="#047857" />
+                                    <Text style={styles.perfTimeBadgeText}>
+                                      {perf.sport_event}: {perf.value} {perf.unit}
+                                    </Text>
+                                  </View>
+                                </View>
+                                
+                                <View style={styles.perfWorkoutRow}>
+                                  <Ionicons name="fitness-outline" size={16} color="#3b82f6" />
+                                  <Text style={styles.perfWorkoutTitleText}>
+                                    Workout: {linkedWorkout ? linkedWorkout.title : 'Workout Session'}
+                                  </Text>
+                                </View>
 
-                          {perf.coach_remarks ? (
-                            <View style={styles.remarksBox}>
-                              <Text style={styles.remarksLabel}>Coach Remarks:</Text>
-                              <Text style={styles.remarksText}>{perf.coach_remarks}</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      ))}
+                                {perf.feedback ? (
+                                  <View style={styles.remarksBox}>
+                                    <Text style={styles.remarksLabel}>Coach Feedback:</Text>
+                                    <Text style={styles.remarksText}>{perf.feedback}</Text>
+                                  </View>
+                                ) : null}
+                              </>
+                            ) : (
+                              <>
+                                <View style={styles.perfCardHeader}>
+                                  <View style={styles.perfDateCol}>
+                                    <Ionicons name="calendar-outline" size={16} color="#647286" />
+                                    <Text style={styles.perfDateText}>{perf.date}</Text>
+                                  </View>
+                                  <View style={styles.perfTimeBadge}>
+                                    <Ionicons name="stopwatch-outline" size={14} color="#047857" />
+                                    <Text style={styles.perfTimeBadgeText}>{perf.sprint_time}s</Text>
+                                  </View>
+                                </View>
+                                
+                                <View style={styles.perfMetricsRow}>
+                                  <View style={styles.perfMetricBox}>
+                                    <Text style={styles.perfMetricLabel}>Weight</Text>
+                                    <Text style={styles.perfMetricVal}>{perf.weight} kg</Text>
+                                  </View>
+                                  <View style={styles.perfMetricBox}>
+                                    <Text style={styles.perfMetricLabel}>Height</Text>
+                                    <Text style={styles.perfMetricVal}>{perf.height} cm</Text>
+                                  </View>
+                                </View>
+
+                                {perf.coach_remarks ? (
+                                  <View style={styles.remarksBox}>
+                                    <Text style={styles.remarksLabel}>Coach Remarks:</Text>
+                                    <Text style={styles.remarksText}>{perf.coach_remarks}</Text>
+                                  </View>
+                                ) : null}
+                              </>
+                            )}
+                          </View>
+                        );
+                      })}
                     </View>
                   )}
                 </View>
@@ -512,6 +600,126 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
           )}
         </ScrollView>
       </View>
+
+      {/* Completion Modal */}
+      <Modal
+        visible={selectedWorkoutForCompletion !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSelectedWorkoutForCompletion(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              Record Completion
+            </Text>
+            <Text style={styles.modalSubtitle}>
+              Workout: {selectedWorkoutForCompletion?.title}
+            </Text>
+            
+            {/* Completion Percentage */}
+            <View style={styles.modalFieldGroup}>
+              <Text style={styles.modalLabel}>Completion Percentage (0-100%)</Text>
+              <TextInput
+                style={styles.modalInput}
+                keyboardType="numeric"
+                value={completionPercentage}
+                onChangeText={(val) => {
+                  const clean = val.replace(/[^0-9]/g, '');
+                  const num = parseInt(clean) || 0;
+                  if (num > 100) {
+                    setCompletionPercentage('100');
+                  } else {
+                    setCompletionPercentage(clean);
+                  }
+                }}
+              />
+            </View>
+
+            {/* Athlete Notes */}
+            <View style={styles.modalFieldGroup}>
+              <Text style={styles.modalLabel}>Athlete Notes (Optional)</Text>
+              <TextInput
+                style={[styles.modalInput, styles.modalTextArea]}
+                placeholder="How did it feel? Any issues or highlights?"
+                placeholderTextColor="#94a3b8"
+                multiline={true}
+                numberOfLines={3}
+                value={athleteNotes}
+                onChangeText={setAthleteNotes}
+              />
+            </View>
+
+            {/* Modal Actions */}
+            <View style={styles.modalActionsRow}>
+              <Pressable
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setSelectedWorkoutForCompletion(null)}
+                disabled={isSavingCompletion}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              
+              <Pressable
+                style={[styles.modalButton, styles.submitButton]}
+                onPress={async () => {
+                  if (!selectedWorkoutForCompletion || !completionStatus) return;
+                  setIsSavingCompletion(true);
+                  try {
+                    const now = new Date();
+                    const yyyy = now.getFullYear();
+                    const mm = String(now.getMonth() + 1).padStart(2, '0');
+                    const dd = String(now.getDate()).padStart(2, '0');
+                    const hh = String(now.getHours()).padStart(2, '0');
+                    const min = String(now.getMinutes()).padStart(2, '0');
+                    const ss = String(now.getSeconds()).padStart(2, '0');
+                    const completedAt = `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+
+                    const pct = parseInt(completionPercentage) || 0;
+
+                    await updateWorkoutStatus(
+                      token,
+                      selectedWorkoutForCompletion.workout_id,
+                      completionStatus,
+                      completedAt,
+                      pct,
+                      athleteNotes.trim() || undefined
+                    );
+
+                    // Update local state immediately
+                    setWorkouts(prevWorkouts =>
+                      prevWorkouts.map(w =>
+                        w.workout_id === selectedWorkoutForCompletion.workout_id
+                          ? {
+                              ...w,
+                              status: completionStatus,
+                              completed_at: completedAt,
+                              completion_percentage: pct,
+                              athlete_notes: athleteNotes.trim() || undefined
+                            }
+                          : w
+                      )
+                    );
+
+                    setSelectedWorkoutForCompletion(null);
+                  } catch (err: any) {
+                    alert('Failed to save completion: ' + err.message);
+                  } finally {
+                    setIsSavingCompletion(false);
+                  }
+                }}
+                disabled={isSavingCompletion}
+              >
+                {isSavingCompletion ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Save Completion</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1067,5 +1275,123 @@ const styles = StyleSheet.create({
     width: 60,
     backgroundColor: '#e2e8f0',
     borderRadius: 6,
+  },
+  perfWorkoutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 6,
+  },
+  perfWorkoutTitleText: {
+    fontSize: 13,
+    color: '#3b82f6',
+    fontWeight: '600',
+  },
+  completionDetailsCard: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+  },
+  completionDetailsTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 6,
+  },
+  completionDetailsText: {
+    fontSize: 12,
+    color: '#647286',
+    lineHeight: 18,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: '#ffffff',
+    borderColor: '#cbd5e1',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 24,
+    width: '100%',
+    maxWidth: 500,
+    gap: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#647286',
+    marginTop: -8,
+    marginBottom: 8,
+  },
+  modalFieldGroup: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  modalInput: {
+    borderColor: '#cbd5e1',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    height: 40,
+    fontSize: 14,
+    color: '#0f172a',
+    backgroundColor: '#f8fafc',
+  },
+  modalTextArea: {
+    height: 80,
+    paddingVertical: 8,
+    textAlignVertical: 'top',
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 8,
+  },
+  modalButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 100,
+    ...Platform.select({
+      web: { cursor: 'pointer' } as any,
+      default: {},
+    }),
+  },
+  cancelButton: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+    borderWidth: 1,
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  submitButton: {
+    backgroundColor: '#3b82f6',
+  },
+  submitButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
   },
 });

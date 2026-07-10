@@ -10,6 +10,7 @@ import {
   Text,
   TextInput,
   View,
+  Modal,
 } from 'react-native';
 
 import type { Athlete } from '@/api/admin';
@@ -93,6 +94,24 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
   const [newWorkoutTitle, setNewWorkoutTitle] = useState('');
   const [newWorkoutDescription, setNewWorkoutDescription] = useState('');
   const [newWorkoutAthleteId, setNewWorkoutAthleteId] = useState('');
+  const [dropdownSearch, setDropdownSearch] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  // Review & link performance state
+  const [selectedWorkoutForPerformance, setSelectedWorkoutForPerformance] = useState<Workout | null>(null);
+  const [perfSportEvent, setPerfSportEvent] = useState('');
+  const [perfValue, setPerfValue] = useState('');
+  const [perfUnit, setPerfUnit] = useState('seconds');
+  const [perfFeedback, setPerfFeedback] = useState('');
+  const [perfDate, setPerfDate] = useState(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
+  const [isSavingCoachPerf, setIsSavingCoachPerf] = useState(false);
+  const [coachPerfMessage, setCoachPerfMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [newWorkoutDate, setNewWorkoutDate] = useState(() => {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -151,6 +170,12 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
   }, [user, token]);
 
   useEffect(() => {
+    if (athletes.length === 1) {
+      setNewWorkoutAthleteId(athletes[0].athlete_id);
+    }
+  }, [athletes]);
+
+  useEffect(() => {
     if (!selectedAthleteForPerf || !token) {
       return;
     }
@@ -160,7 +185,11 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
       setPerfError(null);
       try {
         const data = await fetchAthletePerformances(token, athlete.athlete_id);
-        const sorted = [...data].sort((a, b) => b.date.localeCompare(a.date));
+        const sorted = [...data].sort((a, b) => {
+          const dateA = a.date || a.recorded_at || '';
+          const dateB = b.date || b.recorded_at || '';
+          return dateB.localeCompare(dateA);
+        });
         setAthletePerformances(sorted);
       } catch (err: any) {
         setPerfError(err.message || 'Failed to fetch performance history');
@@ -217,7 +246,11 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
       
       // Reload performances
       const data = await fetchAthletePerformances(token, selectedAthleteForPerf.athlete_id);
-      const sorted = [...data].sort((a, b) => b.date.localeCompare(a.date));
+      const sorted = [...data].sort((a, b) => {
+        const dateA = a.date || a.recorded_at || '';
+        const dateB = b.date || b.recorded_at || '';
+        return dateB.localeCompare(dateA);
+      });
       setAthletePerformances(sorted);
 
       setTimeout(() => {
@@ -228,6 +261,58 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
       setPerfFormMessage({ text: err.message || 'Failed to record performance.', isError: true });
     } finally {
       setIsSavingPerf(false);
+    }
+  };
+
+  const handleCreateLinkedPerformance = async () => {
+    setCoachPerfMessage(null);
+    if (!selectedWorkoutForPerformance) return;
+
+    const valFloat = parseFloat(perfValue);
+    if (isNaN(valFloat) || valFloat <= 0) {
+      setCoachPerfMessage({ text: 'Performance value must be a number greater than 0.', isError: true });
+      return;
+    }
+    if (!perfSportEvent.trim()) {
+      setCoachPerfMessage({ text: 'Sport/Event name cannot be empty.', isError: true });
+      return;
+    }
+    if (!perfUnit.trim()) {
+      setCoachPerfMessage({ text: 'Unit cannot be empty.', isError: true });
+      return;
+    }
+    if (!perfDate.trim()) {
+      setCoachPerfMessage({ text: 'Date cannot be empty.', isError: true });
+      return;
+    }
+
+    setIsSavingCoachPerf(true);
+    try {
+      await createPerformance(token, {
+        athlete_id: selectedWorkoutForPerformance.athlete_id,
+        workout_id: selectedWorkoutForPerformance.workout_id,
+        sport_event: perfSportEvent.trim(),
+        value: valFloat,
+        unit: perfUnit.trim(),
+        feedback: perfFeedback.trim() || undefined,
+        recorded_at: perfDate.trim(),
+        date: perfDate.trim(), // old field fallback
+      });
+
+      setCoachPerfMessage({ text: 'Performance recorded successfully!', isError: false });
+
+      // Reset form
+      setPerfValue('');
+      setPerfFeedback('');
+
+      setTimeout(() => {
+        setSelectedWorkoutForPerformance(null);
+        setCoachPerfMessage(null);
+      }, 1500);
+    } catch (err: any) {
+      setCoachPerfMessage({ text: err.message || 'Failed to record performance.', isError: true });
+    } finally {
+      setIsSavingCoachPerf(false);
     }
   };
 
@@ -288,7 +373,8 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
       // Reset form
       setNewWorkoutTitle('');
       setNewWorkoutDescription('');
-      setNewWorkoutAthleteId('');
+      setNewWorkoutAthleteId(athletes.length === 1 ? athletes[0].athlete_id : '');
+      setDropdownSearch('');
       setNewWorkoutExercises([{ name: '', sets: 3, reps: 10, duration: '' }]);
       
       // Fetch latest workouts
@@ -346,6 +432,11 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
       </SafeAreaView>
     );
   }
+
+  const selectedAthlete = athletes.find(a => a.athlete_id === newWorkoutAthleteId);
+  const displayValue = selectedAthlete && !isDropdownOpen
+    ? `${selectedAthlete.name} (${selectedAthlete.sport || 'General'})`
+    : dropdownSearch;
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -501,7 +592,11 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
               <View style={styles.workoutsHeader}>
                 <Text style={styles.sectionTitle}>Workout Plans ({workouts.length})</Text>
                 <Pressable
-                  style={styles.addButton}
+                  style={[
+                    styles.addButton,
+                    athletes.length === 0 && styles.addButtonDisabled
+                  ]}
+                  disabled={athletes.length === 0}
                   onPress={() => {
                     setShowCreateForm(!showCreateForm);
                     setWorkoutFormMessage(null);
@@ -514,6 +609,13 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                 </Pressable>
               </View>
 
+              {athletes.length === 0 && (
+                <View style={styles.warningContainer}>
+                  <Ionicons name="warning-outline" size={18} color="#b91c1c" />
+                  <Text style={styles.warningText}>No athletes assigned. Contact Admin.</Text>
+                </View>
+              )}
+
               {showCreateForm && (
                 <View style={styles.formCard}>
                   <Text style={styles.formTitle}>Assign Workout Plan</Text>
@@ -522,27 +624,87 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                   <View style={styles.fieldGroup}>
                     <Text style={styles.label}>Select Athlete</Text>
                     {athletes.length === 0 ? (
-                      <Text style={styles.helperText}>No athletes assigned. Assign an athlete first before building plans.</Text>
+                      <View style={styles.noAthletesContainer}>
+                        <Text style={styles.noAthletesText}>No athletes assigned. Contact Admin.</Text>
+                      </View>
+                    ) : athletes.length === 1 ? (
+                      <TextInput
+                        style={[styles.input, styles.readOnlyInput]}
+                        value={`${athletes[0].name} (${athletes[0].sport || 'General'})`}
+                        editable={false}
+                      />
                     ) : (
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.athleteSelectorList}>
-                        {athletes.map((ath) => (
+                      <View style={styles.dropdownContainer}>
+                        <View style={styles.dropdownInputRow}>
+                          <TextInput
+                            style={[styles.input, styles.dropdownInput]}
+                            placeholder="Search and select athlete..."
+                            placeholderTextColor="#94a3b8"
+                            value={displayValue}
+                            onChangeText={(val) => {
+                              setDropdownSearch(val);
+                              setIsDropdownOpen(true);
+                              const matched = athletes.find(
+                                (a) => `${a.name} (${a.sport || 'General'})`.toLowerCase() === val.toLowerCase()
+                              );
+                              if (matched) {
+                                setNewWorkoutAthleteId(matched.athlete_id);
+                              } else {
+                                setNewWorkoutAthleteId('');
+                              }
+                            }}
+                            onFocus={() => {
+                              setIsDropdownOpen(true);
+                              setDropdownSearch('');
+                            }}
+                          />
                           <Pressable
-                            key={ath.athlete_id}
-                            style={[
-                              styles.athleteSelectChip,
-                              newWorkoutAthleteId === ath.athlete_id && styles.athleteSelectChipActive
-                            ]}
-                            onPress={() => setNewWorkoutAthleteId(ath.athlete_id)}
+                            style={styles.dropdownToggleBtn}
+                            onPress={() => setIsDropdownOpen(!isDropdownOpen)}
                           >
-                            <Text style={[
-                              styles.athleteSelectChipText,
-                              newWorkoutAthleteId === ath.athlete_id && styles.athleteSelectChipTextActive
-                            ]}>
-                              {ath.name} ({ath.sport || 'General'})
-                            </Text>
+                            <Ionicons name={isDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20} color="#647286" />
                           </Pressable>
-                        ))}
-                      </ScrollView>
+                        </View>
+                        
+                        {isDropdownOpen && (
+                          <View style={styles.dropdownList}>
+                            {athletes
+                              .filter((ath) => {
+                                const q = dropdownSearch.toLowerCase();
+                                return (
+                                  (ath.name && ath.name.toLowerCase().includes(q)) ||
+                                  (ath.sport && ath.sport.toLowerCase().includes(q))
+                                );
+                              })
+                              .map((ath) => (
+                                <Pressable
+                                  key={ath.athlete_id}
+                                  style={styles.dropdownItem}
+                                  onPress={() => {
+                                    setNewWorkoutAthleteId(ath.athlete_id);
+                                    setDropdownSearch(`${ath.name} (${ath.sport || 'General'})`);
+                                    setIsDropdownOpen(false);
+                                  }}
+                                >
+                                  <Text style={styles.dropdownItemText}>
+                                    {ath.name} ({ath.sport || 'General'})
+                                  </Text>
+                                </Pressable>
+                              ))}
+                            {athletes.filter((ath) => {
+                              const q = dropdownSearch.toLowerCase();
+                              return (
+                                (ath.name && ath.name.toLowerCase().includes(q)) ||
+                                (ath.sport && ath.sport.toLowerCase().includes(q))
+                              );
+                            }).length === 0 && (
+                              <View style={styles.dropdownItemEmpty}>
+                                <Text style={styles.dropdownItemEmptyText}>No matching athletes found</Text>
+                              </View>
+                            )}
+                          </View>
+                        )}
+                      </View>
                     )}
                   </View>
 
@@ -721,6 +883,40 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                             </View>
                           ))}
                         </View>
+
+                        {/* Completion Details Preview */}
+                        {(w.status === 'completed' || w.status === 'skipped') && (w.completed_at || w.completion_percentage !== undefined) ? (
+                          <View style={styles.completionDetailsCard}>
+                            <Text style={styles.completionDetailsTitle}>Completion Record</Text>
+                            <Text style={styles.completionDetailsText}>
+                              Date: {w.completed_at || 'Not recorded'}
+                            </Text>
+                            <Text style={styles.completionDetailsText}>
+                              Percentage: {w.completion_percentage ?? 100}%
+                            </Text>
+                            {w.athlete_notes ? (
+                              <Text style={styles.completionDetailsText}>
+                                Notes: "{w.athlete_notes}"
+                              </Text>
+                            ) : null}
+                          </View>
+                        ) : null}
+
+                        {/* Record Performance Button */}
+                        {w.status === 'completed' ? (
+                          <Pressable
+                            style={styles.recordPerfBtn}
+                            onPress={() => {
+                              setSelectedWorkoutForPerformance(w);
+                              setPerfSportEvent(mappedAthlete?.sport || 'Sprinting');
+                              setPerfValue('');
+                              setPerfFeedback('');
+                            }}
+                          >
+                            <Ionicons name="speedometer-outline" size={16} color="#fff" />
+                            <Text style={styles.recordPerfBtnText}>Record Performance</Text>
+                          </Pressable>
+                        ) : null}
                       </View>
                     );
                   })}
@@ -959,6 +1155,118 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
 
         </ScrollView>
       </View>
+
+      {/* Review & Record Performance Modal */}
+      <Modal
+        visible={selectedWorkoutForPerformance !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSelectedWorkoutForPerformance(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Review & Record Performance</Text>
+            <Text style={styles.modalSubtitle}>
+              Workout: {selectedWorkoutForPerformance?.title}
+            </Text>
+
+            {/* Sport/Event */}
+            <View style={styles.modalFieldGroup}>
+              <Text style={styles.modalLabel}>Sport / Event</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. 100m Sprint, High Jump"
+                placeholderTextColor="#94a3b8"
+                value={perfSportEvent}
+                onChangeText={setPerfSportEvent}
+              />
+            </View>
+
+            {/* Performance Value & Unit */}
+            <View style={styles.modalFlexRow}>
+              <View style={[styles.modalFieldGroup, { flex: 1 }]}>
+                <Text style={styles.modalLabel}>Performance Value</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. 10.45"
+                  placeholderTextColor="#94a3b8"
+                  keyboardType="numeric"
+                  value={perfValue}
+                  onChangeText={setPerfValue}
+                />
+              </View>
+              <View style={[styles.modalFieldGroup, { flex: 1 }]}>
+                <Text style={styles.modalLabel}>Unit</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. seconds, meters, kg"
+                  placeholderTextColor="#94a3b8"
+                  value={perfUnit}
+                  onChangeText={setPerfUnit}
+                />
+              </View>
+            </View>
+
+            {/* Coach Feedback */}
+            <View style={styles.modalFieldGroup}>
+              <Text style={styles.modalLabel}>Coach Feedback</Text>
+              <TextInput
+                style={[styles.modalInput, styles.modalTextArea]}
+                placeholder="Write your feedback after reviewing the workout completion..."
+                placeholderTextColor="#94a3b8"
+                multiline={true}
+                numberOfLines={3}
+                value={perfFeedback}
+                onChangeText={setPerfFeedback}
+              />
+            </View>
+
+            {/* Recorded Date */}
+            <View style={styles.modalFieldGroup}>
+              <Text style={styles.modalLabel}>Recorded Date</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor="#94a3b8"
+                value={perfDate}
+                onChangeText={setPerfDate}
+              />
+            </View>
+
+            {coachPerfMessage && (
+              <Text style={[
+                styles.formMessageText,
+                coachPerfMessage.isError ? styles.errorMessage : styles.successMessage
+              ]}>
+                {coachPerfMessage.text}
+              </Text>
+            )}
+
+            {/* Modal Actions */}
+            <View style={styles.modalActionsRow}>
+              <Pressable
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setSelectedWorkoutForPerformance(null)}
+                disabled={isSavingCoachPerf}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              
+              <Pressable
+                style={[styles.modalButton, styles.submitButton]}
+                onPress={handleCreateLinkedPerformance}
+                disabled={isSavingCoachPerf}
+              >
+                {isSavingCoachPerf ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Record Performance</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1284,6 +1592,14 @@ const styles = StyleSheet.create({
       default: {},
     }),
   },
+  addButtonDisabled: {
+    backgroundColor: '#cbd5e1',
+    opacity: 0.6,
+    ...Platform.select({
+      web: { cursor: 'not-allowed' } as any,
+      default: {},
+    }),
+  },
   addButtonText: {
     fontSize: 13,
     fontWeight: '600',
@@ -1353,6 +1669,84 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   helperText: {
+    fontSize: 13,
+    color: '#647286',
+    fontStyle: 'italic',
+  },
+  readOnlyInput: {
+    backgroundColor: '#f1f5f9',
+    color: '#647286',
+    borderColor: '#cbd5e1',
+  },
+  warningContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef2f2',
+    borderColor: '#fee2e2',
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 16,
+    gap: 8,
+  },
+  warningText: {
+    fontSize: 13,
+    color: '#b91c1c',
+    fontWeight: '600',
+  },
+  noAthletesContainer: {
+    paddingVertical: 4,
+  },
+  noAthletesText: {
+    fontSize: 14,
+    color: '#b91c1c',
+    fontWeight: '600',
+  },
+  dropdownContainer: {
+    position: 'relative',
+    zIndex: 10,
+  },
+  dropdownInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  dropdownInput: {
+    flex: 1,
+    paddingRight: 40,
+  },
+  dropdownToggleBtn: {
+    position: 'absolute',
+    right: 12,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dropdownList: {
+    backgroundColor: '#ffffff',
+    borderColor: '#cbd5e1',
+    borderWidth: 1,
+    borderRadius: 6,
+    marginTop: 4,
+    maxHeight: 150,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    color: '#0f172a',
+  },
+  dropdownItemEmpty: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  dropdownItemEmptyText: {
     fontSize: 13,
     color: '#647286',
     fontStyle: 'italic',
@@ -1702,5 +2096,137 @@ const styles = StyleSheet.create({
     width: 60,
     backgroundColor: '#e2e8f0',
     borderRadius: 6,
+  },
+  completionDetailsCard: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+  },
+  completionDetailsTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 6,
+  },
+  completionDetailsText: {
+    fontSize: 12,
+    color: '#647286',
+    lineHeight: 18,
+  },
+  recordPerfBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10b981',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 12,
+    gap: 6,
+    ...Platform.select({
+      web: { cursor: 'pointer' } as any,
+      default: {},
+    }),
+  },
+  recordPerfBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: '#ffffff',
+    borderColor: '#cbd5e1',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 24,
+    width: '100%',
+    maxWidth: 500,
+    gap: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#647286',
+    marginTop: -8,
+    marginBottom: 8,
+  },
+  modalFieldGroup: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  modalFlexRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  modalInput: {
+    borderColor: '#cbd5e1',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    height: 40,
+    fontSize: 14,
+    color: '#0f172a',
+    backgroundColor: '#f8fafc',
+  },
+  modalTextArea: {
+    height: 80,
+    paddingVertical: 8,
+    textAlignVertical: 'top',
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 8,
+  },
+  modalButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 100,
+    ...Platform.select({
+      web: { cursor: 'pointer' } as any,
+      default: {},
+    }),
+  },
+  cancelButton: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+    borderWidth: 1,
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  submitButton: {
+    backgroundColor: '#3b82f6',
+  },
+  submitButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
   },
 });

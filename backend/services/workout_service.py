@@ -69,6 +69,9 @@ async def get_coach_workouts(coach_id: str, current_user: dict) -> List[WorkoutR
             exercises=w.get("exercises"),
             date=w.get("date"),
             status=w.get("status"),
+            completed_at=w.get("completed_at"),
+            completion_percentage=w.get("completion_percentage"),
+            athlete_notes=w.get("athlete_notes"),
             created_at=w.get("created_at")
         )
         for w in workouts
@@ -104,6 +107,9 @@ async def get_athlete_workouts(athlete_id: str, current_user: dict) -> List[Work
             exercises=w.get("exercises"),
             date=w.get("date"),
             status=w.get("status"),
+            completed_at=w.get("completed_at"),
+            completion_percentage=w.get("completion_percentage"),
+            athlete_notes=w.get("athlete_notes"),
             created_at=w.get("created_at")
         )
         for w in workouts
@@ -121,5 +127,18 @@ async def update_workout_status(workout_id: str, status_update: WorkoutUpdateSta
     if workout.get("athlete_id") != current_user.get("id"):
         raise HTTPException(status_code=403, detail="Athletes can only update the status of their own workouts")
 
-    await workout_repository.update_status(workout_id, status_update.status)
-    return {"message": "Workout status updated successfully", "workout_id": workout_id, "status": status_update.status}
+    await workout_repository.update_status(
+        workout_id,
+        status_update.status,
+        completed_at=status_update.completed_at,
+        completion_percentage=status_update.completion_percentage,
+        athlete_notes=status_update.athlete_notes
+    )
+    return {
+        "message": "Workout status updated successfully",
+        "workout_id": workout_id,
+        "status": status_update.status,
+        "completed_at": status_update.completed_at,
+        "completion_percentage": status_update.completion_percentage,
+        "athlete_notes": status_update.athlete_notes
+    }

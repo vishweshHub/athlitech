@@ -17,6 +17,9 @@ export type Workout = {
   exercises: Exercise[];
   date: string;
   status: 'pending' | 'completed' | 'skipped';
+  completed_at?: string;
+  completion_percentage?: number;
+  athlete_notes?: string;
   created_at: string;
 };
 
@@ -75,7 +78,10 @@ export async function fetchAthleteWorkouts(token: string, athleteId: string): Pr
 export async function updateWorkoutStatus(
   token: string,
   workoutId: string,
-  status: 'pending' | 'completed' | 'skipped'
+  status: 'pending' | 'completed' | 'skipped',
+  completed_at?: string,
+  completion_percentage?: number,
+  athlete_notes?: string
 ): Promise<{ message: string; status: string }> {
   const response = await fetch(`${API_URL}/workouts/${workoutId}/status`, {
     method: 'PUT',
@@ -83,11 +89,29 @@ export async function updateWorkoutStatus(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({
+      status,
+      completed_at,
+      completion_percentage,
+      athlete_notes,
+    }),
   });
   if (!response.ok) {
     const data = await response.json().catch(() => null);
     throw new Error(data?.detail ?? 'Failed to update workout status');
+  }
+  return response.json();
+}
+
+export async function fetchAllWorkouts(token: string): Promise<Workout[]> {
+  const response = await fetch(`${API_URL}/workouts/`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.detail ?? 'Failed to fetch workouts');
   }
   return response.json();
 }

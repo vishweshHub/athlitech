@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from schemas.user_schema import UserRoleUpdate
 from services.auth_service import get_current_user, require_admin, require_admin_or_self
@@ -23,6 +23,8 @@ async def change_user_role(
     role_update: UserRoleUpdate,
     current_user: dict = Depends(get_current_user)
 ):
+    if user_id == current_user.get("id"):
+        raise HTTPException(status_code=400, detail="Admins cannot change their own role")
     return await update_user_role(user_id, role_update)
 
 
@@ -31,4 +33,6 @@ async def delete_user(
     user_id: str,
     current_user: dict = Depends(get_current_user)
 ):
+    if user_id == current_user.get("id"):
+        raise HTTPException(status_code=400, detail="Admins cannot delete their own account")
     return await delete_user_by_id(user_id)
