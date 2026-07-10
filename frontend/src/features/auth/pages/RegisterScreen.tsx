@@ -15,6 +15,33 @@ import { Ionicons } from '@expo/vector-icons';
 
 const DASHBOARD_ROUTE = '/dashboard' as Href;
 
+/**
+ * Validates a password against the application policy.
+ * Returns an error string if invalid, or null if valid.
+ * Rules: 8–20 characters, uppercase, lowercase, digit, special character.
+ */
+function validatePassword(password: string): string | null {
+  if (password.length < 8) {
+    return 'Password must be at least 8 characters.';
+  }
+  if (password.length > 20) {
+    return 'Password must be at most 20 characters.';
+  }
+  if (!/[A-Z]/.test(password)) {
+    return 'Password must contain at least one uppercase letter.';
+  }
+  if (!/[a-z]/.test(password)) {
+    return 'Password must contain at least one lowercase letter.';
+  }
+  if (!/\d/.test(password)) {
+    return 'Password must contain at least one number.';
+  }
+  if (!/[!@#$%^&*()\-_=+\[\]{};':",.<>/?`~\\|]/.test(password)) {
+    return 'Password must contain at least one special character (e.g. !@#$%).';
+  }
+  return null;
+}
+
 export default function RegisterScreen() {
   const router = useRouter();
   const [name, setName] = useState('');
@@ -37,8 +64,9 @@ export default function RegisterScreen() {
       return;
     }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
@@ -111,7 +139,7 @@ export default function RegisterScreen() {
               <TextInput
                 autoCapitalize="none"
                 onChangeText={setPassword}
-                placeholder="At least 8 characters"
+                placeholder="8–20 chars, A-Z, a-z, 0-9, !@#$"
                 placeholderTextColor="#8a94a6"
                 secureTextEntry={!showPassword}
                 style={styles.passwordInput}

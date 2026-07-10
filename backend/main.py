@@ -8,6 +8,7 @@ from routes.user_routes import router as user_router
 from routes.role_routes import router as role_router
 from routes.workout_routes import router as workout_router
 from services.role_service import seed_default_roles
+from services.user_seed_service import seed_demo_users
 from routes.performance_routes import router as performance_router
 
 app = FastAPI()
@@ -31,6 +32,7 @@ app.include_router(performance_router)
 @app.on_event("startup")
 async def startup_event():
     await seed_default_roles()
+    await seed_demo_users()
 
 
 @app.get("/")

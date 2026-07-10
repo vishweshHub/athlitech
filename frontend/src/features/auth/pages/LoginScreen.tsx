@@ -16,6 +16,33 @@ import { Ionicons } from '@expo/vector-icons';
 const DASHBOARD_ROUTE = '/dashboard' as Href;
 const REGISTER_ROUTE = '/register' as Href;
 
+/**
+ * Validates a password against the application policy.
+ * Returns an error string if invalid, or null if valid.
+ * Rules: 8–20 characters, uppercase, lowercase, digit, special character.
+ */
+function validatePassword(password: string): string | null {
+  if (password.length < 8) {
+    return 'Password must be at least 8 characters.';
+  }
+  if (password.length > 20) {
+    return 'Password must be at most 20 characters.';
+  }
+  if (!/[A-Z]/.test(password)) {
+    return 'Password must contain at least one uppercase letter.';
+  }
+  if (!/[a-z]/.test(password)) {
+    return 'Password must contain at least one lowercase letter.';
+  }
+  if (!/\d/.test(password)) {
+    return 'Password must contain at least one number.';
+  }
+  if (!/[!@#$%^&*()\-_=+\[\]{};':",.<>/?`~\\|]/.test(password)) {
+    return 'Password must contain at least one special character (e.g. !@#$%).';
+  }
+  return null;
+}
+
 export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -62,6 +89,12 @@ export default function LoginScreen() {
 
     if (!email.trim() || !password) {
       setError('Enter your email and password.');
+      return;
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
