@@ -2,7 +2,7 @@ import { Href, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 const REGISTER_ROUTE = '/register' as Href;
-const LOGIN_ROUTE = '/' as Href;
+const LOGIN_ROUTE = '/login' as Href;
 
 export default function CTASection() {
   const router = useRouter();

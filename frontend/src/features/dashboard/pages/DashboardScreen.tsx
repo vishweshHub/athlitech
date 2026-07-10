@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useRouter, Href } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -33,15 +33,29 @@ export default function DashboardScreen() {
       const storedToken = getStoredToken();
 
       if (!storedToken) {
-        router.replace('/');
+        router.replace('/login');
         return;
       }
 
       try {
         const currentUser = await fetchCurrentUser(storedToken);
         if (isMounted) {
-          setUser(currentUser);
-          setToken(storedToken);
+          if (currentUser.role === 'coach') {
+            router.replace('/coach-dashboard' as Href);
+            return;
+          }
+          if (currentUser.role === 'athlete') {
+            router.replace('/athlete-dashboard' as Href);
+            return;
+          }
+          if (currentUser.role === 'admin') {
+            setUser(currentUser);
+            setToken(storedToken);
+          } else {
+            clearStoredToken();
+            router.replace('/login');
+            return;
+          }
         }
       } catch (currentUserError) {
         clearStoredToken();
@@ -49,7 +63,7 @@ export default function DashboardScreen() {
           setError(
             currentUserError instanceof Error ? currentUserError.message : 'Session expired.'
           );
-          router.replace('/');
+          router.replace('/login');
         }
       } finally {
         if (isMounted) {
@@ -67,7 +81,7 @@ export default function DashboardScreen() {
 
   function handleSignOut() {
     clearStoredToken();
-    router.replace('/');
+    router.replace('/login');
   }
 
   if (isLoading) {

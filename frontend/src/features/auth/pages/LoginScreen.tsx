@@ -66,9 +66,15 @@ export default function LoginScreen() {
       }
 
       try {
-        await fetchCurrentUser(token);
+        const currentUser = await fetchCurrentUser(token);
         if (isMounted) {
-          router.replace(DASHBOARD_ROUTE);
+          if (currentUser.role === 'coach') {
+            router.replace('/coach-dashboard' as Href);
+          } else if (currentUser.role === 'athlete') {
+            router.replace('/athlete-dashboard' as Href);
+          } else {
+            router.replace(DASHBOARD_ROUTE);
+          }
         }
       } catch {
         if (isMounted) {
@@ -103,7 +109,14 @@ export default function LoginScreen() {
     try {
       const result = await login(email.trim(), password);
       storeToken(result.access_token);
-      router.replace(DASHBOARD_ROUTE);
+      const currentUser = await fetchCurrentUser(result.access_token);
+      if (currentUser.role === 'coach') {
+        router.replace('/coach-dashboard' as Href);
+      } else if (currentUser.role === 'athlete') {
+        router.replace('/athlete-dashboard' as Href);
+      } else {
+        router.replace(DASHBOARD_ROUTE);
+      }
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : 'Login failed.');
     } finally {

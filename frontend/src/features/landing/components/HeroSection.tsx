@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
-const LOGIN_ROUTE = '/' as Href;
+const LOGIN_ROUTE = '/login' as Href;
 const REGISTER_ROUTE = '/register' as Href;
 
 export default function HeroSection() {
