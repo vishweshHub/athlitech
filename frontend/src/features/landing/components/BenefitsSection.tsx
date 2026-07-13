@@ -63,7 +63,7 @@ export default function BenefitsSection() {
           Built for everyone in the team
         </Text>
         <Text style={styles.subtitle}>
-          Whether you're an athlete pushing limits, a coach designing programs, or an admin running the academy —
+          Whether you&apos;re an athlete pushing limits, a coach designing programs, or an admin running the academy —
           AthliTech has you covered.
         </Text>
       </View>

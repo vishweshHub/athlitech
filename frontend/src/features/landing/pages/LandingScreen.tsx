@@ -1,6 +1,7 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import NavBar from '../components/NavBar';
+import DockNav from '@/components/ui/DockNav';
+import ClickSpark from '@/components/animations/ClickSpark';
 import HeroSection from '../components/HeroSection';
 import FeaturesSection from '../components/FeaturesSection';
 import HowItWorksSection from '../components/HowItWorksSection';
@@ -12,15 +13,17 @@ import Footer from '../components/Footer';
 /**
  * LandingScreen
  *
- * Public-facing marketing page. Composed of modular section components.
- * All routing (Get Started → /register, Sign In → /) is handled inside
- * individual section components so this file stays clean.
+ * Public-facing marketing page. Uses the floating DockNav and ClickSpark
+ * global click effect. All section components remain self-contained.
  */
 export default function LandingScreen() {
   return (
     <View style={styles.root}>
-      {/* Sticky navigation */}
-      <NavBar />
+      {/* Global click spark effect (web only — renders nothing on native) */}
+      <ClickSpark />
+
+      {/* Floating dock navigation — positioned absolute over content */}
+      <DockNav />
 
       {/* Scrollable page content */}
       <ScrollView
@@ -44,10 +47,11 @@ export default function LandingScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#0a0f1a',
+    backgroundColor: '#060b14',
   },
   scroll: {
     flex: 1,
+    backgroundColor: '#060b14',
   },
   scrollContent: {
     flexGrow: 1,
