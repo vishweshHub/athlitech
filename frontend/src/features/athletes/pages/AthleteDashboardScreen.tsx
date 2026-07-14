@@ -1,16 +1,18 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  View,
-  Modal,
   TextInput,
+  View,
+  useWindowDimensions,
 } from 'react-native';
 
 import type { Athlete, Coach } from '@/api/admin';
@@ -20,26 +22,18 @@ import type { Workout } from '@/api/workout';
 import { fetchAthleteWorkouts, updateWorkoutStatus } from '@/api/workout';
 import type { PerformanceRecord } from '@/api/performance';
 import { fetchAthletePerformances } from '@/api/performance';
-import { Ionicons } from '@expo/vector-icons';
 
-function SkeletonCard() {
-  return (
-    <View style={styles.skeletonCard}>
-      <View style={styles.skeletonHeader}>
-        <View style={styles.skeletonAvatar} />
-        <View style={styles.skeletonMeta}>
-          <View style={styles.skeletonLineShort} />
-          <View style={styles.skeletonLineLong} />
-        </View>
-      </View>
-      <View style={styles.skeletonDivider} />
-      <View style={styles.skeletonFooter}>
-        <View style={styles.skeletonLineMedium} />
-        <View style={styles.skeletonButton} />
-      </View>
-    </View>
-  );
-}
+import {
+  Button,
+  Card,
+  Badge,
+  StatCard,
+  Table,
+  ThemeToggle,
+  EmptyState,
+} from '@/components/ui';
+import { useThemeColors } from '@/styles/tokens';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface AthleteDashboardScreenProps {
   user: AuthUser | null;
@@ -47,98 +41,104 @@ interface AthleteDashboardScreenProps {
   onSignOut: () => void;
 }
 
+type TabType = 'dashboard' | 'workouts' | 'performance' | 'profile';
+
+const isWeb = Platform.OS === 'web';
+
 export default function AthleteDashboardScreen({ user, token, onSignOut }: AthleteDashboardScreenProps) {
   const router = useRouter();
-  
+  const { width } = useWindowDimensions();
+  const isLargeScreen = width > 768;
+  const colors = useThemeColors();
+  const scheme = useColorScheme();
+
+  const styles = getStyles(colors, isLargeScreen);
+
+  // Navigation state
+  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(isLargeScreen);
+
+  // Sync sidebar state when screen size changes
+  useEffect(() => {
+    setSidebarOpen(isLargeScreen);
+  }, [isLargeScreen]);
+
+  // Data state
   const [athlete, setAthlete] = useState<Athlete | null>(null);
   const [coach, setCoach] = useState<Coach | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Tab State
-  const [activeTab, setActiveTab] = useState<'workouts' | 'performance'>('workouts');
-
-  // Workouts State
+  // Workouts
   const [workouts, setWorkouts] = useState<Workout[]>([]);
 
-  // Performance State
+  // Performance
   const [performances, setPerformances] = useState<PerformanceRecord[]>([]);
   const [isPerfLoading, setIsPerfLoading] = useState(false);
   const [perfError, setPerfError] = useState<string | null>(null);
 
-  // Completion modal state
+  // Completion modal
   const [selectedWorkoutForCompletion, setSelectedWorkoutForCompletion] = useState<Workout | null>(null);
   const [completionStatus, setCompletionStatus] = useState<'completed' | 'skipped' | 'pending' | null>(null);
   const [completionPercentage, setCompletionPercentage] = useState('100');
   const [athleteNotes, setAthleteNotes] = useState('');
   const [isSavingCompletion, setIsSavingCompletion] = useState(false);
 
-
-  // Get athlete_id from user - it should be the same as user.id or we need to fetch it
   const athleteId = user?.id;
 
-  useEffect(() => {
-    if (!athleteId || !token) {
-      return;
-    }
+  const loadDashboardData = useCallback(async () => {
+    if (!athleteId || !token) return;
+    setIsLoading(true);
+    setError(null);
 
-    async function loadDashboardData() {
-      setIsLoading(true);
-      setError(null);
-      
+    try {
+      let athleteData: Athlete;
       try {
-        let athleteData: Athlete;
-        try {
-          athleteData = await fetchAthleteById(token, athleteId as string);
-          setAthlete(athleteData);
+        athleteData = await fetchAthleteById(token, athleteId);
+        setAthlete(athleteData);
 
-          // Fetch coach details if athlete has a coach assigned
-          if (athleteData.coach_id) {
-            try {
-              const coachData = await fetchCoachById(token, athleteData.coach_id);
-              setCoach(coachData);
-            } catch (coachError) {
-              console.warn('Failed to fetch coach details:', coachError);
-              // Coach details are optional, don't fail the whole page
-            }
-          }
-        } catch (e) {
-          const errMessage = e instanceof Error ? e.message.toLowerCase() : '';
-          const is404 = errMessage.includes('404') || errMessage.includes('not found') || errMessage.includes('no athlete');
-          if (is404 && user) {
-            athleteData = {
-              athlete_id: athleteId as string,
-              name: user.name || 'Athlete User',
-              sport: 'Not specified',
-              weight: 'Not specified',
-              coach_id: '',
-            };
-            setAthlete(athleteData);
-          } else {
-            throw e;
+        if (athleteData.coach_id) {
+          try {
+            const coachData = await fetchCoachById(token, athleteData.coach_id);
+            setCoach(coachData);
+          } catch (coachError) {
+            console.warn('Failed to fetch coach details:', coachError);
           }
         }
-
-        // Fetch athlete workouts
-        const workoutsData = await fetchAthleteWorkouts(token, athleteId as string);
-        setWorkouts(workoutsData);
-
       } catch (e) {
-        const message = e instanceof Error ? e.message : 'Failed to load dashboard data';
-        console.warn('Error loading athlete dashboard data:', e);
-        setError(message);
-      } finally {
-        setIsLoading(false);
+        const errMessage = e instanceof Error ? e.message.toLowerCase() : '';
+        const is404 = errMessage.includes('404') || errMessage.includes('not found') || errMessage.includes('no athlete');
+        if (is404 && user) {
+          athleteData = {
+            athlete_id: athleteId,
+            name: user.name || 'Athlete User',
+            sport: 'Not specified',
+            weight: 'Not specified',
+            coach_id: '',
+          };
+          setAthlete(athleteData);
+        } else {
+          throw e;
+        }
       }
-    }
 
-    loadDashboardData();
+      const workoutsData = await fetchAthleteWorkouts(token, athleteId);
+      setWorkouts(workoutsData);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to load dashboard data';
+      console.warn('Error loading athlete dashboard data:', e);
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
   }, [athleteId, token]);
 
   useEffect(() => {
-    if (!athleteId || !token || activeTab !== 'performance') {
-      return;
-    }
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  useEffect(() => {
+    if (!athleteId || !token || activeTab !== 'performance') return;
 
     async function loadPerformanceData() {
       setIsPerfLoading(true);
@@ -146,14 +146,13 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
       try {
         const data = await fetchAthletePerformances(token, athleteId as string);
         const sorted = [...data].sort((a, b) => {
-          const dateA = a.date || a.recorded_at || '';
-          const dateB = b.date || b.recorded_at || '';
-          return dateB.localeCompare(dateA);
+          const dA = a.date || a.recorded_at || '';
+          const dB = b.date || b.recorded_at || '';
+          return dB.localeCompare(dA);
         });
         setPerformances(sorted);
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Failed to load performance data';
-        console.warn('Error loading performance data:', e);
         setPerfError(message);
       } finally {
         setIsPerfLoading(false);
@@ -163,28 +162,18 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
     loadPerformanceData();
   }, [athleteId, token, activeTab]);
 
-
   const handleUpdateStatus = async (workoutId: string, status: 'pending' | 'completed' | 'skipped') => {
     try {
       await updateWorkoutStatus(token, workoutId, status);
-      
-      // Update local state immediately
-      setWorkouts(prevWorkouts =>
-        prevWorkouts.map(w =>
+      setWorkouts((prev) =>
+        prev.map((w) =>
           w.workout_id === workoutId
-            ? {
-                ...w,
-                status,
-                completed_at: undefined,
-                completion_percentage: undefined,
-                athlete_notes: undefined
-              }
+            ? { ...w, status, completed_at: undefined, completion_percentage: undefined, athlete_notes: undefined }
             : w
         )
       );
     } catch (e) {
       console.warn('Failed to update workout status:', e);
-      alert('Failed to update workout status: ' + (e instanceof Error ? e.message : 'Unknown error'));
     }
   };
 
@@ -199,1265 +188,1294 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
     }
   };
 
+  const handleSaveCompletion = async () => {
+    if (!selectedWorkoutForCompletion || !completionStatus) return;
+    setIsSavingCompletion(true);
+    try {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const completedAt = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      const pct = parseInt(completionPercentage) || 0;
+
+      await updateWorkoutStatus(
+        token,
+        selectedWorkoutForCompletion.workout_id,
+        completionStatus,
+        completedAt,
+        pct,
+        athleteNotes.trim() || undefined
+      );
+
+      setWorkouts((prev) =>
+        prev.map((w) =>
+          w.workout_id === selectedWorkoutForCompletion.workout_id
+            ? {
+                ...w,
+                status: completionStatus,
+                completed_at: completedAt,
+                completion_percentage: pct,
+                athlete_notes: athleteNotes.trim() || undefined,
+              }
+            : w
+        )
+      );
+
+      setSelectedWorkoutForCompletion(null);
+    } catch (err: any) {
+      alert('Failed to save completion: ' + err.message);
+    } finally {
+      setIsSavingCompletion(false);
+    }
+  };
+
+  // Derived metrics
+  const totalWorkouts = workouts.length;
+  const completedWorkouts = workouts.filter((w) => w.status === 'completed').length;
+  const pendingWorkouts = workouts.filter((w) => w.status === 'pending').length;
+  const skippedWorkouts = workouts.filter((w) => w.status === 'skipped').length;
+  const completionRate = totalWorkouts > 0 ? Math.round((completedWorkouts / totalWorkouts) * 100) : 0;
+
   if (!user || !token) {
     return (
-      <SafeAreaView style={styles.screen}>
+      <SafeAreaView style={styles.wrapper}>
         <View style={styles.centeredStatus}>
-          <Text style={styles.errorText}>Session expired. Please log in again.</Text>
-          <Pressable onPress={onSignOut} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Go to Login</Text>
-          </Pressable>
+          <Ionicons name="lock-closed-outline" size={48} color={colors.error} />
+          <Text style={[styles.errorText, { color: colors.error }]}>Session expired. Please log in again.</Text>
+          <Button label="Go to Login" onPress={onSignOut} variant="primary" />
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerInfo}>
-            <Text style={styles.headerTitle}>My Dashboard</Text>
-            <Text style={styles.headerSubtitle}>{user?.email || 'Athlete'}</Text>
-          </View>
-          <Pressable onPress={onSignOut} style={styles.logoutButton}>
-            <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-            <Text style={styles.logoutText}>Logout</Text>
-          </Pressable>
-        </View>
+    <SafeAreaView style={styles.wrapper}>
+      <View style={styles.mainContainer}>
+        {/* ── SIDEBAR ── */}
+        {sidebarOpen && (
+          <View style={[styles.sidebar, !isLargeScreen && styles.sidebarFloating]}>
+            <View style={styles.sidebarHeader}>
+              <View style={styles.brandRow}>
+                <Ionicons name="flash" size={22} color={colors.emerald} />
+                <Text style={styles.sidebarBrand}>AthliTech</Text>
+              </View>
+              {!isLargeScreen && (
+                <Pressable onPress={() => setSidebarOpen(false)}>
+                  <Ionicons name="close" size={24} color={colors.textSub} />
+                </Pressable>
+              )}
+            </View>
 
-        {/* Content */}
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
-          {isLoading ? (
-            <View style={styles.skeletonContainer}>
-              <SkeletonCard />
-              <SkeletonCard />
+            {/* Athlete profile mini card */}
+            <View style={[styles.sidebarProfile, { backgroundColor: colors.bgMid, borderColor: colors.border }]}>
+              <View style={[styles.sidebarAvatar, { backgroundColor: colors.infoDim, borderColor: 'rgba(14,165,233,0.2)' }]}>
+                <Text style={[styles.sidebarAvatarText, { color: colors.info }]}>
+                  {user?.name?.charAt(0).toUpperCase() || 'A'}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sidebarProfileName, { color: colors.textPrimary }]} numberOfLines={1}>
+                  {user?.name || 'Athlete'}
+                </Text>
+                <Badge label="Athlete" variant="info" />
+              </View>
             </View>
-          ) : error ? (
-            <View style={styles.errorContainer}>
-              <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
-              <Text style={styles.errorText}>{error}</Text>
-              <Pressable onPress={() => router.back()} style={styles.primaryButton}>
-                <Text style={styles.primaryButtonText}>Go Back</Text>
-              </Pressable>
-            </View>
-          ) : !athlete ? (
-            <View style={styles.errorContainer}>
-              <Ionicons name="person-outline" size={48} color="#94a3b8" />
-              <Text style={styles.errorText}>Profile not found</Text>
-              <Pressable onPress={() => router.back()} style={styles.primaryButton}>
-                <Text style={styles.primaryButtonText}>Go Back</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <>
-              {/* Profile Card */}
-              <View style={styles.profileCard}>
-                <View style={styles.profileAvatar}>
-                  <Text style={styles.avatarText}>
-                    {athlete.name.charAt(0).toUpperCase()}
+
+            <View style={styles.sidebarNav}>
+              {[
+                { id: 'dashboard', label: 'Dashboard', icon: 'grid', count: null },
+                { id: 'workouts', label: 'My Workouts', icon: 'fitness', count: totalWorkouts },
+                { id: 'performance', label: 'Performance', icon: 'speedometer', count: null },
+                { id: 'profile', label: 'My Profile', icon: 'person', count: null },
+              ].map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={[
+                    styles.sidebarItem,
+                    activeTab === item.id && styles.sidebarItemActive,
+                  ]}
+                  onPress={() => {
+                    setActiveTab(item.id as TabType);
+                    if (!isLargeScreen) setSidebarOpen(false);
+                  }}
+                >
+                  <Ionicons
+                    name={item.icon as any}
+                    size={20}
+                    color={activeTab === item.id ? colors.emerald : colors.textSub}
+                  />
+                  <Text
+                    style={[
+                      styles.sidebarItemLabel,
+                      activeTab === item.id && styles.sidebarItemLabelActive,
+                    ]}
+                  >
+                    {item.label}
                   </Text>
-                </View>
-                <View style={styles.profileDetails}>
-                  <Text style={styles.profileName}>{athlete.name}</Text>
-                  <Text style={styles.profileSport}>{athlete.sport || 'No sport specified'}</Text>
-                  
-                  <View style={styles.infoRow}>
-                    <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Athlete ID</Text>
-                      <Text style={styles.infoValue}>{athlete.athlete_id}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.infoRow}>
-                    <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Weight</Text>
-                      <Text style={styles.infoValue}>
-                        {athlete.weight ? `${athlete.weight} kg` : 'Not specified'}
+                  {item.count !== null && item.count !== undefined && (
+                    <View style={[styles.sidebarBadge, activeTab === item.id && styles.sidebarBadgeActive]}>
+                      <Text style={[styles.sidebarBadgeText, activeTab === item.id && styles.sidebarBadgeTextActive]}>
+                        {item.count}
                       </Text>
                     </View>
-                  </View>
+                  )}
+                </Pressable>
+              ))}
+            </View>
 
-                  <View style={styles.infoRow}>
-                    <View style={styles.infoItem}>
-                      <Text style={styles.infoLabel}>Role</Text>
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>Athlete</Text>
-                      </View>
-                    </View>
-                  </View>
+            <View style={styles.sidebarFooter}>
+              <Pressable style={styles.logoutButton} onPress={onSignOut}>
+                <Ionicons name="log-out" size={20} color={colors.error} />
+                <Text style={styles.logoutLabel}>Logout</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* Dark overlay for mobile sidebar */}
+        {sidebarOpen && !isLargeScreen && (
+          <Pressable style={styles.overlay} onPress={() => setSidebarOpen(false)} />
+        )}
+
+        {/* ── MAIN CONTENT ── */}
+        <View style={styles.contentArea}>
+          {/* Header */}
+          <View style={styles.header}>
+            {(!isLargeScreen || !sidebarOpen) && (
+              <Pressable onPress={() => setSidebarOpen(!sidebarOpen)} style={styles.hamburgerBtn}>
+                <Ionicons name="menu" size={24} color={colors.textPrimary} />
+              </Pressable>
+            )}
+            <View style={styles.headerInfo}>
+              <Text style={styles.headerTitle}>
+                {activeTab === 'dashboard' && 'My Dashboard'}
+                {activeTab === 'workouts' && 'My Workouts'}
+                {activeTab === 'performance' && 'My Performance'}
+                {activeTab === 'profile' && 'My Profile'}
+              </Text>
+              <Text style={styles.headerSubtitle}>{user?.email || 'Athlete'}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <ThemeToggle />
+              <Pressable onPress={loadDashboardData} style={styles.refreshBtn}>
+                <Ionicons name="refresh" size={20} color={colors.textPrimary} />
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Scrollable Content */}
+          <ScrollView
+            style={styles.content}
+            contentContainerStyle={[
+              styles.contentInner,
+              { padding: isWeb || isLargeScreen ? 24 : 16 },
+            ]}
+          >
+            {isLoading ? (
+              <View style={styles.loaderContainer}>
+                <ActivityIndicator size="large" color={colors.emerald} />
+                <Text style={styles.loaderText}>Loading your dashboard...</Text>
+              </View>
+            ) : error ? (
+              <Card style={styles.section}>
+                <View style={{ alignItems: 'center', padding: 24, gap: 16 }}>
+                  <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
+                  <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+                  <Button label="Retry" onPress={loadDashboardData} variant="primary" />
                 </View>
-              </View>
-
-              {/* Tab Selector */}
-              <View style={styles.tabContainer}>
-                <Pressable
-                  style={[styles.tabButton, activeTab === 'workouts' && styles.tabButtonActive]}
-                  onPress={() => setActiveTab('workouts')}
-                >
-                  <Ionicons name="fitness-outline" size={20} color={activeTab === 'workouts' ? '#3b82f6' : '#647286'} />
-                  <Text style={[styles.tabButtonText, activeTab === 'workouts' && styles.tabButtonTextActive]}>
-                    Workouts
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.tabButton, activeTab === 'performance' && styles.tabButtonActive]}
-                  onPress={() => setActiveTab('performance')}
-                >
-                  <Ionicons name="speedometer-outline" size={20} color={activeTab === 'performance' ? '#3b82f6' : '#647286'} />
-                  <Text style={[styles.tabButtonText, activeTab === 'performance' && styles.tabButtonTextActive]}>
-                    My Performance
-                  </Text>
-                </Pressable>
-              </View>
-
-              {activeTab === 'workouts' && (
-                <>
-                  {/* Coach Information */}
-                  <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>My Coach</Text>
-                    {coach ? (
-                      <View style={styles.coachCard}>
-                        <View style={styles.coachHeader}>
-                          <View style={styles.coachAvatar}>
-                            <Text style={styles.coachAvatarText}>
-                              {coach.name.charAt(0).toUpperCase()}
-                            </Text>
-                          </View>
-                          <View style={styles.coachInfo}>
-                            <Text style={styles.coachName}>{coach.name}</Text>
-                            <Text style={styles.coachEmail}>{coach.email}</Text>
-                            <View style={styles.badge}>
-                              <Text style={styles.badgeText}>{coach.role}</Text>
-                            </View>
+              </Card>
+            ) : !athlete ? (
+              <Card style={styles.section}>
+                <EmptyState
+                  icon="person-outline"
+                  title="Profile not found"
+                  description="Your athlete profile could not be loaded."
+                  actionLabel="Retry"
+                  onActionPress={loadDashboardData}
+                />
+              </Card>
+            ) : (
+              <>
+                {/* ── DASHBOARD TAB ── */}
+                {activeTab === 'dashboard' && (
+                  <>
+                    {/* Welcome Banner */}
+                    <Card style={[styles.section, { marginBottom: 24 }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                        <View style={[styles.profileAvatar, { backgroundColor: colors.infoDim, borderColor: 'rgba(14,165,233,0.2)' }]}>
+                          <Text style={[styles.avatarText, { color: colors.info, fontSize: 24 }]}>
+                            {athlete.name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.welcomeText, { color: colors.textSub }]}>Welcome back,</Text>
+                          <Text style={[styles.welcomeName, { color: colors.textPrimary }]}>{athlete.name}</Text>
+                          <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                            <Badge label="Athlete" variant="info" />
+                            {athlete.sport && <Badge label={athlete.sport} variant="neutral" />}
                           </View>
                         </View>
+                        {coach && (
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={[{ fontSize: 11, color: colors.textMuted, marginBottom: 4 }]}>My Coach</Text>
+                            <Text style={[{ fontSize: 13, fontWeight: '700', color: colors.textPrimary }]}>{coach.name}</Text>
+                            <Badge label="Coach" variant="success" />
+                          </View>
+                        )}
                       </View>
-                    ) : (
-                      <View style={styles.emptyCoachCard}>
-                        <Ionicons name="person-outline" size={40} color="#cbd5e1" />
-                        <Text style={styles.emptyCoachText}>No coach assigned yet</Text>
-                      </View>
-                    )}
-                  </View>
+                    </Card>
 
-                  {/* My Workouts Section */}
-                  <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>My Workouts ({workouts.length})</Text>
-                    {workouts.length === 0 ? (
-                      <View style={styles.emptyContainer}>
-                        <Ionicons name="fitness-outline" size={48} color="#cbd5e1" />
-                        <Text style={styles.emptyText}>No workouts assigned to you yet.</Text>
+                    {/* Stat Cards */}
+                    <View style={styles.metricsContainer}>
+                      <StatCard label="Total Workouts" value={totalWorkouts} delay={0} />
+                      <StatCard label="Completed" value={completedWorkouts} delay={80} trendDirection="up" />
+                      <StatCard label="Pending" value={pendingWorkouts} delay={160} />
+                      <StatCard label="Completion Rate" value={completionRate} suffix="%" delay={240} trendDirection="up" />
+                    </View>
+
+                    {/* Workout Breakdown Card */}
+                    <View style={styles.metricsContainer}>
+                      <Card style={{ flex: 1 }}>
+                        <View style={styles.metricHeader}>
+                          <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>Workout Status</Text>
+                          <View style={[styles.iconWrapper, { backgroundColor: colors.infoDim }]}>
+                            <Ionicons name="barbell-outline" size={20} color={colors.info} />
+                          </View>
+                        </View>
+                        <View style={styles.derivedStatsContainer}>
+                          <View style={styles.derivedStatBox}>
+                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{pendingWorkouts}</Text>
+                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Pending</Text>
+                          </View>
+                          <View style={styles.derivedStatBox}>
+                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{completedWorkouts}</Text>
+                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Completed</Text>
+                          </View>
+                          <View style={styles.derivedStatBox}>
+                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{skippedWorkouts}</Text>
+                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Skipped</Text>
+                          </View>
+                        </View>
+                      </Card>
+
+                      {/* Coach Card */}
+                      <Card style={{ flex: 1 }}>
+                        <View style={styles.metricHeader}>
+                          <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>My Coach</Text>
+                          <View style={[styles.iconWrapper, { backgroundColor: colors.emeraldDim }]}>
+                            <Ionicons name="person-circle-outline" size={20} color={colors.emerald} />
+                          </View>
+                        </View>
+                        {coach ? (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 }}>
+                            <View style={[styles.coachAvatar, { backgroundColor: colors.emeraldDim, borderColor: colors.borderEmerald }]}>
+                              <Text style={[styles.avatarText, { color: colors.emerald }]}>
+                                {coach.name.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.coachName, { color: colors.textPrimary }]}>{coach.name}</Text>
+                              <Text style={[styles.coachEmail, { color: colors.textSub }]}>{coach.email}</Text>
+                              <Badge label="Coach" variant="success" />
+                            </View>
+                          </View>
+                        ) : (
+                          <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+                            <Ionicons name="person-outline" size={32} color={colors.textMuted} />
+                            <Text style={[{ fontSize: 13, color: colors.textMuted, marginTop: 8 }]}>No coach assigned yet</Text>
+                          </View>
+                        )}
+                      </Card>
+                    </View>
+
+                    {/* Recent workouts preview */}
+                    {workouts.length > 0 && (
+                      <Card style={styles.section}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Recent Workouts</Text>
+                          <Button
+                            label="View All"
+                            onPress={() => setActiveTab('workouts')}
+                            variant="secondary"
+                            size="sm"
+                          />
+                        </View>
+                        {workouts.slice(0, 3).map((w) => (
+                          <View key={w.workout_id} style={[styles.activityRow, { borderBottomColor: colors.borderSubtle }]}>
+                            <View style={[styles.activityIconWrapper, {
+                              backgroundColor: w.status === 'completed' ? colors.emeraldDim : w.status === 'skipped' ? colors.errorDim : colors.infoDim
+                            }]}>
+                              <Ionicons
+                                name={w.status === 'completed' ? 'checkmark-circle' : w.status === 'skipped' ? 'close-circle' : 'time'}
+                                size={16}
+                                color={w.status === 'completed' ? colors.emerald : w.status === 'skipped' ? colors.error : colors.info}
+                              />
+                            </View>
+                            <View style={styles.activityContent}>
+                              <Text style={styles.activityTitleText}>{w.title}</Text>
+                              <Text style={styles.activityMsgText}>Target: {w.date || 'Not set'}</Text>
+                            </View>
+                            <Badge
+                              label={w.status}
+                              variant={w.status === 'completed' ? 'success' : w.status === 'skipped' ? 'error' : 'warning'}
+                            />
+                          </View>
+                        ))}
+                      </Card>
+                    )}
+
+                    {/* Quick Actions */}
+                    <View style={styles.section}>
+                      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Quick Actions</Text>
+                      <View style={styles.actionGrid}>
+                        <Pressable
+                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
+                          onPress={() => setActiveTab('workouts')}
+                        >
+                          <Ionicons name="barbell-outline" size={32} color={colors.info} />
+                          <Text style={styles.actionCardTitle}>My Workouts</Text>
+                          <Text style={styles.actionCardDesc}>
+                            View and update the status of your assigned workout plans.
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
+                          onPress={() => setActiveTab('performance')}
+                        >
+                          <Ionicons name="speedometer" size={32} color={colors.warning} />
+                          <Text style={styles.actionCardTitle}>Performance History</Text>
+                          <Text style={styles.actionCardDesc}>
+                            Track your progress and review coach feedback.
+                          </Text>
+                        </Pressable>
                       </View>
+                    </View>
+                  </>
+                )}
+
+                {/* ── WORKOUTS TAB ── */}
+                {activeTab === 'workouts' && (
+                  <Card style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 20 }]}>
+                      My Workouts ({workouts.length})
+                    </Text>
+
+                    {workouts.length === 0 ? (
+                      <EmptyState
+                        icon="fitness-outline"
+                        title="No workouts assigned yet"
+                        description="Your coach will assign workout plans to you soon."
+                      />
                     ) : (
                       <View style={styles.workoutsList}>
                         {workouts.map((w) => (
-                          <View key={w.workout_id} style={styles.workoutCard}>
+                          <Card key={w.workout_id} style={styles.workoutCard}>
+                            {/* Header */}
                             <View style={styles.workoutCardHeader}>
-                              <View style={styles.workoutMetaCol}>
-                                <Text style={styles.workoutTitleText}>{w.title}</Text>
-                                <Text style={styles.workoutDate}>Target Date: {w.date}</Text>
+                              <View style={{ flex: 1 }}>
+                                <Text style={[styles.workoutTitle, { color: colors.textPrimary }]}>{w.title}</Text>
+                                {w.date && (
+                                  <Text style={[styles.workoutDate, { color: colors.textSub }]}>
+                                    Target Date: {w.date}
+                                  </Text>
+                                )}
                               </View>
-                              <View style={[
-                                styles.statusBadge,
-                                w.status === 'completed' && styles.statusCompleted,
-                                w.status === 'skipped' && styles.statusSkipped
-                              ]}>
-                                <Text style={[
-                                  styles.statusBadgeText,
-                                  w.status === 'completed' && styles.statusCompletedText,
-                                  w.status === 'skipped' && styles.statusSkippedText
-                                ]}>
-                                  {w.status.toUpperCase()}
-                                </Text>
-                              </View>
+                              <Badge
+                                label={w.status}
+                                variant={
+                                  w.status === 'completed' ? 'success' : w.status === 'skipped' ? 'error' : 'warning'
+                                }
+                              />
                             </View>
 
                             {w.description ? (
-                              <Text style={styles.workoutDesc}>{w.description}</Text>
+                              <Text style={[styles.workoutDesc, { color: colors.textSub }]}>{w.description}</Text>
                             ) : null}
 
-                            <View style={styles.exercisesList}>
-                              <Text style={styles.exercisesListTitle}>Exercises:</Text>
-                              {w.exercises.map((ex, idx) => (
-                                <View key={idx} style={styles.exerciseItemRow}>
-                                  <Ionicons name="ellipse" size={6} color="#3b82f6" />
-                                  <Text style={styles.exerciseItemText}>
-                                    {ex.name} — {ex.sets} sets × {ex.reps} reps {ex.duration ? `(${ex.duration})` : ''}
-                                  </Text>
-                                </View>
-                              ))}
-                            </View>
+                            {/* Exercises */}
+                            {w.exercises && w.exercises.length > 0 && (
+                              <View style={[styles.exercisesContainer, { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle }]}>
+                                <Text style={[styles.exercisesTitle, { color: colors.textSub }]}>Exercises</Text>
+                                {w.exercises.map((ex, idx) => (
+                                  <View key={idx} style={styles.exerciseRow}>
+                                    <Ionicons name="ellipse" size={6} color={colors.info} />
+                                    <Text style={[styles.exerciseText, { color: colors.textPrimary }]}>
+                                      {ex.name} — {ex.sets} sets × {ex.reps} reps{ex.duration ? ` (${ex.duration})` : ''}
+                                    </Text>
+                                  </View>
+                                ))}
+                              </View>
+                            )}
 
-                            {/* Status controls */}
+                            {/* Completion Record */}
+                            {(w.status === 'completed' || w.status === 'skipped') && (w.completed_at || w.completion_percentage !== undefined) && (
+                              <View style={[styles.completionCard, { backgroundColor: w.status === 'completed' ? colors.emeraldDim : colors.errorDim, borderColor: w.status === 'completed' ? colors.borderEmerald : 'rgba(239,68,68,0.15)' }]}>
+                                <Text style={[styles.completionTitle, { color: w.status === 'completed' ? colors.emerald : colors.error }]}>
+                                  Completion Record
+                                </Text>
+                                {w.completed_at && (
+                                  <Text style={[styles.completionDetail, { color: colors.textSub }]}>
+                                    Date: {w.completed_at}
+                                  </Text>
+                                )}
+                                {w.completion_percentage !== undefined && (
+                                  <Text style={[styles.completionDetail, { color: colors.textSub }]}>
+                                    Completion: {w.completion_percentage}%
+                                  </Text>
+                                )}
+                                {w.athlete_notes && (
+                                  <Text style={[styles.completionDetail, { color: colors.textSub }]}>
+                                    Notes: "{w.athlete_notes}"
+                                  </Text>
+                                )}
+                              </View>
+                            )}
+
+                            {/* Status Controls */}
                             <View style={styles.statusControlsRow}>
                               <Pressable
                                 style={[
-                                  styles.statusControlBtn,
-                                  w.status === 'pending' && { backgroundColor: '#f1f5f9', borderColor: '#475569' }
+                                  styles.statusBtn,
+                                  {
+                                    backgroundColor: w.status === 'pending' ? colors.bgMid : 'transparent',
+                                    borderColor: w.status === 'pending' ? colors.textSub : colors.border,
+                                  },
                                 ]}
                                 onPress={() => handleUpdateStatusClick(w, 'pending')}
                               >
-                                <Text style={[
-                                  styles.statusControlBtnText,
-                                  w.status === 'pending' && { color: '#475569', fontWeight: '700' }
-                                ]}>Pending</Text>
+                                <Text style={[styles.statusBtnText, { color: w.status === 'pending' ? colors.textPrimary : colors.textSub }]}>
+                                  Pending
+                                </Text>
                               </Pressable>
-
                               <Pressable
                                 style={[
-                                  styles.statusControlBtn,
-                                  w.status === 'completed' && { backgroundColor: '#d1fae5', borderColor: '#10b981' }
+                                  styles.statusBtn,
+                                  {
+                                    backgroundColor: w.status === 'completed' ? colors.emeraldDim : 'transparent',
+                                    borderColor: w.status === 'completed' ? colors.emerald : colors.border,
+                                  },
                                 ]}
                                 onPress={() => handleUpdateStatusClick(w, 'completed')}
                               >
-                                <Text style={[
-                                  styles.statusControlBtnText,
-                                  w.status === 'completed' && { color: '#065f46', fontWeight: '700' }
-                                ]}>Completed</Text>
+                                <Text style={[styles.statusBtnText, { color: w.status === 'completed' ? colors.emerald : colors.textSub }]}>
+                                  Completed
+                                </Text>
                               </Pressable>
-
                               <Pressable
                                 style={[
-                                  styles.statusControlBtn,
-                                  w.status === 'skipped' && { backgroundColor: '#fee2e2', borderColor: '#f87171' }
+                                  styles.statusBtn,
+                                  {
+                                    backgroundColor: w.status === 'skipped' ? colors.errorDim : 'transparent',
+                                    borderColor: w.status === 'skipped' ? colors.error : colors.border,
+                                  },
                                 ]}
                                 onPress={() => handleUpdateStatusClick(w, 'skipped')}
                               >
-                                <Text style={[
-                                  styles.statusControlBtnText,
-                                  w.status === 'skipped' && { color: '#991b1b', fontWeight: '700' }
-                                ]}>Skipped</Text>
+                                <Text style={[styles.statusBtnText, { color: w.status === 'skipped' ? colors.error : colors.textSub }]}>
+                                  Skipped
+                                </Text>
                               </Pressable>
                             </View>
-
-                            {/* Completion Details Preview */}
-                            {(w.status === 'completed' || w.status === 'skipped') && (w.completed_at || w.completion_percentage !== undefined) ? (
-                              <View style={styles.completionDetailsCard}>
-                                <Text style={styles.completionDetailsTitle}>Completion Record</Text>
-                                <Text style={styles.completionDetailsText}>
-                                  Date: {w.completed_at || 'Not recorded'}
-                                </Text>
-                                <Text style={styles.completionDetailsText}>
-                                  Percentage: {w.completion_percentage ?? 100}%
-                                </Text>
-                                {w.athlete_notes ? (
-                                  <Text style={styles.completionDetailsText}>
-                                    Notes: "{w.athlete_notes}"
-                                  </Text>
-                                ) : null}
-                              </View>
-                            ) : null}
-                          </View>
+                          </Card>
                         ))}
                       </View>
                     )}
-                  </View>
+                  </Card>
+                )}
 
-                  {/* Additional Information */}
-                  <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Profile Information</Text>
-                    <View style={styles.infoCard}>
-                      <View style={styles.infoRow}>
-                        <Ionicons name="person-outline" size={20} color="#647286" />
-                        <View style={styles.infoContent}>
-                          <Text style={styles.infoLabel}>Full Name</Text>
-                          <Text style={styles.infoValue}>{athlete.name}</Text>
-                        </View>
+                {/* ── PERFORMANCE TAB ── */}
+                {activeTab === 'performance' && (
+                  <Card style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 20 }]}>
+                      My Performance History
+                    </Text>
+
+                    {isPerfLoading ? (
+                      <View style={{ padding: 40, alignItems: 'center' }}>
+                        <ActivityIndicator size="large" color={colors.emerald} />
+                        <Text style={[styles.loaderText, { marginTop: 12 }]}>Loading performance data…</Text>
                       </View>
-                      
-                      <View style={styles.divider} />
-                      
-                      <View style={styles.infoRow}>
-                        <Ionicons name="fitness-outline" size={20} color="#647286" />
-                        <View style={styles.infoContent}>
-                          <Text style={styles.infoLabel}>Sport</Text>
-                          <Text style={styles.infoValue}>{athlete.sport || 'Not specified'}</Text>
-                        </View>
-                      </View>
+                    ) : perfError ? (
+                      <Text style={[styles.errorText, { color: colors.error }]}>{perfError}</Text>
+                    ) : performances.length === 0 ? (
+                      <EmptyState
+                        icon="speedometer-outline"
+                        title="No performance records yet"
+                        description="Your coach will log performance records after workouts."
+                      />
+                    ) : (
+                      <Table
+                        headers={['Event', 'Value', 'Date', 'Workout', 'Coach Feedback']}
+                        data={performances}
+                        renderRow={(perf: PerformanceRecord) => {
+                          const linkedWorkout = workouts.find((w) => w.workout_id === perf.workout_id);
+                          const valStr = perf.value !== undefined
+                            ? `${perf.value} ${perf.unit || ''}`
+                            : `${perf.sprint_time || 0}s`;
+                          const eventName = perf.sport_event || '100m Sprint';
+                          const feedback = perf.feedback || perf.coach_remarks || '—';
 
-                      <View style={styles.divider} />
-
-                      <View style={styles.infoRow}>
-                        <Ionicons name="scale-outline" size={20} color="#647286" />
-                        <View style={styles.infoContent}>
-                          <Text style={styles.infoLabel}>Weight</Text>
-                          <Text style={styles.infoValue}>
-                            {athlete.weight ? `${athlete.weight} kg` : 'Not specified'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.divider} />
-
-                      <View style={styles.infoRow}>
-                        <Ionicons name="ribbon-outline" size={20} color="#647286" />
-                        <View style={styles.infoContent}>
-                          <Text style={styles.infoLabel}>Role</Text>
-                          <Text style={styles.infoValue}>Athlete</Text>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                </>
-              )}
-
-              {activeTab === 'performance' && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>My Performance History ({performances.length})</Text>
-                  {isPerfLoading ? (
-                    <View style={styles.skeletonContainer}>
-                      <SkeletonCard />
-                      <SkeletonCard />
-                    </View>
-                  ) : perfError ? (
-                    <View style={styles.errorContainer}>
-                      <Text style={styles.errorText}>{perfError}</Text>
-                    </View>
-                  ) : performances.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                      <Ionicons name="speedometer-outline" size={48} color="#cbd5e1" />
-                      <Text style={styles.emptyText}>No performance history available.</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.perfList}>
-                      {performances.map((perf) => {
-                        const linkedWorkout = workouts.find((w) => w.workout_id === perf.workout_id);
-                        
-                        const athleteName = user ? user.name : 'Me';
-                        const workoutTitle = linkedWorkout ? linkedWorkout.title : 'N/A';
-                        const workoutStatus = linkedWorkout ? linkedWorkout.status : 'completed';
-                        const completionDate = linkedWorkout?.completed_at || perf.recorded_at || perf.date || 'N/A';
-                        
-                        const exerciseDurations = linkedWorkout?.exercises
-                          ?.map((e) => e.duration)
-                          ?.filter((d) => !!d && d.trim().length > 0);
-                        const workoutDuration = exerciseDurations && exerciseDurations.length > 0
-                          ? exerciseDurations.join(', ')
-                          : 'N/A';
-                          
-                        const athleteNotes = linkedWorkout?.athlete_notes || 'No notes provided';
-                        const coachFeedback = perf.feedback || perf.coach_remarks || 'No feedback provided';
-                        const performanceValue = perf.value !== undefined 
-                          ? `${perf.value} ${perf.unit || ''}` 
-                          : `${perf.sprint_time || 0}s`;
-                        const eventName = perf.sport_event || 'General';
-
-                        return (
-                          <View key={perf.performance_id} style={styles.perfCard}>
-                            <View style={styles.perfCardHeader}>
-                              <View style={styles.perfHeaderLeft}>
-                                <Ionicons name="speedometer-outline" size={20} color="#ec4899" />
-                                <Text style={styles.perfEventTitle}>{eventName}</Text>
+                          return (
+                            <React.Fragment key={perf.performance_id}>
+                              <View style={styles.tableCellMain}>
+                                <Text style={[styles.tableMainText, { color: colors.textPrimary }]}>{eventName}</Text>
                               </View>
-                              <View style={styles.perfValueBadge}>
-                                <Text style={styles.perfValueBadgeText}>{performanceValue}</Text>
+                              <View style={styles.tableCell}>
+                                <Badge label={valStr} variant="info" />
                               </View>
-                            </View>
-
-                            <View style={styles.perfDetailsGrid}>
-                              <View style={styles.perfDetailRow}>
-                                <Text style={styles.perfDetailLabel}>Athlete:</Text>
-                                <Text style={styles.perfDetailValue}>{athleteName}</Text>
-                              </View>
-                              <View style={styles.perfDetailRow}>
-                                <Text style={styles.perfDetailLabel}>Workout Title:</Text>
-                                <Text style={styles.perfDetailValue}>{workoutTitle}</Text>
-                              </View>
-                              <View style={styles.perfDetailRow}>
-                                <Text style={styles.perfDetailLabel}>Workout Status:</Text>
-                                <Text style={[
-                                  styles.perfDetailValue, 
-                                  { color: workoutStatus === 'completed' ? '#10b981' : '#f59e0b', fontWeight: 'bold' }
-                                ]}>
-                                  {workoutStatus.toUpperCase()}
+                              <View style={styles.tableCell}>
+                                <Text style={[styles.tableCellText, { color: colors.textSub }]}>
+                                  {perf.recorded_at || perf.date || '—'}
                                 </Text>
                               </View>
-                              <View style={styles.perfDetailRow}>
-                                <Text style={styles.perfDetailLabel}>Completion Date:</Text>
-                                <Text style={styles.perfDetailValue}>{completionDate}</Text>
+                              <View style={styles.tableCell}>
+                                <Text style={[styles.tableCellText, { color: colors.textSub }]} numberOfLines={1}>
+                                  {linkedWorkout?.title || '—'}
+                                </Text>
                               </View>
-                              <View style={styles.perfDetailRow}>
-                                <Text style={styles.perfDetailLabel}>Duration:</Text>
-                                <Text style={styles.perfDetailValue}>{workoutDuration}</Text>
+                              <View style={styles.tableCellMain}>
+                                <Text style={[styles.tableCellText, { color: colors.textSub }]} numberOfLines={2}>
+                                  {feedback}
+                                </Text>
                               </View>
-                            </View>
+                            </React.Fragment>
+                          );
+                        }}
+                      />
+                    )}
+                  </Card>
+                )}
 
-                            <View style={styles.perfNotesSection}>
-                              <Text style={styles.notesSectionLabel}>Athlete Notes</Text>
-                              <Text style={styles.notesSectionText}>{athleteNotes}</Text>
-                            </View>
+                {/* ── PROFILE TAB ── */}
+                {activeTab === 'profile' && (
+                  <>
+                    {/* Profile Header */}
+                    <Card style={styles.section}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+                        <View style={[styles.profileAvatarLarge, { backgroundColor: colors.infoDim, borderColor: 'rgba(14,165,233,0.3)' }]}>
+                          <Text style={[styles.avatarTextLarge, { color: colors.info }]}>
+                            {athlete.name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.profileNameText, { color: colors.textPrimary }]}>{athlete.name}</Text>
+                          <Text style={[styles.profileEmailText, { color: colors.textSub }]}>{user.email}</Text>
+                          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                            <Badge label="Athlete" variant="info" />
+                            {athlete.sport && <Badge label={athlete.sport} variant="neutral" />}
+                          </View>
+                        </View>
+                      </View>
+                    </Card>
 
-                            <View style={[styles.perfNotesSection, { borderTopColor: '#f1f5f9', borderTopWidth: 1, paddingTop: 10 }]}>
-                              <Text style={[styles.notesSectionLabel, { color: '#0f172a' }]}>Coach Feedback</Text>
-                              <Text style={styles.notesSectionText}>{coachFeedback}</Text>
+                    {/* Profile Details */}
+                    <Card style={styles.section}>
+                      <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 20 }]}>
+                        Personal Information
+                      </Text>
+                      {[
+                        { icon: 'person-outline', label: 'Full Name', value: athlete.name },
+                        { icon: 'mail-outline', label: 'Email', value: user.email },
+                        { icon: 'fitness-outline', label: 'Sport', value: athlete.sport || 'Not specified' },
+                        { icon: 'scale-outline', label: 'Weight', value: athlete.weight ? `${athlete.weight} kg` : 'Not specified' },
+                        { icon: 'id-card-outline', label: 'Athlete ID', value: athlete.athlete_id },
+                        { icon: 'ribbon-outline', label: 'Role', value: 'Athlete' },
+                      ].map((item, idx, arr) => (
+                        <View key={item.label}>
+                          <View style={styles.infoRow}>
+                            <View style={[styles.infoIconWrapper, { backgroundColor: colors.bgMid }]}>
+                              <Ionicons name={item.icon as any} size={18} color={colors.textSub} />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.infoLabel, { color: colors.textMuted }]}>{item.label}</Text>
+                              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{item.value}</Text>
                             </View>
                           </View>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
-              )}
-            </>
-          )}
-        </ScrollView>
+                          {idx < arr.length - 1 && (
+                            <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
+                          )}
+                        </View>
+                      ))}
+                    </Card>
+
+                    {/* Coach Assignment */}
+                    <Card style={styles.section}>
+                      <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 20 }]}>
+                        My Coach
+                      </Text>
+                      {coach ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                          <View style={[styles.coachAvatar, { backgroundColor: colors.emeraldDim, borderColor: colors.borderEmerald }]}>
+                            <Text style={[styles.avatarText, { color: colors.emerald }]}>
+                              {coach.name.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.coachName, { color: colors.textPrimary }]}>{coach.name}</Text>
+                            <Text style={[styles.coachEmail, { color: colors.textSub }]}>{coach.email}</Text>
+                            <View style={{ marginTop: 8 }}>
+                              <Badge label="Coach" variant="success" />
+                            </View>
+                          </View>
+                        </View>
+                      ) : (
+                        <EmptyState
+                          icon="person-outline"
+                          title="No coach assigned yet"
+                          description="Contact your admin to get a coach assigned to you."
+                        />
+                      )}
+                    </Card>
+                  </>
+                )}
+              </>
+            )}
+          </ScrollView>
+        </View>
       </View>
 
-      {/* Completion Modal */}
+      {/* ── COMPLETION MODAL ── */}
       <Modal
         visible={selectedWorkoutForCompletion !== null}
-        transparent={true}
+        transparent
         animationType="fade"
         onRequestClose={() => setSelectedWorkoutForCompletion(null)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              Record Completion
-            </Text>
-            <Text style={styles.modalSubtitle}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setSelectedWorkoutForCompletion(null)}
+        >
+          <Pressable
+            style={[styles.modalCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Record Completion</Text>
+              <Pressable onPress={() => setSelectedWorkoutForCompletion(null)}>
+                <Ionicons name="close" size={24} color={colors.textSub} />
+              </Pressable>
+            </View>
+            <Text style={[styles.modalSubtitle, { color: colors.textSub }]}>
               Workout: {selectedWorkoutForCompletion?.title}
             </Text>
-            
-            {/* Completion Percentage */}
-            <View style={styles.modalFieldGroup}>
-              <Text style={styles.modalLabel}>Completion Percentage (0-100%)</Text>
-              <TextInput
-                style={styles.modalInput}
-                keyboardType="numeric"
-                value={completionPercentage}
-                onChangeText={(val) => {
-                  const clean = val.replace(/[^0-9]/g, '');
-                  const num = parseInt(clean) || 0;
-                  if (num > 100) {
-                    setCompletionPercentage('100');
-                  } else {
-                    setCompletionPercentage(clean);
-                  }
-                }}
-              />
+
+            <View style={{ marginTop: 20, gap: 14 }}>
+              <View>
+                <Text style={[styles.modalLabel, { color: colors.textSub }]}>Completion Percentage (0–100%)</Text>
+                <TextInput
+                  style={[styles.formInput, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg, marginTop: 6 }]}
+                  keyboardType="numeric"
+                  value={completionPercentage}
+                  onChangeText={(val) => {
+                    const clean = val.replace(/[^0-9]/g, '');
+                    const num = parseInt(clean) || 0;
+                    setCompletionPercentage(num > 100 ? '100' : clean);
+                  }}
+                />
+              </View>
+              <View>
+                <Text style={[styles.modalLabel, { color: colors.textSub }]}>Athlete Notes (Optional)</Text>
+                <TextInput
+                  style={[styles.formInput, styles.formTextArea, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg, marginTop: 6 }]}
+                  placeholder="How did it feel? Any issues or highlights?"
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  numberOfLines={3}
+                  value={athleteNotes}
+                  onChangeText={setAthleteNotes}
+                />
+              </View>
             </View>
 
-            {/* Athlete Notes */}
-            <View style={styles.modalFieldGroup}>
-              <Text style={styles.modalLabel}>Athlete Notes (Optional)</Text>
-              <TextInput
-                style={[styles.modalInput, styles.modalTextArea]}
-                placeholder="How did it feel? Any issues or highlights?"
-                placeholderTextColor="#94a3b8"
-                multiline={true}
-                numberOfLines={3}
-                value={athleteNotes}
-                onChangeText={setAthleteNotes}
-              />
-            </View>
-
-            {/* Modal Actions */}
-            <View style={styles.modalActionsRow}>
-              <Pressable
-                style={[styles.modalButton, styles.cancelButton]}
+            <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'flex-end', marginTop: 20 }}>
+              <Button
+                label="Cancel"
                 onPress={() => setSelectedWorkoutForCompletion(null)}
+                variant="secondary"
                 disabled={isSavingCompletion}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </Pressable>
-              
-              <Pressable
-                style={[styles.modalButton, styles.submitButton]}
-                onPress={async () => {
-                  if (!selectedWorkoutForCompletion || !completionStatus) return;
-                  setIsSavingCompletion(true);
-                  try {
-                    const now = new Date();
-                    const yyyy = now.getFullYear();
-                    const mm = String(now.getMonth() + 1).padStart(2, '0');
-                    const dd = String(now.getDate()).padStart(2, '0');
-                    const hh = String(now.getHours()).padStart(2, '0');
-                    const min = String(now.getMinutes()).padStart(2, '0');
-                    const ss = String(now.getSeconds()).padStart(2, '0');
-                    const completedAt = `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
-
-                    const pct = parseInt(completionPercentage) || 0;
-
-                    await updateWorkoutStatus(
-                      token,
-                      selectedWorkoutForCompletion.workout_id,
-                      completionStatus,
-                      completedAt,
-                      pct,
-                      athleteNotes.trim() || undefined
-                    );
-
-                    // Update local state immediately
-                    setWorkouts(prevWorkouts =>
-                      prevWorkouts.map(w =>
-                        w.workout_id === selectedWorkoutForCompletion.workout_id
-                          ? {
-                              ...w,
-                              status: completionStatus,
-                              completed_at: completedAt,
-                              completion_percentage: pct,
-                              athlete_notes: athleteNotes.trim() || undefined
-                            }
-                          : w
-                      )
-                    );
-
-                    setSelectedWorkoutForCompletion(null);
-                  } catch (err: any) {
-                    alert('Failed to save completion: ' + err.message);
-                  } finally {
-                    setIsSavingCompletion(false);
-                  }
-                }}
+              />
+              <Button
+                label={isSavingCompletion ? 'Saving…' : 'Save Completion'}
+                onPress={handleSaveCompletion}
+                variant="primary"
                 disabled={isSavingCompletion}
-              >
-                {isSavingCompletion ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.submitButtonText}>Save Completion</Text>
-                )}
-              </Pressable>
+              />
             </View>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    gap: 12,
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: '#647286',
-    marginTop: 2,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    backgroundColor: '#fef2f2',
-  },
-  logoutText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ef4444',
-  },
-  content: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  contentInner: {
-    padding: 24,
-    maxWidth: 1400,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  loaderContainer: {
-    paddingVertical: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loaderText: {
-    marginTop: 12,
-    color: '#647286',
-    fontSize: 14,
-  },
-  errorContainer: {
-    padding: 40,
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-  },
-  errorText: {
-    color: '#b91c1c',
-    fontSize: 15,
-    marginTop: 12,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  primaryButton: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 6,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    ...Platform.select({
-      web: { cursor: 'pointer' } as any,
-      default: {},
-    }),
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  centeredStatus: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  profileCard: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 24,
-    marginBottom: 24,
-  },
-  profileAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#f59e0b',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    alignSelf: 'center',
-  },
-  avatarText: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: '#fff',
-  },
-  profileDetails: {
-    gap: 12,
-  },
-  profileName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#0f172a',
-    textAlign: 'center',
-  },
-  profileSport: {
-    fontSize: 14,
-    color: '#475569',
-    textAlign: 'center',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 8,
-  },
-  infoItem: {
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: '#647286',
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  infoValue: {
-    fontSize: 14,
-    color: '#0f172a',
-    fontWeight: '500',
-  },
-  badge: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#3b82f6',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    alignSelf: 'flex-start',
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#3b82f6',
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 16,
-  },
-  coachCard: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 20,
-  },
-  coachHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  coachAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#8b5cf6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  coachAvatarText: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#fff',
-  },
-  coachInfo: {
-    flex: 1,
-    gap: 4,
-  },
-  coachName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  coachEmail: {
-    fontSize: 13,
-    color: '#647286',
-  },
-  emptyCoachCard: {
-    padding: 40,
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-  },
-  emptyCoachText: {
-    color: '#647286',
-    fontSize: 15,
-    marginTop: 12,
-  },
-  infoCard: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 20,
-  },
-  infoContent: {
-    flex: 1,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#f1f5f9',
-    marginVertical: 12,
-  },
-  emptyContainer: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#647286',
-    textAlign: 'center',
-  },
-  workoutsList: {
-    gap: 16,
-  },
-  workoutCard: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 16,
-    gap: 12,
-  },
-  workoutCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  workoutMetaCol: {
-    flex: 1,
-  },
-  workoutTitleText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  statusBadge: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  statusBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  statusCompleted: {
-    backgroundColor: '#d1fae5',
-  },
-  statusCompletedText: {
-    color: '#065f46',
-  },
-  statusSkipped: {
-    backgroundColor: '#fee2e2',
-  },
-  statusSkippedText: {
-    color: '#991b1b',
-  },
-  workoutDesc: {
-    fontSize: 13,
-    color: '#475569',
-    lineHeight: 18,
-  },
-  workoutDate: {
-    fontSize: 12,
-    color: '#647286',
-    marginTop: 2,
-  },
-  exercisesList: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 6,
-    padding: 12,
-    gap: 6,
-  },
-  exercisesListTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#475569',
-    marginBottom: 2,
-  },
-  exerciseItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  exerciseItemText: {
-    fontSize: 13,
-    color: '#334155',
-  },
-  statusControlsRow: {
-    flexDirection: 'row',
-    borderTopColor: '#f1f5f9',
-    borderTopWidth: 1,
-    paddingTop: 12,
-    gap: 8,
-  },
-  statusControlBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 6,
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    backgroundColor: '#fff',
-    ...Platform.select({
-      web: { cursor: 'pointer' } as any,
-      default: {},
-    }),
-  },
-  statusControlBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#647286',
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 4,
-    marginBottom: 24,
-    gap: 8,
-  },
-  tabButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 6,
-    gap: 8,
-    ...Platform.select({
-      web: { cursor: 'pointer' } as any,
-      default: {},
-    }),
-  },
-  tabButtonActive: {
-    backgroundColor: '#eff6ff',
-    borderBottomWidth: 2,
-    borderBottomColor: '#3b82f6',
-  },
-  tabButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#647286',
-  },
-  tabButtonTextActive: {
-    color: '#3b82f6',
-    fontWeight: '700',
-  },
-  perfList: {
-    gap: 16,
-  },
-  perfCard: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 16,
-    gap: 12,
-  },
-  perfCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  perfDateCol: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  perfDateText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  perfTimeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ecfdf5',
-    borderColor: '#a7f3d0',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    gap: 4,
-  },
-  perfTimeBadgeText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#047857',
-  },
-  perfMetricsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  perfMetricBox: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    alignItems: 'center',
-    gap: 4,
-  },
-  perfMetricLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#647286',
-    textTransform: 'uppercase',
-  },
-  perfMetricVal: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  remarksBox: {
-    backgroundColor: '#faf5ff',
-    borderColor: '#e9d5ff',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    gap: 4,
-  },
-  remarksLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#7e22ce',
-  },
-  remarksText: {
-    fontSize: 13,
-    color: '#581c87',
-    lineHeight: 18,
-  },
-  skeletonContainer: {
-    gap: 12,
-    marginBottom: 20,
-  },
-  skeletonCard: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 16,
-    gap: 12,
-  },
-  skeletonHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  skeletonAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#e2e8f0',
-  },
-  skeletonMeta: {
-    flex: 1,
-    gap: 8,
-  },
-  skeletonLineShort: {
-    height: 14,
-    width: '40%',
-    backgroundColor: '#e2e8f0',
-    borderRadius: 4,
-  },
-  skeletonLineLong: {
-    height: 10,
-    width: '70%',
-    backgroundColor: '#e2e8f0',
-    borderRadius: 4,
-  },
-  skeletonLineMedium: {
-    height: 12,
-    width: '50%',
-    backgroundColor: '#e2e8f0',
-    borderRadius: 4,
-  },
-  skeletonDivider: {
-    height: 1,
-    backgroundColor: '#f1f5f9',
-  },
-  skeletonFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  skeletonButton: {
-    height: 32,
-    width: 60,
-    backgroundColor: '#e2e8f0',
-    borderRadius: 6,
-  },
-  perfWorkoutRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    gap: 6,
-  },
-  perfWorkoutTitleText: {
-    fontSize: 13,
-    color: '#3b82f6',
-    fontWeight: '600',
-  },
-  completionDetailsCard: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 12,
-  },
-  completionDetailsTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#475569',
-    marginBottom: 6,
-  },
-  completionDetailsText: {
-    fontSize: 12,
-    color: '#647286',
-    lineHeight: 18,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalCard: {
-    backgroundColor: '#ffffff',
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 24,
-    width: '100%',
-    maxWidth: 500,
-    gap: 16,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: '#647286',
-    marginTop: -8,
-    marginBottom: 8,
-  },
-  modalFieldGroup: {
-    gap: 8,
-    marginBottom: 16,
-  },
-  modalLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  modalInput: {
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    height: 40,
-    fontSize: 14,
-    color: '#0f172a',
-    backgroundColor: '#f8fafc',
-  },
-  modalTextArea: {
-    height: 80,
-    paddingVertical: 8,
-    textAlignVertical: 'top',
-  },
-  modalActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-    marginTop: 8,
-  },
-  modalButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: 100,
-    ...Platform.select({
-      web: { cursor: 'pointer' } as any,
-      default: {},
-    }),
-  },
-  cancelButton: {
-    backgroundColor: '#f1f5f9',
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-  },
-  cancelButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  submitButton: {
-    backgroundColor: '#3b82f6',
-  },
-  submitButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  perfHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  perfEventTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  perfValueBadge: {
-    backgroundColor: '#fdf2f8',
-    borderColor: '#fbcfe8',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  perfValueBadgeText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#db2777',
-  },
-  perfDetailsGrid: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    gap: 8,
-    marginVertical: 12,
-  },
-  perfDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  perfDetailLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748b',
-  },
-  perfDetailValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1e293b',
-  },
-  perfNotesSection: {
-    marginTop: 10,
-    gap: 4,
-  },
-  notesSectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748b',
-    textTransform: 'uppercase',
-  },
-  notesSectionText: {
-    fontSize: 13,
-    color: '#334155',
-    lineHeight: 18,
-  },
-});
+function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boolean) {
+  return StyleSheet.create({
+    wrapper: {
+      flex: 1,
+      backgroundColor: colors.bg,
+    },
+    mainContainer: {
+      flex: 1,
+      flexDirection: 'row',
+    },
+    centeredStatus: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
+      gap: 16,
+    },
+    errorText: {
+      fontSize: 15,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+
+    // ── Sidebar ──
+    sidebar: {
+      width: 260,
+      backgroundColor: colors.bgCard,
+      borderRightWidth: 1,
+      borderRightColor: colors.border,
+      paddingVertical: 20,
+    },
+    sidebarFloating: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      bottom: 0,
+      zIndex: 1000,
+    },
+    sidebarHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      marginBottom: 24,
+    },
+    brandRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    sidebarBrand: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      letterSpacing: -0.5,
+    },
+    sidebarProfile: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginHorizontal: 16,
+      marginBottom: 20,
+      padding: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+    },
+    sidebarAvatar: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+    },
+    sidebarAvatarText: {
+      fontSize: 14,
+      fontWeight: '800',
+    },
+    sidebarProfileName: {
+      fontSize: 13,
+      fontWeight: '700',
+      marginBottom: 4,
+    },
+    sidebarNav: {
+      paddingHorizontal: 12,
+      gap: 4,
+    },
+    sidebarItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 10,
+    },
+    sidebarItemActive: {
+      backgroundColor: colors.emeraldDim,
+      borderColor: colors.borderEmerald,
+      borderWidth: 1,
+    },
+    sidebarItemLabel: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textSub,
+    },
+    sidebarItemLabelActive: {
+      color: colors.emerald,
+    },
+    sidebarBadge: {
+      backgroundColor: colors.bgMid,
+      borderRadius: 12,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    sidebarBadgeActive: {
+      backgroundColor: colors.emeraldDim,
+      borderColor: colors.borderEmerald,
+    },
+    sidebarBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.textSub,
+    },
+    sidebarBadgeTextActive: {
+      color: colors.emerald,
+    },
+    sidebarFooter: {
+      paddingHorizontal: 12,
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      marginTop: 20,
+    },
+    logoutButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 10,
+    },
+    logoutLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.error,
+    },
+
+    overlay: {
+      position: 'absolute',
+      inset: 0,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      zIndex: 999,
+    },
+
+    // ── Header ──
+    contentArea: {
+      flex: 1,
+      backgroundColor: colors.bg,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      backgroundColor: colors.bgCard,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    hamburgerBtn: {
+      padding: 8,
+      borderRadius: 8,
+      backgroundColor: colors.bgMid,
+    },
+    headerInfo: {
+      flex: 1,
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      letterSpacing: -0.5,
+    },
+    headerSubtitle: {
+      fontSize: 12,
+      color: colors.textSub,
+      marginTop: 2,
+    },
+    refreshBtn: {
+      padding: 8,
+      borderRadius: 8,
+      backgroundColor: colors.bgMid,
+    },
+
+    // ── Content ──
+    content: {
+      flex: 1,
+    },
+    contentInner: {
+      maxWidth: 1400,
+      alignSelf: 'center',
+      width: '100%',
+      gap: 0,
+    },
+    loaderContainer: {
+      paddingVertical: 60,
+      alignItems: 'center',
+      gap: 12,
+    },
+    loaderText: {
+      color: colors.textSub,
+      fontSize: 14,
+    },
+
+    // ── Welcome ──
+    welcomeText: {
+      fontSize: 13,
+    },
+    welcomeName: {
+      fontSize: 22,
+      fontWeight: '800',
+      letterSpacing: -0.5,
+    },
+    profileAvatar: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+    },
+    avatarText: {
+      fontSize: 16,
+      fontWeight: '800',
+    },
+
+    // ── Metrics ──
+    metricsContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 16,
+      marginBottom: 24,
+      width: '100%',
+    },
+    metricHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    metricLabel: {
+      fontSize: 14,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    iconWrapper: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    derivedStatsContainer: {
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: 8,
+    },
+    derivedStatBox: {
+      flex: 1,
+      backgroundColor: colors.bgMid,
+      padding: 10,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    derivedStatVal: {
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    derivedStatLabel: {
+      fontSize: 10,
+      fontWeight: '600',
+      marginTop: 2,
+      textTransform: 'uppercase',
+    },
+
+    // ── Coach card ──
+    coachAvatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+    },
+    coachName: {
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    coachEmail: {
+      fontSize: 13,
+      marginTop: 2,
+    },
+
+    // ── Sections ──
+    section: {
+      marginBottom: 32,
+      width: '100%',
+    },
+    sectionTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+    },
+
+    // ── Activity Feed ──
+    activityRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+    },
+    activityIconWrapper: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    activityContent: {
+      flex: 1,
+    },
+    activityTitleText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    activityMsgText: {
+      fontSize: 12,
+      color: colors.textSub,
+      marginTop: 2,
+    },
+
+    // ── Quick Actions ──
+    actionGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 16,
+      marginTop: 12,
+    },
+    actionCard: {
+      minWidth: 260,
+      backgroundColor: colors.bgCard,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 10,
+      padding: 20,
+      gap: 10,
+    },
+    actionCardTitle: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    actionCardDesc: {
+      fontSize: 14,
+      color: colors.textSub,
+      lineHeight: 20,
+    },
+
+    // ── Workouts ──
+    workoutsList: {
+      gap: 16,
+    },
+    workoutCard: {
+      gap: 12,
+    },
+    workoutCardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      gap: 12,
+    },
+    workoutTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    workoutDate: {
+      fontSize: 12,
+      marginTop: 4,
+    },
+    workoutDesc: {
+      fontSize: 13,
+      lineHeight: 20,
+    },
+    exercisesContainer: {
+      borderRadius: 8,
+      borderWidth: 1,
+      padding: 12,
+      gap: 8,
+    },
+    exercisesTitle: {
+      fontSize: 11,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 4,
+    },
+    exerciseRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    exerciseText: {
+      fontSize: 13,
+      flex: 1,
+    },
+
+    // ── Status Controls ──
+    statusControlsRow: {
+      flexDirection: 'row',
+      gap: 8,
+      flexWrap: 'wrap',
+    },
+    statusBtn: {
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    statusBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+    },
+
+    // ── Completion Card ──
+    completionCard: {
+      borderRadius: 8,
+      borderWidth: 1,
+      padding: 12,
+      gap: 4,
+    },
+    completionTitle: {
+      fontSize: 12,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 4,
+    },
+    completionDetail: {
+      fontSize: 12,
+      lineHeight: 18,
+    },
+
+    // ── Table Cells ──
+    tableCellMain: {
+      paddingHorizontal: 16,
+      minWidth: 180,
+      flex: 2,
+      justifyContent: 'center',
+    },
+    tableCell: {
+      paddingHorizontal: 16,
+      minWidth: 100,
+      flex: 1,
+      justifyContent: 'center',
+    },
+    tableMainText: {
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    tableCellText: {
+      fontSize: 13,
+    },
+
+    // ── Profile Tab ──
+    profileAvatarLarge: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+    },
+    avatarTextLarge: {
+      fontSize: 32,
+      fontWeight: '800',
+    },
+    profileNameText: {
+      fontSize: 22,
+      fontWeight: '800',
+      letterSpacing: -0.5,
+    },
+    profileEmailText: {
+      fontSize: 14,
+      marginTop: 4,
+    },
+    infoRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 12,
+    },
+    infoIconWrapper: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    infoLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    infoValue: {
+      fontSize: 14,
+      fontWeight: '600',
+      marginTop: 2,
+    },
+    divider: {
+      height: 1,
+    },
+
+    // ── Forms ──
+    formInput: {
+      borderWidth: 1,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 14,
+    },
+    formTextArea: {
+      minHeight: 80,
+      textAlignVertical: 'top',
+    },
+
+    // ── Modal ──
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 16,
+    },
+    modalCard: {
+      width: Math.min(480, isWeb ? 480 : 360),
+      borderRadius: 12,
+      borderWidth: 1,
+      padding: 24,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      letterSpacing: -0.5,
+    },
+    modalSubtitle: {
+      fontSize: 13,
+      marginTop: 4,
+    },
+    modalLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+  });
+}

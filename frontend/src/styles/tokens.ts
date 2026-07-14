@@ -1,3 +1,5 @@
+import { useColorScheme } from '@/hooks/use-color-scheme';
+
 /**
  * Design tokens shared across the entire AthliTech UI.
  * Import from here — never hardcode brand values in components.
@@ -33,6 +35,69 @@ export const COLORS = {
   success: '#10b981',
   warning: '#f59e0b',
 } as const;
+
+export const THEME_COLORS = {
+  dark: {
+    ...COLORS,
+    cardShadow: 'rgba(0, 0, 0, 0.5)',
+    inputBg: 'rgba(255, 255, 255, 0.04)',
+    inputBorder: 'rgba(255, 255, 255, 0.1)',
+    skeletonBg: 'rgba(255, 255, 255, 0.06)',
+    skeletonHighlight: 'rgba(255, 255, 255, 0.12)',
+    info: '#0ea5e9',
+    infoDim: 'rgba(14, 165, 233, 0.1)',
+    neutral: '#334155',
+    neutralText: '#94a3b8',
+  },
+  light: {
+    // Backgrounds
+    bg: '#f8fafc',
+    bgMid: '#f1f5f9',
+    bgCard: '#ffffff',
+    bgGlass: 'rgba(255, 255, 255, 0.8)',
+
+    // Borders
+    border: 'rgba(15, 23, 42, 0.08)',
+    borderSubtle: 'rgba(15, 23, 42, 0.04)',
+    borderEmerald: 'rgba(16, 185, 129, 0.15)',
+
+    // Brand
+    emerald: '#10b981',
+    emeraldPressed: '#059669',
+    emeraldDim: 'rgba(16, 185, 129, 0.08)',
+    emeraldGlow: 'rgba(16, 185, 129, 0.12)',
+
+    // Text
+    textPrimary: '#0f172a',
+    textSub: '#475569',
+    textMuted: '#64748b',
+    textDimmed: '#94a3b8',
+
+    // Status
+    error: '#ef4444',
+    errorDim: 'rgba(239, 68, 68, 0.08)',
+    success: '#10b981',
+    warning: '#d97706',
+    
+    // Extends
+    cardShadow: 'rgba(0, 0, 0, 0.06)',
+    inputBg: '#ffffff',
+    inputBorder: '#e2e8f0',
+    skeletonBg: '#e2e8f0',
+    skeletonHighlight: '#cbd5e1',
+    info: '#0284c7',
+    infoDim: 'rgba(2, 132, 199, 0.08)',
+    neutral: '#e2e8f0',
+    neutralText: '#475569',
+  },
+} as const;
+
+export type ThemeColors = typeof THEME_COLORS.dark;
+
+export function useThemeColors(): ThemeColors {
+  const scheme = useColorScheme() ?? 'dark';
+  return THEME_COLORS[scheme] || THEME_COLORS.dark;
+}
 
 export const RADIUS = {
   xs: 6,

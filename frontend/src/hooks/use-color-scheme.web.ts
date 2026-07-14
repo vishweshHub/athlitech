@@ -1,21 +1,29 @@
-import { useEffect, useState } from 'react';
-import { useColorScheme as useRNColorScheme } from 'react-native';
+import { useContext, useEffect, useState } from 'react';
+import { ThemeContext, getGlobalTheme, addGlobalThemeListener } from '@/context/ThemeContext';
 
-/**
- * To support static rendering, this value needs to be re-calculated on the client side for web
- */
 export function useColorScheme() {
   const [hasHydrated, setHasHydrated] = useState(false);
+  const context = useContext(ThemeContext);
+  const [theme, setTheme] = useState(context ? context.theme : getGlobalTheme());
 
   useEffect(() => {
     setHasHydrated(true);
   }, []);
 
-  const colorScheme = useRNColorScheme();
+  useEffect(() => {
+    if (context) {
+      setTheme(context.theme);
+    } else {
+      setTheme(getGlobalTheme());
+      return addGlobalThemeListener((newTheme) => {
+        setTheme(newTheme);
+      });
+    }
+  }, [context, context?.theme]);
 
   if (hasHydrated) {
-    return colorScheme;
+    return theme;
   }
-
-  return 'light';
+  
+  return 'dark'; // Default to dark on web server pre-rendering to match primary landing
 }

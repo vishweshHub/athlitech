@@ -12,6 +12,7 @@ import {
   useWindowDimensions,
   ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { fetchCurrentUser, getStoredToken, login, storeToken } from '@/api/auth';
 import GridMotion from '@/components/animations/GridMotion';
@@ -262,6 +263,12 @@ export default function LoginScreen() {
               {/* General error (e.g. wrong credentials) */}
               {error && !(!email.trim() || !password) && (
                 <View style={styles.errorBox}>
+                  <Ionicons
+                    name="alert-circle-outline"
+                    size={16}
+                    color={COLORS.error}
+                    style={{ marginTop: 1 }}
+                  />
                   <Text style={styles.errorText}>{error}</Text>
                 </View>
               )}
@@ -414,6 +421,9 @@ const styles = StyleSheet.create({
   },
 
   errorBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
     backgroundColor: COLORS.errorDim,
     borderColor: 'rgba(239,68,68,0.25)',
     borderWidth: 1,
@@ -422,8 +432,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorText: {
+    flex: 1,
     color: COLORS.error,
-    fontSize: 14,
+    fontSize: 13,
     lineHeight: 20,
   },
 

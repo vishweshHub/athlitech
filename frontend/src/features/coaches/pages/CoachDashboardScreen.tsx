@@ -1,7 +1,9 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Platform,
   Pressable,
   SafeAreaView,
@@ -10,7 +12,7 @@ import {
   Text,
   TextInput,
   View,
-  Modal,
+  useWindowDimensions,
 } from 'react-native';
 
 import type { Athlete } from '@/api/admin';
@@ -20,28 +22,20 @@ import type { Workout, Exercise } from '@/api/workout';
 import { createWorkout, fetchCoachWorkouts } from '@/api/workout';
 import type { PerformanceRecord } from '@/api/performance';
 import { fetchAthletePerformances, createPerformance } from '@/api/performance';
-import { Ionicons } from '@expo/vector-icons';
 
-function SkeletonCard() {
-  return (
-    <View style={styles.skeletonCard}>
-      <View style={styles.skeletonHeader}>
-        <View style={styles.skeletonAvatar} />
-        <View style={styles.skeletonMeta}>
-          <View style={styles.skeletonLineShort} />
-          <View style={styles.skeletonLineLong} />
-        </View>
-      </View>
-      <View style={styles.skeletonDivider} />
-      <View style={styles.skeletonFooter}>
-        <View style={styles.skeletonLineMedium} />
-        <View style={styles.skeletonButton} />
-      </View>
-    </View>
-  );
-}
-
-
+import {
+  Button,
+  Card,
+  Badge,
+  StatCard,
+  SearchBar,
+  Table,
+  ThemeToggle,
+  EmptyState,
+  SkeletonLoader,
+} from '@/components/ui';
+import { useThemeColors } from '@/styles/tokens';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface CoachDashboardScreenProps {
   user: AuthUser | null;
@@ -49,146 +43,157 @@ interface CoachDashboardScreenProps {
   onSignOut: () => void;
 }
 
+type TabType = 'dashboard' | 'athletes' | 'workouts' | 'performance';
+
+const isWeb = Platform.OS === 'web';
+
 export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDashboardScreenProps) {
   const router = useRouter();
-  
+  const { width } = useWindowDimensions();
+  const isLargeScreen = width > 768;
+  const colors = useThemeColors();
+  const scheme = useColorScheme();
+
+  const styles = getStyles(colors, isLargeScreen);
+
+  // Navigation state
+  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(isLargeScreen);
+
+  // Sync sidebar state when screen size changes
+  useEffect(() => {
+    setSidebarOpen(isLargeScreen);
+  }, [isLargeScreen]);
+
+  // Backend data state
   const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [filteredAthletes, setFilteredAthletes] = useState<Athlete[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actualCoachId, setActualCoachId] = useState<string | null>(null);
 
-  // Tab State
-  const [activeTab, setActiveTab] = useState<'athletes' | 'workouts' | 'performance'>('athletes');
-
-  // Workouts State
-  const [workouts, setWorkouts] = useState<Workout[]>([]);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [isSavingWorkout, setIsSavingWorkout] = useState(false);
-  const [workoutFormMessage, setWorkoutFormMessage] = useState<{ text: string; isError: boolean } | null>(null);
-
-  // Performance State
+  // Performance state
   const [selectedAthleteForPerf, setSelectedAthleteForPerf] = useState<Athlete | null>(null);
   const [athletePerformances, setAthletePerformances] = useState<PerformanceRecord[]>([]);
   const [isPerfLoading, setIsPerfLoading] = useState(false);
-  const [isSavingPerf, setIsSavingPerf] = useState(false);
   const [perfError, setPerfError] = useState<string | null>(null);
-  const [showCreatePerfForm, setShowCreatePerfForm] = useState(false);
-  const [perfFormMessage, setPerfFormMessage] = useState<{ text: string; isError: boolean } | null>(null);
+
+  // Create Workout Form State
+  const [showCreateWorkoutModal, setShowCreateWorkoutModal] = useState(false);
+  const [isSavingWorkout, setIsSavingWorkout] = useState(false);
+  const [workoutFormMessage, setWorkoutFormMessage] = useState<{ text: string; isError: boolean } | null>(null);
+  const [newWorkoutTitle, setNewWorkoutTitle] = useState('');
+  const [newWorkoutDescription, setNewWorkoutDescription] = useState('');
+  const [newWorkoutAthleteId, setNewWorkoutAthleteId] = useState('');
+  const [newWorkoutDate, setNewWorkoutDate] = useState(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  });
+  const [newWorkoutExercises, setNewWorkoutExercises] = useState<Exercise[]>([
+    { name: '', sets: 3, reps: 10, duration: '' }
+  ]);
+  const [athleteDropdownSearch, setAthleteDropdownSearch] = useState('');
+  const [showAthleteDropdown, setShowAthleteDropdown] = useState(false);
 
   // Create Performance Form State
+  const [showCreatePerfModal, setShowCreatePerfModal] = useState(false);
+  const [isSavingPerf, setIsSavingPerf] = useState(false);
+  const [perfFormMessage, setPerfFormMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [newSprintTime, setNewSprintTime] = useState('');
   const [newWeight, setNewWeight] = useState('');
   const [newHeight, setNewHeight] = useState('');
   const [newPerfRemarks, setNewPerfRemarks] = useState('');
   const [newPerfDate, setNewPerfDate] = useState(() => {
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   });
 
-
-  // Create Workout Form State
-  const [newWorkoutTitle, setNewWorkoutTitle] = useState('');
-  const [newWorkoutDescription, setNewWorkoutDescription] = useState('');
-  const [newWorkoutAthleteId, setNewWorkoutAthleteId] = useState('');
-  const [dropdownSearch, setDropdownSearch] = useState('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-
-  // Review & link performance state
-  const [selectedWorkoutForPerformance, setSelectedWorkoutForPerformance] = useState<Workout | null>(null);
+  // Record linked performance for workout
+  const [selectedWorkoutForPerf, setSelectedWorkoutForPerf] = useState<Workout | null>(null);
   const [perfSportEvent, setPerfSportEvent] = useState('');
   const [perfValue, setPerfValue] = useState('');
   const [perfUnit, setPerfUnit] = useState('seconds');
   const [perfFeedback, setPerfFeedback] = useState('');
-  const [perfDate, setPerfDate] = useState(() => {
+  const [perfLinkedDate, setPerfLinkedDate] = useState(() => {
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   });
-  const [isSavingCoachPerf, setIsSavingCoachPerf] = useState(false);
-  const [coachPerfMessage, setCoachPerfMessage] = useState<{ text: string; isError: boolean } | null>(null);
-  const [newWorkoutDate, setNewWorkoutDate] = useState(() => {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  });
-  const [newWorkoutExercises, setNewWorkoutExercises] = useState<Exercise[]>([
-    { name: '', sets: 3, reps: 10, duration: '' }
-  ]);
+  const [isSavingLinkedPerf, setIsSavingLinkedPerf] = useState(false);
+  const [linkedPerfMessage, setLinkedPerfMessage] = useState<{ text: string; isError: boolean } | null>(null);
 
-  useEffect(() => {
-    if (!token || !user) {
-      return;
-    }
+  // Load dashboard data
+  const loadDashboardData = useCallback(async () => {
+    if (!token || !user) return;
+    setIsLoading(true);
+    setError(null);
 
-    async function loadDashboardData() {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        let actualCoachId = user?.coach_id;
-        
-        // If coach_id is not present directly on user, fetch the full coach details to obtain coach_id.
-        if (!actualCoachId && user?.id) {
-          const coachData = await fetchCoachById(token, user.id);
-          actualCoachId = coachData.coach_id || coachData.id;
-        }
-
-        if (!actualCoachId && user?.id) {
-          actualCoachId = user.id;
-        }
-
-        if (!actualCoachId) {
-          throw new Error('Coach account is not fully configured (missing Coach ID).');
-        }
-
-        const [athletesData, workoutsData] = await Promise.all([
-          fetchCoachAthletes(token, actualCoachId),
-          fetchCoachWorkouts(token, actualCoachId)
-        ]);
-
-        setAthletes(athletesData);
-        setFilteredAthletes(athletesData);
-        setWorkouts(workoutsData);
-      } catch (e) {
-        const message = e instanceof Error ? e.message : 'Failed to load dashboard data';
-        console.warn('Error loading dashboard data:', e);
-        setError(message);
-      } finally {
-        setIsLoading(false);
+    try {
+      let coachId = user?.coach_id;
+      if (!coachId && user?.id) {
+        const coachData = await fetchCoachById(token, user.id);
+        coachId = coachData.coach_id || coachData.id;
       }
-    }
+      if (!coachId && user?.id) {
+        coachId = user.id;
+      }
+      if (!coachId) {
+        throw new Error('Coach account is not fully configured (missing Coach ID).');
+      }
 
-    loadDashboardData();
+      setActualCoachId(coachId);
+
+      const [athletesData, workoutsData] = await Promise.all([
+        fetchCoachAthletes(token, coachId),
+        fetchCoachWorkouts(token, coachId),
+      ]);
+
+      setAthletes(athletesData);
+      setFilteredAthletes(athletesData);
+      setWorkouts(workoutsData);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to load dashboard data';
+      console.warn('Error loading coach dashboard data:', e);
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
   }, [user, token]);
 
   useEffect(() => {
-    if (athletes.length === 1) {
-      setNewWorkoutAthleteId(athletes[0].athlete_id);
-    }
-  }, [athletes]);
+    loadDashboardData();
+  }, [loadDashboardData]);
 
+  // Filter athletes
   useEffect(() => {
-    if (!selectedAthleteForPerf || !token) {
+    if (!searchQuery.trim()) {
+      setFilteredAthletes(athletes);
       return;
     }
+    const query = searchQuery.toLowerCase();
+    setFilteredAthletes(
+      athletes.filter(
+        (a) =>
+          (a.name && a.name.toLowerCase().includes(query)) ||
+          (a.sport && a.sport.toLowerCase().includes(query))
+      )
+    );
+  }, [searchQuery, athletes]);
+
+  // Load athlete performances when selected
+  useEffect(() => {
+    if (!selectedAthleteForPerf || !token) return;
     const athlete = selectedAthleteForPerf;
-    async function loadAthletePerformances() {
+    async function loadPerfs() {
       setIsPerfLoading(true);
       setPerfError(null);
       try {
         const data = await fetchAthletePerformances(token, athlete.athlete_id);
         const sorted = [...data].sort((a, b) => {
-          const dateA = a.date || a.recorded_at || '';
-          const dateB = b.date || b.recorded_at || '';
-          return dateB.localeCompare(dateA);
+          const dA = a.date || a.recorded_at || '';
+          const dB = b.date || b.recorded_at || '';
+          return dB.localeCompare(dA);
         });
         setAthletePerformances(sorted);
       } catch (err: any) {
@@ -197,8 +202,68 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
         setIsPerfLoading(false);
       }
     }
-    loadAthletePerformances();
+    loadPerfs();
   }, [selectedAthleteForPerf, token]);
+
+  // Auto-select athlete if only one
+  useEffect(() => {
+    if (athletes.length === 1) {
+      setNewWorkoutAthleteId(athletes[0].athlete_id);
+    }
+  }, [athletes]);
+
+  // Handlers
+  const handleCreateWorkout = async () => {
+    setWorkoutFormMessage(null);
+    if (!newWorkoutTitle.trim()) {
+      setWorkoutFormMessage({ text: 'Workout title cannot be empty.', isError: true });
+      return;
+    }
+    if (!newWorkoutAthleteId) {
+      setWorkoutFormMessage({ text: 'Please select an athlete.', isError: true });
+      return;
+    }
+    if (!newWorkoutDate.trim()) {
+      setWorkoutFormMessage({ text: 'Please enter a target date.', isError: true });
+      return;
+    }
+    for (let i = 0; i < newWorkoutExercises.length; i++) {
+      if (!newWorkoutExercises[i].name.trim()) {
+        setWorkoutFormMessage({ text: `Exercise #${i + 1} name cannot be empty.`, isError: true });
+        return;
+      }
+    }
+
+    setIsSavingWorkout(true);
+    try {
+      await createWorkout(token, {
+        title: newWorkoutTitle.trim(),
+        description: newWorkoutDescription.trim() || undefined,
+        athlete_id: newWorkoutAthleteId,
+        exercises: newWorkoutExercises,
+        date: newWorkoutDate.trim(),
+      });
+      setWorkoutFormMessage({ text: 'Workout plan assigned successfully!', isError: false });
+      setNewWorkoutTitle('');
+      setNewWorkoutDescription('');
+      setNewWorkoutAthleteId(athletes.length === 1 ? athletes[0].athlete_id : '');
+      setNewWorkoutExercises([{ name: '', sets: 3, reps: 10, duration: '' }]);
+
+      if (actualCoachId) {
+        const workoutsData = await fetchCoachWorkouts(token, actualCoachId);
+        setWorkouts(workoutsData);
+      }
+
+      setTimeout(() => {
+        setShowCreateWorkoutModal(false);
+        setWorkoutFormMessage(null);
+      }, 1500);
+    } catch (e: any) {
+      setWorkoutFormMessage({ text: e.message || 'Failed to create workout plan.', isError: true });
+    } finally {
+      setIsSavingWorkout(false);
+    }
+  };
 
   const handleCreatePerformance = async () => {
     setPerfFormMessage(null);
@@ -220,10 +285,6 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
       setPerfFormMessage({ text: 'Height must be an integer greater than 0.', isError: true });
       return;
     }
-    if (!newPerfDate.trim()) {
-      setPerfFormMessage({ text: 'Date cannot be empty.', isError: true });
-      return;
-    }
 
     setIsSavingPerf(true);
     try {
@@ -235,26 +296,22 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
         height: heightInt,
         coach_remarks: newPerfRemarks.trim() || undefined,
       });
-
       setPerfFormMessage({ text: 'Performance recorded successfully!', isError: false });
-      
-      // Reset form
       setNewSprintTime('');
       setNewWeight('');
       setNewHeight('');
       setNewPerfRemarks('');
-      
-      // Reload performances
+
       const data = await fetchAthletePerformances(token, selectedAthleteForPerf.athlete_id);
       const sorted = [...data].sort((a, b) => {
-        const dateA = a.date || a.recorded_at || '';
-        const dateB = b.date || b.recorded_at || '';
-        return dateB.localeCompare(dateA);
+        const dA = a.date || a.recorded_at || '';
+        const dB = b.date || b.recorded_at || '';
+        return dB.localeCompare(dA);
       });
       setAthletePerformances(sorted);
 
       setTimeout(() => {
-        setShowCreatePerfForm(false);
+        setShowCreatePerfModal(false);
         setPerfFormMessage(null);
       }, 1500);
     } catch (err: any) {
@@ -265,2072 +322,1614 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
   };
 
   const handleCreateLinkedPerformance = async () => {
-    setCoachPerfMessage(null);
-    if (!selectedWorkoutForPerformance) return;
-
+    setLinkedPerfMessage(null);
+    if (!selectedWorkoutForPerf) return;
     const valFloat = parseFloat(perfValue);
     if (isNaN(valFloat) || valFloat <= 0) {
-      setCoachPerfMessage({ text: 'Performance value must be a number greater than 0.', isError: true });
+      setLinkedPerfMessage({ text: 'Performance value must be greater than 0.', isError: true });
       return;
     }
     if (!perfSportEvent.trim()) {
-      setCoachPerfMessage({ text: 'Sport/Event name cannot be empty.', isError: true });
-      return;
-    }
-    if (!perfUnit.trim()) {
-      setCoachPerfMessage({ text: 'Unit cannot be empty.', isError: true });
-      return;
-    }
-    if (!perfDate.trim()) {
-      setCoachPerfMessage({ text: 'Date cannot be empty.', isError: true });
+      setLinkedPerfMessage({ text: 'Sport/Event name cannot be empty.', isError: true });
       return;
     }
 
-    setIsSavingCoachPerf(true);
+    setIsSavingLinkedPerf(true);
     try {
       await createPerformance(token, {
-        athlete_id: selectedWorkoutForPerformance.athlete_id,
-        workout_id: selectedWorkoutForPerformance.workout_id,
+        athlete_id: selectedWorkoutForPerf.athlete_id,
+        workout_id: selectedWorkoutForPerf.workout_id,
         sport_event: perfSportEvent.trim(),
         value: valFloat,
         unit: perfUnit.trim(),
         feedback: perfFeedback.trim() || undefined,
-        recorded_at: perfDate.trim(),
-        date: perfDate.trim(), // old field fallback
+        recorded_at: perfLinkedDate.trim(),
+        date: perfLinkedDate.trim(),
       });
-
-      setCoachPerfMessage({ text: 'Performance recorded successfully!', isError: false });
-
-      // Reset form
+      setLinkedPerfMessage({ text: 'Performance recorded successfully!', isError: false });
       setPerfValue('');
       setPerfFeedback('');
-
       setTimeout(() => {
-        setSelectedWorkoutForPerformance(null);
-        setCoachPerfMessage(null);
+        setSelectedWorkoutForPerf(null);
+        setLinkedPerfMessage(null);
       }, 1500);
     } catch (err: any) {
-      setCoachPerfMessage({ text: err.message || 'Failed to record performance.', isError: true });
+      setLinkedPerfMessage({ text: err.message || 'Failed to record performance.', isError: true });
     } finally {
-      setIsSavingCoachPerf(false);
+      setIsSavingLinkedPerf(false);
     }
   };
 
+  // Derived metrics
+  const totalAthletes = athletes.length;
+  const totalWorkouts = workouts.length;
+  const completedWorkouts = workouts.filter((w) => w.status === 'completed').length;
+  const pendingWorkouts = workouts.filter((w) => w.status === 'pending').length;
+  const completionRate = totalWorkouts > 0 ? Math.round((completedWorkouts / totalWorkouts) * 100) : 0;
 
-  const handleAddExerciseField = () => {
-    setNewWorkoutExercises([...newWorkoutExercises, { name: '', sets: 3, reps: 10, duration: '' }]);
-  };
+  const getRecentActivity = () => {
+    const activities: { id: string; type: string; title: string; message: string; dateStr: string }[] = [];
 
-  const handleRemoveExerciseField = (index: number) => {
-    if (newWorkoutExercises.length === 1) return;
-    setNewWorkoutExercises(newWorkoutExercises.filter((_, i) => i !== index));
-  };
-
-  const handleExerciseChange = (index: number, field: keyof Exercise, value: any) => {
-    const updated = [...newWorkoutExercises];
-    updated[index] = { ...updated[index], [field]: value };
-    setNewWorkoutExercises(updated);
-  };
-
-  const handleCreateWorkoutPlan = async () => {
-    setWorkoutFormMessage(null);
-    if (!newWorkoutTitle.trim()) {
-      setWorkoutFormMessage({ text: 'Workout title cannot be empty.', isError: true });
-      return;
-    }
-    if (!newWorkoutAthleteId) {
-      setWorkoutFormMessage({ text: 'Please select an athlete.', isError: true });
-      return;
-    }
-    if (!newWorkoutDate.trim()) {
-      setWorkoutFormMessage({ text: 'Please enter a target date.', isError: true });
-      return;
-    }
-    
-    // Validate exercises
-    for (let i = 0; i < newWorkoutExercises.length; i++) {
-      if (!newWorkoutExercises[i].name.trim()) {
-        setWorkoutFormMessage({ text: `Exercise #${i + 1} name cannot be empty.`, isError: true });
-        return;
-      }
-      if (newWorkoutExercises[i].sets <= 0 || newWorkoutExercises[i].reps <= 0) {
-        setWorkoutFormMessage({ text: `Exercise #${i + 1} sets and reps must be greater than 0.`, isError: true });
-        return;
-      }
-    }
-
-    setIsSavingWorkout(true);
-    try {
-      await createWorkout(token, {
-        title: newWorkoutTitle.trim(),
-        description: newWorkoutDescription.trim() || undefined,
-        athlete_id: newWorkoutAthleteId,
-        exercises: newWorkoutExercises,
-        date: newWorkoutDate.trim(),
+    athletes.forEach((a) => {
+      activities.push({
+        id: `athlete-${a.athlete_id}`,
+        type: 'athlete',
+        title: 'Assigned Athlete',
+        message: `${a.name} (${a.sport || 'General'}) is in your roster`,
+        dateStr: 'Active',
       });
-      setWorkoutFormMessage({ text: 'Workout plan assigned successfully!', isError: false });
-      
-      // Reset form
-      setNewWorkoutTitle('');
-      setNewWorkoutDescription('');
-      setNewWorkoutAthleteId(athletes.length === 1 ? athletes[0].athlete_id : '');
-      setDropdownSearch('');
-      setNewWorkoutExercises([{ name: '', sets: 3, reps: 10, duration: '' }]);
-      
-      // Fetch latest workouts
-      let actualCoachId = user?.coach_id;
-      if (!actualCoachId && user?.id) {
-        const coachData = await fetchCoachById(token, user.id);
-        actualCoachId = coachData.coach_id;
-      }
-      if (actualCoachId) {
-        const workoutsData = await fetchCoachWorkouts(token, actualCoachId);
-        setWorkouts(workoutsData);
-      }
-      
-      // Close form after a delay
-      setTimeout(() => {
-        setShowCreateForm(false);
-        setWorkoutFormMessage(null);
-      }, 1500);
-    } catch (e: any) {
-      setWorkoutFormMessage({ text: e.message || 'Failed to create workout plan.', isError: true });
-    } finally {
-      setIsSavingWorkout(false);
-    }
-  };
+    });
 
-  // Filter athletes by search query
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredAthletes(athletes);
-      return;
-    }
+    workouts.slice(0, 5).forEach((w) => {
+      const athleteName = athletes.find((a) => a.athlete_id === w.athlete_id)?.name || 'Athlete';
+      activities.push({
+        id: `workout-${w.workout_id}`,
+        type: w.status === 'completed' ? 'completed' : 'workout',
+        title: w.status === 'completed' ? 'Workout Completed' : 'Workout Assigned',
+        message: `"${w.title}" → ${athleteName}`,
+        dateStr: w.completed_at ? String(w.completed_at).substring(0, 10) : (w.date || 'Recent'),
+      });
+    });
 
-    const query = searchQuery.toLowerCase();
-    const filtered = athletes.filter(
-      (athlete) =>
-        (athlete.name && athlete.name.toLowerCase().includes(query)) ||
-        (athlete.sport && athlete.sport.toLowerCase().includes(query))
-    );
-    setFilteredAthletes(filtered);
-  }, [searchQuery, athletes]);
-
-  const handleViewAthlete = (athleteId: string) => {
-    router.push(`/athlete-details?athleteId=${athleteId}`);
+    return activities.slice(0, 8);
   };
 
   if (!user || !token) {
     return (
-      <SafeAreaView style={styles.screen}>
+      <SafeAreaView style={styles.wrapper}>
         <View style={styles.centeredStatus}>
-          <Text style={styles.errorText}>Session expired. Please log in again.</Text>
-          <Pressable onPress={onSignOut} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Go to Login</Text>
-          </Pressable>
+          <Ionicons name="lock-closed-outline" size={48} color={colors.error} />
+          <Text style={[styles.errorText, { color: colors.error }]}>Session expired. Please log in again.</Text>
+          <Button label="Go to Login" onPress={onSignOut} variant="primary" />
         </View>
       </SafeAreaView>
     );
   }
 
-  const selectedAthlete = athletes.find(a => a.athlete_id === newWorkoutAthleteId);
-  const displayValue = selectedAthlete && !isDropdownOpen
-    ? `${selectedAthlete.name} (ID: ${selectedAthlete.athlete_id}) (${selectedAthlete.sport || 'General'})`
-    : dropdownSearch;
+  const selectedAthlete = athletes.find((a) => a.athlete_id === newWorkoutAthleteId);
+  const filteredDropdownAthletes = athletes.filter(
+    (a) =>
+      !athleteDropdownSearch ||
+      a.name.toLowerCase().includes(athleteDropdownSearch.toLowerCase()) ||
+      (a.sport && a.sport.toLowerCase().includes(athleteDropdownSearch.toLowerCase()))
+  );
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerInfo}>
-            <Text style={styles.headerTitle}>Coach Dashboard</Text>
-            <Text style={styles.headerSubtitle}>{user?.email || 'Coach'}</Text>
-          </View>
-          <Pressable onPress={onSignOut} style={styles.logoutButton}>
-            <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-            <Text style={styles.logoutText}>Logout</Text>
-          </Pressable>
-        </View>
-
-        {/* Content */}
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
-          {/* Coach Info Card */}
-          <View style={styles.coachInfoCard}>
-            <View style={styles.coachAvatar}>
-              <Text style={styles.avatarText}>
-                {user?.name?.charAt(0).toUpperCase() || 'C'}
-              </Text>
+    <SafeAreaView style={styles.wrapper}>
+      <View style={styles.mainContainer}>
+        {/* ── SIDEBAR ── */}
+        {sidebarOpen && (
+          <View style={[styles.sidebar, !isLargeScreen && styles.sidebarFloating]}>
+            <View style={styles.sidebarHeader}>
+              <View style={styles.brandRow}>
+                <Ionicons name="flash" size={22} color={colors.emerald} />
+                <Text style={styles.sidebarBrand}>AthliTech</Text>
+              </View>
+              {!isLargeScreen && (
+                <Pressable onPress={() => setSidebarOpen(false)}>
+                  <Ionicons name="close" size={24} color={colors.textSub} />
+                </Pressable>
+              )}
             </View>
-            <View style={styles.coachDetails}>
-              <Text style={styles.coachName}>{user?.name || 'Coach'}</Text>
-              <Text style={styles.coachEmail}>{user?.email}</Text>
-              <View style={styles.statsRow}>
-                <View style={styles.statItem}>
-                  <Ionicons name="people-outline" size={24} color="#3b82f6" />
-                  <Text style={styles.statValue}>{athletes.length}</Text>
-                  <Text style={styles.statLabel}>Total Athletes</Text>
-                </View>
+
+            {/* Coach profile mini card */}
+            <View style={[styles.sidebarProfile, { backgroundColor: colors.bgMid, borderColor: colors.border }]}>
+              <View style={[styles.sidebarAvatar, { backgroundColor: colors.emeraldDim, borderColor: colors.borderEmerald }]}>
+                <Text style={[styles.sidebarAvatarText, { color: colors.emerald }]}>
+                  {user?.name?.charAt(0).toUpperCase() || 'C'}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sidebarProfileName, { color: colors.textPrimary }]} numberOfLines={1}>
+                  {user?.name || 'Coach'}
+                </Text>
+                <Badge label="Coach" variant="success" />
               </View>
             </View>
-          </View>
 
-          {/* Tab Selector */}
-          <View style={styles.tabContainer}>
-            <Pressable
-              style={[styles.tabButton, activeTab === 'athletes' && styles.tabButtonActive]}
-              onPress={() => setActiveTab('athletes')}
-            >
-              <Ionicons name="people-outline" size={20} color={activeTab === 'athletes' ? '#3b82f6' : '#647286'} />
-              <Text style={[styles.tabButtonText, activeTab === 'athletes' && styles.tabButtonTextActive]}>
-                Athletes
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.tabButton, activeTab === 'workouts' && styles.tabButtonActive]}
-              onPress={() => setActiveTab('workouts')}
-            >
-              <Ionicons name="fitness-outline" size={20} color={activeTab === 'workouts' ? '#3b82f6' : '#647286'} />
-              <Text style={[styles.tabButtonText, activeTab === 'workouts' && styles.tabButtonTextActive]}>
-                Workout Plans
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.tabButton, activeTab === 'performance' && styles.tabButtonActive]}
-              onPress={() => setActiveTab('performance')}
-            >
-              <Ionicons name="speedometer-outline" size={20} color={activeTab === 'performance' ? '#3b82f6' : '#647286'} />
-              <Text style={[styles.tabButtonText, activeTab === 'performance' && styles.tabButtonTextActive]}>
-                Performance
-              </Text>
-            </Pressable>
-          </View>
-
-
-          {/* Athletes Tab */}
-          {activeTab === 'athletes' && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                My Athletes ({filteredAthletes.length})
-              </Text>
-
-              {/* Search Bar */}
-              <View style={styles.searchContainer}>
-                <Ionicons name="search-outline" size={20} color="#647286" />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search athletes by name or sport..."
-                  placeholderTextColor="#94a3b8"
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-              </View>
-
-              {/* Content */}
-              {isLoading ? (
-                <View style={styles.skeletonContainer}>
-                  <SkeletonCard />
-                  <SkeletonCard />
-                  <SkeletonCard />
-                </View>
-              ) : error ? (
-                <View style={styles.errorContainer}>
-                  <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
-                  <Text style={styles.errorText}>{error}</Text>
-                  <Pressable
-                    onPress={() => router.back()}
-                    style={styles.primaryButton}
+            <View style={styles.sidebarNav}>
+              {[
+                { id: 'dashboard', label: 'Dashboard', icon: 'grid', count: null },
+                { id: 'athletes', label: 'My Athletes', icon: 'people', count: totalAthletes },
+                { id: 'workouts', label: 'Workouts', icon: 'fitness', count: totalWorkouts },
+                { id: 'performance', label: 'Performance', icon: 'speedometer', count: null },
+              ].map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={[
+                    styles.sidebarItem,
+                    activeTab === item.id && styles.sidebarItemActive,
+                  ]}
+                  onPress={() => {
+                    setActiveTab(item.id as TabType);
+                    if (!isLargeScreen) setSidebarOpen(false);
+                  }}
+                >
+                  <Ionicons
+                    name={item.icon as any}
+                    size={20}
+                    color={activeTab === item.id ? colors.emerald : colors.textSub}
+                  />
+                  <Text
+                    style={[
+                      styles.sidebarItemLabel,
+                      activeTab === item.id && styles.sidebarItemLabelActive,
+                    ]}
                   >
-                    <Text style={styles.primaryButtonText}>Go Back</Text>
-                  </Pressable>
-                </View>
-              ) : filteredAthletes.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="people-outline" size={48} color="#cbd5e1" />
-                  <Text style={styles.emptyText}>
-                    {searchQuery ? 'No athletes match your search' : 'No athletes assigned yet.'}
+                    {item.label}
                   </Text>
+                  {item.count !== null && item.count !== undefined && (
+                    <View
+                      style={[
+                        styles.sidebarBadge,
+                        activeTab === item.id && styles.sidebarBadgeActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.sidebarBadgeText,
+                          activeTab === item.id && styles.sidebarBadgeTextActive,
+                        ]}
+                      >
+                        {item.count}
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={styles.sidebarFooter}>
+              <Pressable style={styles.logoutButton} onPress={onSignOut}>
+                <Ionicons name="log-out" size={20} color={colors.error} />
+                <Text style={styles.logoutLabel}>Logout</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* Dark overlay for mobile sidebar */}
+        {sidebarOpen && !isLargeScreen && (
+          <Pressable style={styles.overlay} onPress={() => setSidebarOpen(false)} />
+        )}
+
+        {/* ── MAIN CONTENT ── */}
+        <View style={styles.contentArea}>
+          {/* Header */}
+          <View style={styles.header}>
+            {(!isLargeScreen || !sidebarOpen) && (
+              <Pressable onPress={() => setSidebarOpen(!sidebarOpen)} style={styles.hamburgerBtn}>
+                <Ionicons name="menu" size={24} color={colors.textPrimary} />
+              </Pressable>
+            )}
+            <View style={styles.headerInfo}>
+              <Text style={styles.headerTitle}>
+                {activeTab === 'dashboard' && 'Coach Dashboard'}
+                {activeTab === 'athletes' && 'My Athletes'}
+                {activeTab === 'workouts' && 'Workout Plans'}
+                {activeTab === 'performance' && 'Performance'}
+              </Text>
+              <Text style={styles.headerSubtitle}>{user?.email || 'Coach'}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <ThemeToggle />
+              <Pressable onPress={loadDashboardData} style={styles.refreshBtn}>
+                <Ionicons name="refresh" size={20} color={colors.textPrimary} />
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Content Area */}
+          <ScrollView
+            style={styles.content}
+            contentContainerStyle={[
+              styles.contentInner,
+              { padding: isWeb || isLargeScreen ? 24 : 16 },
+            ]}
+          >
+            {isLoading ? (
+              <View style={styles.loaderContainer}>
+                <ActivityIndicator size="large" color={colors.emerald} />
+                <Text style={styles.loaderText}>Loading dashboard...</Text>
+              </View>
+            ) : error ? (
+              <Card style={styles.section}>
+                <View style={{ alignItems: 'center', padding: 24, gap: 16 }}>
+                  <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
+                  <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+                  <Button label="Retry" onPress={loadDashboardData} variant="primary" />
                 </View>
-              ) : (
-                <View style={styles.athletesList}>
-                  {filteredAthletes.map((athlete) => (
-                    <View key={athlete.athlete_id} style={styles.athleteCard}>
-                      <View style={styles.athleteHeader}>
-                        <View style={styles.athleteAvatar}>
-                          <Text style={styles.avatarText}>
-                            {athlete.name.charAt(0).toUpperCase()}
-                          </Text>
+              </Card>
+            ) : (
+              <>
+                {/* ── DASHBOARD TAB ── */}
+                {activeTab === 'dashboard' && (
+                  <>
+                    {/* Stat Cards Row */}
+                    <View style={styles.metricsContainer}>
+                      <StatCard
+                        label="My Athletes"
+                        value={totalAthletes}
+                        delay={0}
+                      />
+                      <StatCard
+                        label="Total Workouts"
+                        value={totalWorkouts}
+                        delay={80}
+                      />
+                      <StatCard
+                        label="Completed"
+                        value={completedWorkouts}
+                        delay={160}
+                        trendDirection="up"
+                      />
+                      <StatCard
+                        label="Completion Rate"
+                        value={completionRate}
+                        suffix="%"
+                        delay={240}
+                        trendDirection="up"
+                      />
+                    </View>
+
+                    {/* Workout Overview + Quick Summary */}
+                    <View style={styles.metricsContainer}>
+                      <Card style={{ flex: 1 }}>
+                        <View style={styles.metricHeader}>
+                          <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>Workout Breakdown</Text>
+                          <View style={[styles.iconWrapper, { backgroundColor: colors.infoDim }]}>
+                            <Ionicons name="barbell-outline" size={20} color={colors.info} />
+                          </View>
                         </View>
-                        <View style={styles.athleteInfo}>
-                          <Text style={styles.athleteName}>{athlete.name} (ID: {athlete.athlete_id})</Text>
-                          <Text style={styles.athleteSport}>
-                            {athlete.sport || 'No sport specified'}
-                          </Text>
+                        <View style={styles.derivedStatsContainer}>
+                          <View style={styles.derivedStatBox}>
+                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{totalWorkouts}</Text>
+                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Total</Text>
+                          </View>
+                          <View style={styles.derivedStatBox}>
+                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{pendingWorkouts}</Text>
+                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Pending</Text>
+                          </View>
+                          <View style={styles.derivedStatBox}>
+                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{completedWorkouts}</Text>
+                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Done</Text>
+                          </View>
+                          <View style={styles.derivedStatBox}>
+                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{workouts.filter((w) => w.status === 'skipped').length}</Text>
+                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Skipped</Text>
+                          </View>
                         </View>
+                      </Card>
+
+                      <Card style={{ flex: 1 }}>
+                        <View style={styles.metricHeader}>
+                          <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>Athletes Overview</Text>
+                          <View style={[styles.iconWrapper, { backgroundColor: colors.emeraldDim }]}>
+                            <Ionicons name="people-outline" size={20} color={colors.emerald} />
+                          </View>
+                        </View>
+                        <View style={styles.derivedStatsContainer}>
+                          <View style={styles.derivedStatBox}>
+                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{totalAthletes}</Text>
+                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Assigned</Text>
+                          </View>
+                          <View style={styles.derivedStatBox}>
+                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>
+                              {athletes.filter((a) => a.sport).length}
+                            </Text>
+                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>With Sport</Text>
+                          </View>
+                        </View>
+                      </Card>
+                    </View>
+
+                    {/* Recent Activity */}
+                    <Card style={styles.section}>
+                      <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 16 }]}>
+                        Recent Activity
+                      </Text>
+                      <View style={styles.activityFeed}>
+                        {getRecentActivity().length === 0 ? (
+                          <Text style={[styles.emptyActivityText, { color: colors.textMuted }]}>
+                            No recent activity recorded.
+                          </Text>
+                        ) : (
+                          getRecentActivity().map((act) => {
+                            let iconName = 'ellipse-outline';
+                            let iconColor: string = colors.textSub;
+                            let bgColor: string = colors.bgMid;
+
+                            if (act.type === 'athlete') {
+                              iconName = 'person-add-outline';
+                              iconColor = colors.info;
+                              bgColor = colors.infoDim;
+                            } else if (act.type === 'completed') {
+                              iconName = 'checkmark-done-circle-outline';
+                              iconColor = colors.emerald;
+                              bgColor = colors.emeraldDim;
+                            } else if (act.type === 'workout') {
+                              iconName = 'barbell-outline';
+                              iconColor = colors.info;
+                              bgColor = colors.infoDim;
+                            }
+
+                            return (
+                              <View key={act.id} style={styles.activityRow}>
+                                <View style={[styles.activityIconWrapper, { backgroundColor: bgColor }]}>
+                                  <Ionicons name={iconName as any} size={16} color={iconColor} />
+                                </View>
+                                <View style={styles.activityContent}>
+                                  <Text style={styles.activityTitleText}>{act.title}</Text>
+                                  <Text style={styles.activityMsgText}>{act.message}</Text>
+                                </View>
+                                <Text style={styles.activityDateText}>{act.dateStr}</Text>
+                              </View>
+                            );
+                          })
+                        )}
                       </View>
-                      <View style={styles.athleteFooter}>
-                        <Text style={styles.athleteWeight}>
-                          {athlete.weight ? `${athlete.weight} kg` : 'Weight not specified'}
-                        </Text>
+                    </Card>
+
+                    {/* Quick Actions */}
+                    <View style={styles.section}>
+                      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Quick Actions</Text>
+                      <View style={styles.actionGrid}>
                         <Pressable
-                          style={styles.viewButton}
-                          onPress={() => handleViewAthlete(athlete.athlete_id)}
+                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
+                          onPress={() => setActiveTab('athletes')}
                         >
-                          <Text style={styles.viewButtonText}>View</Text>
+                          <Ionicons name="people-circle" size={32} color={colors.info} />
+                          <Text style={styles.actionCardTitle}>View Athletes</Text>
+                          <Text style={styles.actionCardDesc}>
+                            See all your assigned athletes and their profiles.
+                          </Text>
+                        </Pressable>
+
+                        <Pressable
+                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
+                          onPress={() => {
+                            setActiveTab('workouts');
+                            setShowCreateWorkoutModal(true);
+                          }}
+                        >
+                          <Ionicons name="add-circle" size={32} color={colors.emerald} />
+                          <Text style={styles.actionCardTitle}>Assign Workout</Text>
+                          <Text style={styles.actionCardDesc}>
+                            Create and assign a new workout plan to an athlete.
+                          </Text>
+                        </Pressable>
+
+                        <Pressable
+                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
+                          onPress={() => setActiveTab('performance')}
+                        >
+                          <Ionicons name="speedometer" size={32} color={colors.warning} />
+                          <Text style={styles.actionCardTitle}>Track Performance</Text>
+                          <Text style={styles.actionCardDesc}>
+                            Record and review athlete performance metrics.
+                          </Text>
                         </Pressable>
                       </View>
                     </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          )}
+                  </>
+                )}
 
-          {/* Workouts Tab */}
-          {activeTab === 'workouts' && (
-            <View style={styles.section}>
-              <View style={styles.workoutsHeader}>
-                <Text style={styles.sectionTitle}>Workout Plans ({workouts.length})</Text>
-                <Pressable
-                  style={[
-                    styles.addButton,
-                    athletes.length === 0 && styles.addButtonDisabled
-                  ]}
-                  disabled={athletes.length === 0}
-                  onPress={() => {
-                    setShowCreateForm(!showCreateForm);
-                    setWorkoutFormMessage(null);
-                  }}
-                >
-                  <Ionicons name={showCreateForm ? 'close-outline' : 'add-outline'} size={20} color="#fff" />
-                  <Text style={styles.addButtonText}>
-                    {showCreateForm ? 'Cancel' : 'New Plan'}
-                  </Text>
+                {/* ── ATHLETES TAB ── */}
+                {activeTab === 'athletes' && (
+                  <Card style={styles.section}>
+                    <View
+                      style={[
+                        styles.sectionHeader,
+                        {
+                          flexDirection: isLargeScreen ? 'row' : 'column',
+                          alignItems: isLargeScreen ? 'center' : 'stretch',
+                          gap: 12,
+                          marginBottom: 20,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                        My Athletes ({filteredAthletes.length})
+                      </Text>
+                      <View style={{ width: isLargeScreen ? 300 : '100%' }}>
+                        <SearchBar
+                          value={searchQuery}
+                          onChangeText={setSearchQuery}
+                          placeholder="Search by name or sport..."
+                        />
+                      </View>
+                    </View>
+
+                    {filteredAthletes.length === 0 ? (
+                      <EmptyState
+                        icon="people-outline"
+                        title={searchQuery ? 'No athletes match your search' : 'No athletes assigned yet'}
+                        description={searchQuery ? 'Try a different search term.' : 'Contact your admin to get athletes assigned.'}
+                      />
+                    ) : (
+                      <View style={styles.athletesGrid}>
+                        {filteredAthletes.map((athlete) => (
+                          <Card
+                            key={athlete.athlete_id}
+                            style={styles.athleteCard}
+                          >
+                            <View style={styles.athleteHeader}>
+                              <View style={[styles.athleteAvatar, { backgroundColor: colors.infoDim, borderColor: 'rgba(14,165,233,0.2)' }]}>
+                                <Text style={[styles.avatarText, { color: colors.info }]}>
+                                  {athlete.name?.charAt(0).toUpperCase() || 'A'}
+                                </Text>
+                              </View>
+                              <View style={styles.athleteInfo}>
+                                <Text style={[styles.athleteName, { color: colors.textPrimary }]}>
+                                  {athlete.name}
+                                </Text>
+                                <Text style={[styles.athleteShortId, { color: colors.textMuted }]}>
+                                  ID: {athlete.athlete_id.slice(-8)}
+                                </Text>
+                                <Text style={[styles.athleteEmail, { color: colors.textSub }]}>
+                                  {athlete.sport || 'No sport specified'}
+                                </Text>
+                              </View>
+                            </View>
+                            <View style={[styles.athleteFooter, { borderTopColor: colors.borderSubtle }]}>
+                              <View style={{ gap: 4 }}>
+                                <Badge label="Athlete" variant="info" />
+                                {athlete.weight ? (
+                                  <Text style={[{ fontSize: 12, color: colors.textSub, marginTop: 4 }]}>
+                                    Weight: {athlete.weight} kg
+                                  </Text>
+                                ) : null}
+                              </View>
+                              <Button
+                                label="View Profile"
+                                onPress={() => router.push(`/athlete-details?athleteId=${athlete.athlete_id}`)}
+                                variant="secondary"
+                                size="sm"
+                              />
+                            </View>
+                          </Card>
+                        ))}
+                      </View>
+                    )}
+                  </Card>
+                )}
+
+                {/* ── WORKOUTS TAB ── */}
+                {activeTab === 'workouts' && (
+                  <>
+                    <Card style={styles.section}>
+                      <View
+                        style={[
+                          styles.sectionHeader,
+                          {
+                            flexDirection: isLargeScreen ? 'row' : 'column',
+                            alignItems: isLargeScreen ? 'center' : 'stretch',
+                            gap: 12,
+                            marginBottom: 20,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                          Workout Plans ({workouts.length})
+                        </Text>
+                        <Button
+                          label="Assign New Workout"
+                          onPress={() => setShowCreateWorkoutModal(true)}
+                          variant="primary"
+                          size="sm"
+                          prefix={<Ionicons name="add" size={16} color="#fff" />}
+                        />
+                      </View>
+
+                      {workouts.length === 0 ? (
+                        <EmptyState
+                          icon="fitness-outline"
+                          title="No workouts assigned yet"
+                          description="Create a new workout plan and assign it to one of your athletes."
+                          actionLabel="Assign Workout"
+                          onActionPress={() => setShowCreateWorkoutModal(true)}
+                        />
+                      ) : (
+                        <Table
+                          headers={['Workout', 'Athlete', 'Date', 'Status', 'Actions']}
+                          data={workouts}
+                          renderRow={(item: Workout) => {
+                            const athleteName = athletes.find((a) => a.athlete_id === item.athlete_id)?.name || 'Unknown';
+                            return (
+                              <React.Fragment key={item.workout_id}>
+                                <View style={styles.tableCellMain}>
+                                  <Text style={[styles.tableMainText, { color: colors.textPrimary }]}>
+                                    {item.title}
+                                  </Text>
+                                  {item.description ? (
+                                    <Text style={[styles.tableSubText, { color: colors.textSub }]} numberOfLines={1}>
+                                      {item.description}
+                                    </Text>
+                                  ) : null}
+                                </View>
+                                <View style={styles.tableCell}>
+                                  <Text style={[styles.tableCellText, { color: colors.textSub }]}>
+                                    {athleteName}
+                                  </Text>
+                                </View>
+                                <View style={styles.tableCell}>
+                                  <Text style={[styles.tableCellText, { color: colors.textSub }]}>
+                                    {item.date || '—'}
+                                  </Text>
+                                </View>
+                                <View style={styles.tableCell}>
+                                  <Badge
+                                    label={item.status}
+                                    variant={
+                                      item.status === 'completed'
+                                        ? 'success'
+                                        : item.status === 'skipped'
+                                        ? 'error'
+                                        : 'warning'
+                                    }
+                                  />
+                                </View>
+                                <View style={styles.tableCellActions}>
+                                  <Button
+                                    label="Log Perf"
+                                    onPress={() => {
+                                      setSelectedWorkoutForPerf(item);
+                                      setPerfSportEvent('');
+                                      setPerfValue('');
+                                      setPerfFeedback('');
+                                    }}
+                                    variant="secondary"
+                                    size="sm"
+                                  />
+                                </View>
+                              </React.Fragment>
+                            );
+                          }}
+                        />
+                      )}
+                    </Card>
+
+                    {/* Inline performance form for linked workout */}
+                    {selectedWorkoutForPerf && (
+                      <Card style={styles.section}>
+                        <View style={[styles.sectionHeader, { marginBottom: 16 }]}>
+                          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                            Log Performance for "{selectedWorkoutForPerf.title}"
+                          </Text>
+                          <Pressable onPress={() => setSelectedWorkoutForPerf(null)}>
+                            <Ionicons name="close-circle-outline" size={24} color={colors.textSub} />
+                          </Pressable>
+                        </View>
+
+                        {linkedPerfMessage && (
+                          <Text
+                            style={[
+                              styles.formMessage,
+                              { color: linkedPerfMessage.isError ? colors.error : colors.success, marginBottom: 12 },
+                            ]}
+                          >
+                            {linkedPerfMessage.text}
+                          </Text>
+                        )}
+
+                        <View style={styles.formFields}>
+                          <TextInput
+                            style={[styles.formInput, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                            placeholder="Sport / Event (e.g. 100m Sprint)"
+                            placeholderTextColor={colors.textMuted}
+                            value={perfSportEvent}
+                            onChangeText={setPerfSportEvent}
+                          />
+                          <View style={{ flexDirection: 'row', gap: 12 }}>
+                            <TextInput
+                              style={[styles.formInput, { flex: 1, color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                              placeholder="Value (e.g. 10.45)"
+                              placeholderTextColor={colors.textMuted}
+                              value={perfValue}
+                              onChangeText={setPerfValue}
+                              keyboardType="numeric"
+                            />
+                            <TextInput
+                              style={[styles.formInput, { flex: 1, color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                              placeholder="Unit (e.g. seconds)"
+                              placeholderTextColor={colors.textMuted}
+                              value={perfUnit}
+                              onChangeText={setPerfUnit}
+                            />
+                          </View>
+                          <TextInput
+                            style={[styles.formInput, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                            placeholder="Date (YYYY-MM-DD)"
+                            placeholderTextColor={colors.textMuted}
+                            value={perfLinkedDate}
+                            onChangeText={setPerfLinkedDate}
+                          />
+                          <TextInput
+                            style={[styles.formInput, styles.formTextArea, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                            placeholder="Coach feedback / remarks"
+                            placeholderTextColor={colors.textMuted}
+                            value={perfFeedback}
+                            onChangeText={setPerfFeedback}
+                            multiline
+                            numberOfLines={3}
+                          />
+                          <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'flex-end' }}>
+                            <Button
+                              label="Cancel"
+                              onPress={() => setSelectedWorkoutForPerf(null)}
+                              variant="secondary"
+                            />
+                            <Button
+                              label={isSavingLinkedPerf ? 'Saving…' : 'Save Performance'}
+                              onPress={handleCreateLinkedPerformance}
+                              variant="primary"
+                              disabled={isSavingLinkedPerf}
+                            />
+                          </View>
+                        </View>
+                      </Card>
+                    )}
+                  </>
+                )}
+
+                {/* ── PERFORMANCE TAB ── */}
+                {activeTab === 'performance' && (
+                  <>
+                    {/* Athlete selector */}
+                    <Card style={styles.section}>
+                      <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 16 }]}>
+                        Select Athlete to Review
+                      </Text>
+                      {athletes.length === 0 ? (
+                        <EmptyState
+                          icon="people-outline"
+                          title="No athletes assigned"
+                          description="You need athletes assigned before you can track performance."
+                        />
+                      ) : (
+                        <View style={styles.athletesGrid}>
+                          {athletes.map((athlete) => {
+                            const isSelected = selectedAthleteForPerf?.athlete_id === athlete.athlete_id;
+                            return (
+                              <Pressable
+                                key={athlete.athlete_id}
+                                onPress={() => {
+                                  setSelectedAthleteForPerf(athlete);
+                                  setShowCreatePerfModal(false);
+                                }}
+                                style={[
+                                  styles.athleteSelectorCard,
+                                  {
+                                    backgroundColor: isSelected ? colors.emeraldDim : colors.bgCard,
+                                    borderColor: isSelected ? colors.emerald : colors.border,
+                                  },
+                                ]}
+                              >
+                                <View style={[styles.athleteAvatar, { backgroundColor: isSelected ? colors.emerald : colors.infoDim, borderColor: isSelected ? colors.emerald : 'rgba(14,165,233,0.2)' }]}>
+                                  <Text style={[styles.avatarText, { color: isSelected ? '#fff' : colors.info }]}>
+                                    {athlete.name?.charAt(0).toUpperCase() || 'A'}
+                                  </Text>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={[styles.athleteName, { color: colors.textPrimary }]}>
+                                    {athlete.name}
+                                  </Text>
+                                  <Text style={[styles.athleteEmail, { color: colors.textSub }]}>
+                                    {athlete.sport || 'General'}
+                                  </Text>
+                                </View>
+                                {isSelected && (
+                                  <Ionicons name="checkmark-circle" size={20} color={colors.emerald} />
+                                )}
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </Card>
+
+                    {selectedAthleteForPerf && (
+                      <Card style={styles.section}>
+                        <View
+                          style={[
+                            styles.sectionHeader,
+                            {
+                              flexDirection: isLargeScreen ? 'row' : 'column',
+                              alignItems: isLargeScreen ? 'center' : 'stretch',
+                              gap: 12,
+                              marginBottom: 20,
+                            },
+                          ]}
+                        >
+                          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                            {selectedAthleteForPerf.name}'s Performance History
+                          </Text>
+                          <Button
+                            label="Log New Performance"
+                            onPress={() => setShowCreatePerfModal(true)}
+                            variant="primary"
+                            size="sm"
+                            prefix={<Ionicons name="add" size={16} color="#fff" />}
+                          />
+                        </View>
+
+                        {isPerfLoading ? (
+                          <View style={{ padding: 40, alignItems: 'center' }}>
+                            <ActivityIndicator size="large" color={colors.emerald} />
+                            <Text style={[styles.loaderText, { marginTop: 12 }]}>Loading performance data…</Text>
+                          </View>
+                        ) : perfError ? (
+                          <Text style={[styles.errorText, { color: colors.error }]}>{perfError}</Text>
+                        ) : athletePerformances.length === 0 ? (
+                          <EmptyState
+                            icon="speedometer-outline"
+                            title="No performance records yet"
+                            description="Log the first performance entry for this athlete."
+                            actionLabel="Log Performance"
+                            onActionPress={() => setShowCreatePerfModal(true)}
+                          />
+                        ) : (
+                          <Table
+                            headers={['Event', 'Value', 'Date', 'Sprint Time', 'Remarks']}
+                            data={athletePerformances}
+                            renderRow={(item: PerformanceRecord) => {
+                              const valStr = item.value !== undefined
+                                ? `${item.value} ${item.unit || ''}`
+                                : `${item.sprint_time || 0}s`;
+                              return (
+                                <React.Fragment key={item.performance_id}>
+                                  <View style={styles.tableCellMain}>
+                                    <Text style={[styles.tableMainText, { color: colors.textPrimary }]}>
+                                      {item.sport_event || '100m Sprint'}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.tableCell}>
+                                    <Badge label={valStr} variant="info" />
+                                  </View>
+                                  <View style={styles.tableCell}>
+                                    <Text style={[styles.tableCellText, { color: colors.textSub }]}>
+                                      {item.recorded_at || item.date || '—'}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.tableCell}>
+                                    <Text style={[styles.tableCellText, { color: colors.textSub }]}>
+                                      {item.sprint_time ? `${item.sprint_time}s` : '—'}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.tableCellMain}>
+                                    <Text style={[styles.tableCellText, { color: colors.textSub }]} numberOfLines={2}>
+                                      {item.feedback || item.coach_remarks || '—'}
+                                    </Text>
+                                  </View>
+                                </React.Fragment>
+                              );
+                            }}
+                          />
+                        )}
+                      </Card>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </View>
+
+      {/* ── CREATE WORKOUT MODAL ── */}
+      <Modal
+        visible={showCreateWorkoutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCreateWorkoutModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowCreateWorkoutModal(false)}
+        >
+          <Pressable
+            style={[styles.modalMenu, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <ScrollView contentContainerStyle={{ padding: 24, gap: 16 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Assign Workout Plan</Text>
+                <Pressable onPress={() => setShowCreateWorkoutModal(false)}>
+                  <Ionicons name="close" size={24} color={colors.textSub} />
                 </Pressable>
               </View>
 
-              {athletes.length === 0 && (
-                <View style={styles.warningContainer}>
-                  <Ionicons name="warning-outline" size={18} color="#b91c1c" />
-                  <Text style={styles.warningText}>No athletes assigned. Contact Admin.</Text>
-                </View>
+              {workoutFormMessage && (
+                <Text style={[styles.formMessage, { color: workoutFormMessage.isError ? colors.error : colors.success }]}>
+                  {workoutFormMessage.text}
+                </Text>
               )}
 
-              {showCreateForm && (
-                <View style={styles.formCard}>
-                  <Text style={styles.formTitle}>Assign Workout Plan</Text>
-                  
-                  {/* Select Athlete */}
-                  <View style={styles.fieldGroup}>
-                    <Text style={styles.label}>Select Athlete</Text>
-                    {athletes.length === 0 ? (
-                      <View style={styles.noAthletesContainer}>
-                        <Text style={styles.noAthletesText}>No athletes assigned. Contact Admin.</Text>
-                      </View>
-                    ) : athletes.length === 1 ? (
-                      <TextInput
-                        style={[styles.input, styles.readOnlyInput]}
-                        value={`${athletes[0].name} (ID: ${athletes[0].athlete_id}) (${athletes[0].sport || 'General'})`}
-                        editable={false}
-                      />
-                    ) : (
-                      <View style={styles.dropdownContainer}>
-                        <View style={styles.dropdownInputRow}>
-                          <TextInput
-                            style={[styles.input, styles.dropdownInput]}
-                            placeholder="Search and select athlete..."
-                            placeholderTextColor="#94a3b8"
-                            value={displayValue}
-                            onChangeText={(val) => {
-                              setDropdownSearch(val);
-                              setIsDropdownOpen(true);
-                              const matched = athletes.find(
-                                (a) => `${a.name} (ID: ${a.athlete_id}) (${a.sport || 'General'})`.toLowerCase() === val.toLowerCase()
-                              );
-                              if (matched) {
-                                setNewWorkoutAthleteId(matched.athlete_id);
-                              } else {
-                                setNewWorkoutAthleteId('');
-                              }
-                            }}
-                            onFocus={() => {
-                              setIsDropdownOpen(true);
-                              setDropdownSearch('');
-                            }}
-                          />
-                          <Pressable
-                            style={styles.dropdownToggleBtn}
-                            onPress={() => setIsDropdownOpen(!isDropdownOpen)}
-                          >
-                            <Ionicons name={isDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20} color="#647286" />
-                          </Pressable>
-                        </View>
-                        
-                        {isDropdownOpen && (
-                          <View style={styles.dropdownList}>
-                            {athletes
-                              .filter((ath) => {
-                                const q = dropdownSearch.toLowerCase();
-                                return (
-                                  (ath.name && ath.name.toLowerCase().includes(q)) ||
-                                  (ath.sport && ath.sport.toLowerCase().includes(q))
-                                );
-                              })
-                              .map((ath) => (
-                                <Pressable
-                                  key={ath.athlete_id}
-                                  style={styles.dropdownItem}
-                                  onPress={() => {
-                                    setNewWorkoutAthleteId(ath.athlete_id);
-                                    setDropdownSearch(`${ath.name} (ID: ${ath.athlete_id}) (${ath.sport || 'General'})`);
-                                    setIsDropdownOpen(false);
-                                  }}
-                                >
-                                  <Text style={styles.dropdownItemText}>
-                                    {ath.name} (ID: {ath.athlete_id}) ({ath.sport || 'General'})
-                                  </Text>
-                                </Pressable>
-                              ))}
-                            {athletes.filter((ath) => {
-                              const q = dropdownSearch.toLowerCase();
-                              return (
-                                (ath.name && ath.name.toLowerCase().includes(q)) ||
-                                (ath.sport && ath.sport.toLowerCase().includes(q))
-                              );
-                            }).length === 0 && (
-                              <View style={styles.dropdownItemEmpty}>
-                                <Text style={styles.dropdownItemEmptyText}>No matching athletes found</Text>
-                              </View>
-                            )}
-                          </View>
-                        )}
-                      </View>
-                    )}
-                  </View>
+              <View style={styles.formFields}>
+                <TextInput
+                  style={[styles.formInput, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                  placeholder="Workout Title *"
+                  placeholderTextColor={colors.textMuted}
+                  value={newWorkoutTitle}
+                  onChangeText={setNewWorkoutTitle}
+                />
+                <TextInput
+                  style={[styles.formInput, styles.formTextArea, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                  placeholder="Description (optional)"
+                  placeholderTextColor={colors.textMuted}
+                  value={newWorkoutDescription}
+                  onChangeText={setNewWorkoutDescription}
+                  multiline
+                  numberOfLines={2}
+                />
+                <TextInput
+                  style={[styles.formInput, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                  placeholder="Target Date (YYYY-MM-DD) *"
+                  placeholderTextColor={colors.textMuted}
+                  value={newWorkoutDate}
+                  onChangeText={setNewWorkoutDate}
+                />
 
-                  {/* Workout Title */}
-                  <View style={styles.fieldGroup}>
-                    <Text style={styles.label}>Workout Title</Text>
+                {/* Athlete selector */}
+                <Pressable
+                  style={[styles.formInput, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                  onPress={() => setShowAthleteDropdown(!showAthleteDropdown)}
+                >
+                  <Text style={{ color: selectedAthlete ? colors.textPrimary : colors.textMuted, fontSize: 14 }}>
+                    {selectedAthlete ? `${selectedAthlete.name} (${selectedAthlete.sport || 'General'})` : 'Select Athlete *'}
+                  </Text>
+                  <Ionicons name={showAthleteDropdown ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSub} />
+                </Pressable>
+
+                {showAthleteDropdown && (
+                  <View style={[styles.dropdownList, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                     <TextInput
-                      style={styles.input}
-                      placeholder="e.g. Strength Training, Speed Routine"
-                      placeholderTextColor="#94a3b8"
-                      value={newWorkoutTitle}
-                      onChangeText={setNewWorkoutTitle}
+                      style={[styles.dropdownSearch, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                      placeholder="Search athlete..."
+                      placeholderTextColor={colors.textMuted}
+                      value={athleteDropdownSearch}
+                      onChangeText={setAthleteDropdownSearch}
                     />
-                  </View>
-
-                  {/* Description */}
-                  <View style={styles.fieldGroup}>
-                    <Text style={styles.label}>Description (Optional)</Text>
-                    <TextInput
-                      style={[styles.input, styles.textArea]}
-                      placeholder="Instructions, rest intervals, etc."
-                      placeholderTextColor="#94a3b8"
-                      multiline
-                      numberOfLines={3}
-                      value={newWorkoutDescription}
-                      onChangeText={setNewWorkoutDescription}
-                    />
-                  </View>
-
-                  {/* Target Date */}
-                  <View style={styles.fieldGroup}>
-                    <Text style={styles.label}>Target Date</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor="#94a3b8"
-                      value={newWorkoutDate}
-                      onChangeText={setNewWorkoutDate}
-                    />
-                  </View>
-
-                  {/* Exercises */}
-                  <View style={styles.fieldGroup}>
-                    <View style={styles.exercisesHeaderRow}>
-                      <Text style={styles.label}>Exercises</Text>
-                      <Pressable style={styles.addExerciseBtn} onPress={handleAddExerciseField}>
-                        <Ionicons name="add-circle-outline" size={18} color="#3b82f6" />
-                        <Text style={styles.addExerciseBtnText}>Add</Text>
+                    {filteredDropdownAthletes.map((a) => (
+                      <Pressable
+                        key={a.athlete_id}
+                        style={[styles.dropdownItem, { borderBottomColor: colors.borderSubtle }]}
+                        onPress={() => {
+                          setNewWorkoutAthleteId(a.athlete_id);
+                          setShowAthleteDropdown(false);
+                          setAthleteDropdownSearch('');
+                        }}
+                      >
+                        <Text style={{ color: colors.textPrimary, fontSize: 13 }}>
+                          {a.name}
+                        </Text>
+                        <Text style={{ color: colors.textSub, fontSize: 12 }}>
+                          {a.sport || 'General'}
+                        </Text>
                       </Pressable>
-                    </View>
-
-                    {newWorkoutExercises.map((exercise, index) => (
-                      <View key={index} style={styles.exerciseRowCard}>
-                        <View style={styles.exerciseRowHeader}>
-                          <Text style={styles.exerciseRowIndex}>Exercise #{index + 1}</Text>
-                          {newWorkoutExercises.length > 1 && (
-                            <Pressable onPress={() => handleRemoveExerciseField(index)}>
-                              <Ionicons name="trash-outline" size={16} color="#ef4444" />
-                            </Pressable>
-                          )}
-                        </View>
-
-                        <TextInput
-                          style={styles.exerciseInput}
-                          placeholder="Exercise Name (e.g. Squats)"
-                          placeholderTextColor="#94a3b8"
-                          value={exercise.name}
-                          onChangeText={(val) => handleExerciseChange(index, 'name', val)}
-                        />
-
-                        <View style={styles.exerciseNumsRow}>
-                          <View style={styles.numInputCol}>
-                            <Text style={styles.numInputLabel}>Sets</Text>
-                            <TextInput
-                              style={styles.numInput}
-                              keyboardType="numeric"
-                              value={String(exercise.sets)}
-                              onChangeText={(val) => handleExerciseChange(index, 'sets', parseInt(val) || 0)}
-                            />
-                          </View>
-                          <View style={styles.numInputCol}>
-                            <Text style={styles.numInputLabel}>Reps</Text>
-                            <TextInput
-                              style={styles.numInput}
-                              keyboardType="numeric"
-                              value={String(exercise.reps)}
-                              onChangeText={(val) => handleExerciseChange(index, 'reps', parseInt(val) || 0)}
-                            />
-                          </View>
-                          <View style={styles.numInputCol}>
-                            <Text style={styles.numInputLabel}>Duration (Optional)</Text>
-                            <TextInput
-                              style={styles.numInput}
-                              placeholder="e.g. 30s"
-                              placeholderTextColor="#94a3b8"
-                              value={exercise.duration || ''}
-                              onChangeText={(val) => handleExerciseChange(index, 'duration', val)}
-                            />
-                          </View>
-                        </View>
-                      </View>
                     ))}
                   </View>
-
-                  {workoutFormMessage && (
-                    <Text style={[
-                      styles.formMessageText,
-                      workoutFormMessage.isError ? styles.errorMessage : styles.successMessage
-                    ]}>
-                      {workoutFormMessage.text}
-                    </Text>
-                  )}
-
-                  <Pressable
-                    disabled={isSavingWorkout}
-                    style={[styles.primaryButton, isSavingWorkout && styles.buttonDisabled]}
-                    onPress={handleCreateWorkoutPlan}
-                  >
-                    {isSavingWorkout ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <Text style={styles.primaryButtonText}>Assign Plan</Text>
-                    )}
-                  </Pressable>
-                </View>
-              )}
-
-              {/* Workouts History List */}
-              {workouts.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="fitness-outline" size={48} color="#cbd5e1" />
-                  <Text style={styles.emptyText}>No workout plans assigned yet.</Text>
-                </View>
-              ) : (
-                <View style={styles.workoutsList}>
-                  {workouts.map((w) => {
-                    const mappedAthlete = athletes.find((a) => a.athlete_id === w.athlete_id);
-                    return (
-                      <View key={w.workout_id} style={styles.workoutCard}>
-                        <View style={styles.workoutCardHeader}>
-                          <View style={styles.workoutMetaCol}>
-                            <Text style={styles.workoutTitleText}>{w.title}</Text>
-                            <Text style={styles.workoutAthlete}>
-                              Athlete: {mappedAthlete ? mappedAthlete.name : 'Unknown Athlete'}
-                            </Text>
-                          </View>
-                          <View style={[
-                            styles.statusBadge,
-                            w.status === 'completed' && styles.statusCompleted,
-                            w.status === 'skipped' && styles.statusSkipped
-                          ]}>
-                            <Text style={[
-                              styles.statusBadgeText,
-                              w.status === 'completed' && styles.statusCompletedText,
-                              w.status === 'skipped' && styles.statusSkippedText
-                            ]}>
-                              {w.status.toUpperCase()}
-                            </Text>
-                          </View>
-                        </View>
-
-                        {w.description ? (
-                          <Text style={styles.workoutDesc}>{w.description}</Text>
-                        ) : null}
-
-                        <Text style={styles.workoutDate}>Date: {w.date}</Text>
-
-                        <View style={styles.exercisesList}>
-                          <Text style={styles.exercisesListTitle}>Exercises:</Text>
-                          {w.exercises.map((ex, idx) => (
-                            <View key={idx} style={styles.exerciseItemRow}>
-                              <Ionicons name="checkmark-circle-outline" size={16} color="#3b82f6" />
-                              <Text style={styles.exerciseItemText}>
-                                {ex.name} — {ex.sets} sets × {ex.reps} reps {ex.duration ? `(${ex.duration})` : ''}
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
-
-                        {/* Completion Details Preview */}
-                        {(w.status === 'completed' || w.status === 'skipped') && (w.completed_at || w.completion_percentage !== undefined) ? (
-                          <View style={styles.completionDetailsCard}>
-                            <Text style={styles.completionDetailsTitle}>Completion Record</Text>
-                            <Text style={styles.completionDetailsText}>
-                              Date: {w.completed_at || 'Not recorded'}
-                            </Text>
-                            <Text style={styles.completionDetailsText}>
-                              Percentage: {w.completion_percentage ?? 100}%
-                            </Text>
-                            {w.athlete_notes ? (
-                              <Text style={styles.completionDetailsText}>
-                                Notes: "{w.athlete_notes}"
-                              </Text>
-                            ) : null}
-                          </View>
-                        ) : null}
-
-                        {/* Record Performance Button */}
-                        {w.status === 'completed' ? (
-                          <Pressable
-                            style={styles.recordPerfBtn}
-                            onPress={() => {
-                              setSelectedWorkoutForPerformance(w);
-                              setPerfSportEvent(mappedAthlete?.sport || 'Sprinting');
-                              setPerfValue('');
-                              setPerfFeedback('');
-                            }}
-                          >
-                            <Ionicons name="speedometer-outline" size={16} color="#fff" />
-                            <Text style={styles.recordPerfBtnText}>Record Performance</Text>
-                          </Pressable>
-                        ) : null}
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Performance Tab */}
-          {activeTab === 'performance' && (
-            <View style={styles.section}>
-              {!selectedAthleteForPerf ? (
-                <>
-                  <Text style={styles.sectionTitle}>
-                    Select Athlete for Performance Record
-                  </Text>
-                  
-                  {athletes.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                      <Ionicons name="people-outline" size={48} color="#cbd5e1" />
-                      <Text style={styles.emptyText}>No athletes assigned yet.</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.athletesList}>
-                      {athletes.map((athlete) => (
-                        <View key={athlete.athlete_id} style={styles.athleteCard}>
-                          <View style={styles.athleteHeader}>
-                            <View style={styles.athleteAvatar}>
-                              <Text style={styles.avatarText}>
-                                {athlete.name.charAt(0).toUpperCase()}
-                              </Text>
-                            </View>
-                            <View style={styles.athleteInfo}>
-                              <Text style={styles.athleteName}>{athlete.name} (ID: {athlete.athlete_id})</Text>
-                              <Text style={styles.athleteSport}>
-                                {athlete.sport || 'No sport specified'}
-                              </Text>
-                            </View>
-                          </View>
-                          <View style={styles.athleteFooter}>
-                            <Text style={styles.athleteWeight}>
-                              {athlete.weight ? `${athlete.weight} kg` : 'Weight not specified'}
-                            </Text>
-                            <Pressable
-                              style={styles.viewButton}
-                              onPress={() => setSelectedAthleteForPerf(athlete)}
-                            >
-                              <Text style={styles.viewButtonText}>Select</Text>
-                            </Pressable>
-                          </View>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </>
-              ) : (
-                <>
-                  <View style={styles.perfDetailHeader}>
-                    <Pressable
-                      style={styles.backBtn}
-                      onPress={() => {
-                        setSelectedAthleteForPerf(null);
-                        setShowCreatePerfForm(false);
-                        setPerfFormMessage(null);
-                      }}
-                    >
-                      <Ionicons name="arrow-back-outline" size={18} color="#3b82f6" />
-                      <Text style={styles.backBtnText}>Back to Athletes</Text>
-                    </Pressable>
-                    <Text style={styles.sectionTitle}>{selectedAthleteForPerf.name} (ID: {selectedAthleteForPerf.athlete_id})&apos;s Performance</Text>
-                  </View>
-
-                  <View style={styles.workoutsHeader}>
-                    <Text style={styles.sectionSubtitleText}>Performance History ({athletePerformances.length})</Text>
-                    <Pressable
-                      style={styles.addButton}
-                      onPress={() => {
-                        setShowCreatePerfForm(!showCreatePerfForm);
-                        setPerfFormMessage(null);
-                      }}
-                    >
-                      <Ionicons name={showCreatePerfForm ? 'close-outline' : 'add-outline'} size={20} color="#fff" />
-                      <Text style={styles.addButtonText}>
-                        {showCreatePerfForm ? 'Cancel' : 'Record New'}
-                      </Text>
-                    </Pressable>
-                  </View>
-
-                  {showCreatePerfForm && (
-                    <View style={styles.formCard}>
-                      <Text style={styles.formTitle}>Record Performance Metric</Text>
-                      
-                      {/* Sprint Time */}
-                      <View style={styles.fieldGroup}>
-                        <Text style={styles.label}>Sprint Time (seconds)</Text>
-                        <TextInput
-                          style={styles.input}
-                          placeholder="e.g. 4.85"
-                          placeholderTextColor="#94a3b8"
-                          keyboardType="numeric"
-                          value={newSprintTime}
-                          onChangeText={setNewSprintTime}
-                        />
-                      </View>
-
-                      {/* Weight */}
-                      <View style={styles.fieldGroup}>
-                        <Text style={styles.label}>Weight (kg)</Text>
-                        <TextInput
-                          style={styles.input}
-                          placeholder="e.g. 72"
-                          placeholderTextColor="#94a3b8"
-                          keyboardType="numeric"
-                          value={newWeight}
-                          onChangeText={setNewWeight}
-                        />
-                      </View>
-
-                      {/* Height */}
-                      <View style={styles.fieldGroup}>
-                        <Text style={styles.label}>Height (cm)</Text>
-                        <TextInput
-                          style={styles.input}
-                          placeholder="e.g. 180"
-                          placeholderTextColor="#94a3b8"
-                          keyboardType="numeric"
-                          value={newHeight}
-                          onChangeText={setNewHeight}
-                        />
-                      </View>
-
-                      {/* Date */}
-                      <View style={styles.fieldGroup}>
-                        <Text style={styles.label}>Date</Text>
-                        <TextInput
-                          style={styles.input}
-                          placeholder="YYYY-MM-DD"
-                          placeholderTextColor="#94a3b8"
-                          value={newPerfDate}
-                          onChangeText={setNewPerfDate}
-                        />
-                      </View>
-
-                      {/* Remarks */}
-                      <View style={styles.fieldGroup}>
-                        <Text style={styles.label}>Remarks / Feedback</Text>
-                        <TextInput
-                          style={[styles.input, styles.textArea]}
-                          placeholder="Performance notes, areas of improvement..."
-                          placeholderTextColor="#94a3b8"
-                          multiline
-                          numberOfLines={3}
-                          value={newPerfRemarks}
-                          onChangeText={setNewPerfRemarks}
-                        />
-                      </View>
-
-                      {perfFormMessage && (
-                        <Text style={[
-                          styles.formMessageText,
-                          perfFormMessage.isError ? styles.errorMessage : styles.successMessage
-                        ]}>
-                          {perfFormMessage.text}
-                        </Text>
-                      )}
-
-                      <Pressable
-                        disabled={isSavingPerf}
-                        style={[styles.primaryButton, isSavingPerf && styles.buttonDisabled]}
-                        onPress={handleCreatePerformance}
-                      >
-                        {isSavingPerf ? (
-                          <ActivityIndicator color="#fff" />
-                        ) : (
-                          <Text style={styles.primaryButtonText}>Record Metric</Text>
-                        )}
-                      </Pressable>
-                    </View>
-                  )}
-
-                  {/* Performance History List */}
-                  {isPerfLoading ? (
-                    <View style={styles.skeletonContainer}>
-                      <SkeletonCard />
-                      <SkeletonCard />
-                    </View>
-                  ) : perfError ? (
-                    <View style={styles.errorContainer}>
-                      <Text style={styles.errorText}>{perfError}</Text>
-                    </View>
-                  ) : athletePerformances.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                      <Ionicons name="speedometer-outline" size={48} color="#cbd5e1" />
-                      <Text style={styles.emptyText}>No performance history available.</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.perfList}>
-                      {athletePerformances.map((perf) => {
-                        const linkedWorkout = workouts.find((w) => w.workout_id === perf.workout_id);
-                        
-                        const athleteName = selectedAthleteForPerf ? selectedAthleteForPerf.name : 'Unknown Athlete';
-                        const workoutTitle = linkedWorkout ? linkedWorkout.title : 'N/A';
-                        const workoutStatus = linkedWorkout ? linkedWorkout.status : 'completed';
-                        const completionDate = linkedWorkout?.completed_at || perf.recorded_at || perf.date || 'N/A';
-                        
-                        const exerciseDurations = linkedWorkout?.exercises
-                          ?.map((e) => e.duration)
-                          ?.filter((d) => !!d && d.trim().length > 0);
-                        const workoutDuration = exerciseDurations && exerciseDurations.length > 0
-                          ? exerciseDurations.join(', ')
-                          : 'N/A';
-                          
-                        const athleteNotes = linkedWorkout?.athlete_notes || 'No notes provided';
-                        const coachFeedback = perf.feedback || perf.coach_remarks || 'No feedback provided';
-                        const performanceValue = perf.value !== undefined 
-                          ? `${perf.value} ${perf.unit || ''}` 
-                          : `${perf.sprint_time || 0}s`;
-                        const eventName = perf.sport_event || 'General';
-
-                        return (
-                          <View key={perf.performance_id} style={styles.perfCard}>
-                            <View style={styles.perfCardHeader}>
-                              <View style={styles.perfHeaderLeft}>
-                                <Ionicons name="speedometer-outline" size={20} color="#ec4899" />
-                                <Text style={styles.perfEventTitle}>{eventName}</Text>
-                              </View>
-                              <View style={styles.perfValueBadge}>
-                                <Text style={styles.perfValueBadgeText}>{performanceValue}</Text>
-                              </View>
-                            </View>
-
-                            <View style={styles.perfDetailsGrid}>
-                              <View style={styles.perfDetailRow}>
-                                <Text style={styles.perfDetailLabel}>Athlete:</Text>
-                                <Text style={styles.perfDetailValue}>{athleteName}</Text>
-                              </View>
-                              <View style={styles.perfDetailRow}>
-                                <Text style={styles.perfDetailLabel}>Workout Title:</Text>
-                                <Text style={styles.perfDetailValue}>{workoutTitle}</Text>
-                              </View>
-                              <View style={styles.perfDetailRow}>
-                                <Text style={styles.perfDetailLabel}>Workout Status:</Text>
-                                <Text style={[
-                                  styles.perfDetailValue, 
-                                  { color: workoutStatus === 'completed' ? '#10b981' : '#f59e0b', fontWeight: 'bold' }
-                                ]}>
-                                  {workoutStatus.toUpperCase()}
-                                </Text>
-                              </View>
-                              <View style={styles.perfDetailRow}>
-                                <Text style={styles.perfDetailLabel}>Completion Date:</Text>
-                                <Text style={styles.perfDetailValue}>{completionDate}</Text>
-                              </View>
-                              <View style={styles.perfDetailRow}>
-                                <Text style={styles.perfDetailLabel}>Duration:</Text>
-                                <Text style={styles.perfDetailValue}>{workoutDuration}</Text>
-                              </View>
-                            </View>
-
-                            <View style={styles.perfNotesSection}>
-                              <Text style={styles.notesSectionLabel}>Athlete Notes</Text>
-                              <Text style={styles.notesSectionText}>{athleteNotes}</Text>
-                            </View>
-
-                            <View style={[styles.perfNotesSection, { borderTopColor: '#f1f5f9', borderTopWidth: 1, paddingTop: 10 }]}>
-                              <Text style={[styles.notesSectionLabel, { color: '#0f172a' }]}>Coach Feedback</Text>
-                              <Text style={styles.notesSectionText}>{coachFeedback}</Text>
-                            </View>
-                          </View>
-                        );
-                      })}
-                    </View>
-                  )}
-                </>
-              )}
-            </View>
-          )}
-
-        </ScrollView>
-      </View>
-
-      {/* Review & Record Performance Modal */}
-      <Modal
-        visible={selectedWorkoutForPerformance !== null}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setSelectedWorkoutForPerformance(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Review & Record Performance</Text>
-            <Text style={styles.modalSubtitle}>
-              Workout: {selectedWorkoutForPerformance?.title}
-            </Text>
-
-            {/* Sport/Event */}
-            <View style={styles.modalFieldGroup}>
-              <Text style={styles.modalLabel}>Sport / Event</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="e.g. 100m Sprint, High Jump"
-                placeholderTextColor="#94a3b8"
-                value={perfSportEvent}
-                onChangeText={setPerfSportEvent}
-              />
-            </View>
-
-            {/* Performance Value & Unit */}
-            <View style={styles.modalFlexRow}>
-              <View style={[styles.modalFieldGroup, { flex: 1 }]}>
-                <Text style={styles.modalLabel}>Performance Value</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. 10.45"
-                  placeholderTextColor="#94a3b8"
-                  keyboardType="numeric"
-                  value={perfValue}
-                  onChangeText={setPerfValue}
-                />
-              </View>
-              <View style={[styles.modalFieldGroup, { flex: 1 }]}>
-                <Text style={styles.modalLabel}>Unit</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="e.g. seconds, meters, kg"
-                  placeholderTextColor="#94a3b8"
-                  value={perfUnit}
-                  onChangeText={setPerfUnit}
-                />
-              </View>
-            </View>
-
-            {/* Coach Feedback */}
-            <View style={styles.modalFieldGroup}>
-              <Text style={styles.modalLabel}>Coach Feedback</Text>
-              <TextInput
-                style={[styles.modalInput, styles.modalTextArea]}
-                placeholder="Write your feedback after reviewing the workout completion..."
-                placeholderTextColor="#94a3b8"
-                multiline={true}
-                numberOfLines={3}
-                value={perfFeedback}
-                onChangeText={setPerfFeedback}
-              />
-            </View>
-
-            {/* Recorded Date */}
-            <View style={styles.modalFieldGroup}>
-              <Text style={styles.modalLabel}>Recorded Date</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor="#94a3b8"
-                value={perfDate}
-                onChangeText={setPerfDate}
-              />
-            </View>
-
-            {coachPerfMessage && (
-              <Text style={[
-                styles.formMessageText,
-                coachPerfMessage.isError ? styles.errorMessage : styles.successMessage
-              ]}>
-                {coachPerfMessage.text}
-              </Text>
-            )}
-
-            {/* Modal Actions */}
-            <View style={styles.modalActionsRow}>
-              <Pressable
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setSelectedWorkoutForPerformance(null)}
-                disabled={isSavingCoachPerf}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </Pressable>
-              
-              <Pressable
-                style={[styles.modalButton, styles.submitButton]}
-                onPress={handleCreateLinkedPerformance}
-                disabled={isSavingCoachPerf}
-              >
-                {isSavingCoachPerf ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.submitButtonText}>Record Performance</Text>
                 )}
-              </Pressable>
+
+                {/* Exercises */}
+                <Text style={[styles.formLabel, { color: colors.textPrimary }]}>Exercises</Text>
+                {newWorkoutExercises.map((ex, idx) => (
+                  <View key={idx} style={[styles.exerciseRow, { backgroundColor: colors.bgMid, borderColor: colors.border }]}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <Text style={[styles.exerciseLabel, { color: colors.textSub }]}>Exercise #{idx + 1}</Text>
+                      {newWorkoutExercises.length > 1 && (
+                        <Pressable onPress={() => setNewWorkoutExercises(newWorkoutExercises.filter((_, i) => i !== idx))}>
+                          <Ionicons name="trash-outline" size={16} color={colors.error} />
+                        </Pressable>
+                      )}
+                    </View>
+                    <TextInput
+                      style={[styles.formInput, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                      placeholder="Exercise name *"
+                      placeholderTextColor={colors.textMuted}
+                      value={ex.name}
+                      onChangeText={(v) => {
+                        const updated = [...newWorkoutExercises];
+                        updated[idx] = { ...updated[idx], name: v };
+                        setNewWorkoutExercises(updated);
+                      }}
+                    />
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TextInput
+                        style={[styles.formInput, { flex: 1, color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                        placeholder="Sets"
+                        placeholderTextColor={colors.textMuted}
+                        value={String(ex.sets)}
+                        onChangeText={(v) => {
+                          const updated = [...newWorkoutExercises];
+                          updated[idx] = { ...updated[idx], sets: parseInt(v) || 0 };
+                          setNewWorkoutExercises(updated);
+                        }}
+                        keyboardType="numeric"
+                      />
+                      <TextInput
+                        style={[styles.formInput, { flex: 1, color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                        placeholder="Reps"
+                        placeholderTextColor={colors.textMuted}
+                        value={String(ex.reps)}
+                        onChangeText={(v) => {
+                          const updated = [...newWorkoutExercises];
+                          updated[idx] = { ...updated[idx], reps: parseInt(v) || 0 };
+                          setNewWorkoutExercises(updated);
+                        }}
+                        keyboardType="numeric"
+                      />
+                      <TextInput
+                        style={[styles.formInput, { flex: 1, color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                        placeholder="Duration"
+                        placeholderTextColor={colors.textMuted}
+                        value={ex.duration || ''}
+                        onChangeText={(v) => {
+                          const updated = [...newWorkoutExercises];
+                          updated[idx] = { ...updated[idx], duration: v };
+                          setNewWorkoutExercises(updated);
+                        }}
+                      />
+                    </View>
+                  </View>
+                ))}
+
+                <Button
+                  label="+ Add Exercise"
+                  onPress={() => setNewWorkoutExercises([...newWorkoutExercises, { name: '', sets: 3, reps: 10, duration: '' }])}
+                  variant="secondary"
+                  size="sm"
+                />
+
+                <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'flex-end', paddingTop: 8 }}>
+                  <Button
+                    label="Cancel"
+                    onPress={() => setShowCreateWorkoutModal(false)}
+                    variant="secondary"
+                  />
+                  <Button
+                    label={isSavingWorkout ? 'Saving…' : 'Assign Workout'}
+                    onPress={handleCreateWorkout}
+                    variant="primary"
+                    disabled={isSavingWorkout}
+                  />
+                </View>
+              </View>
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── LOG PERFORMANCE MODAL ── */}
+      <Modal
+        visible={showCreatePerfModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCreatePerfModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowCreatePerfModal(false)}
+        >
+          <Pressable
+            style={[styles.modalMenu, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={{ padding: 24, gap: 16 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                  Log Performance: {selectedAthleteForPerf?.name}
+                </Text>
+                <Pressable onPress={() => setShowCreatePerfModal(false)}>
+                  <Ionicons name="close" size={24} color={colors.textSub} />
+                </Pressable>
+              </View>
+
+              {perfFormMessage && (
+                <Text style={[styles.formMessage, { color: perfFormMessage.isError ? colors.error : colors.success }]}>
+                  {perfFormMessage.text}
+                </Text>
+              )}
+
+              <View style={styles.formFields}>
+                <TextInput
+                  style={[styles.formInput, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                  placeholder="Sprint Time (seconds) *"
+                  placeholderTextColor={colors.textMuted}
+                  value={newSprintTime}
+                  onChangeText={setNewSprintTime}
+                  keyboardType="numeric"
+                />
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <TextInput
+                    style={[styles.formInput, { flex: 1, color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                    placeholder="Weight (kg) *"
+                    placeholderTextColor={colors.textMuted}
+                    value={newWeight}
+                    onChangeText={setNewWeight}
+                    keyboardType="numeric"
+                  />
+                  <TextInput
+                    style={[styles.formInput, { flex: 1, color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                    placeholder="Height (cm) *"
+                    placeholderTextColor={colors.textMuted}
+                    value={newHeight}
+                    onChangeText={setNewHeight}
+                    keyboardType="numeric"
+                  />
+                </View>
+                <TextInput
+                  style={[styles.formInput, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                  placeholder="Date (YYYY-MM-DD)"
+                  placeholderTextColor={colors.textMuted}
+                  value={newPerfDate}
+                  onChangeText={setNewPerfDate}
+                />
+                <TextInput
+                  style={[styles.formInput, styles.formTextArea, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                  placeholder="Coach remarks (optional)"
+                  placeholderTextColor={colors.textMuted}
+                  value={newPerfRemarks}
+                  onChangeText={setNewPerfRemarks}
+                  multiline
+                  numberOfLines={3}
+                />
+                <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'flex-end' }}>
+                  <Button label="Cancel" onPress={() => setShowCreatePerfModal(false)} variant="secondary" />
+                  <Button
+                    label={isSavingPerf ? 'Saving…' : 'Save Performance'}
+                    onPress={handleCreatePerformance}
+                    variant="primary"
+                    disabled={isSavingPerf}
+                  />
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    gap: 12,
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: '#647286',
-    marginTop: 2,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    backgroundColor: '#fef2f2',
-  },
-  logoutText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ef4444',
-  },
-  content: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  contentInner: {
-    padding: 24,
-    maxWidth: 1400,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  coachInfoCard: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 24,
-    marginBottom: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  coachAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#8b5cf6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#fff',
-  },
-  coachDetails: {
-    flex: 1,
-    gap: 8,
-  },
-  coachName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  coachEmail: {
-    fontSize: 14,
-    color: '#475569',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 12,
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  statLabel: {
-    fontSize: 14,
-    color: '#647286',
-    fontWeight: '600',
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 16,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    height: 44,
-    marginBottom: 16,
-    gap: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: '#0f172a',
-  },
-  loaderContainer: {
-    paddingVertical: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loaderText: {
-    marginTop: 12,
-    color: '#647286',
-    fontSize: 14,
-  },
-  errorContainer: {
-    padding: 40,
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-  },
-  errorText: {
-    color: '#b91c1c',
-    fontSize: 15,
-    marginTop: 12,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  primaryButton: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 6,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    ...Platform.select({
-      web: { cursor: 'pointer' } as any,
-      default: {},
-    }),
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  centeredStatus: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-  },
-  emptyText: {
-    color: '#647286',
-    fontSize: 15,
-    marginTop: 12,
-    textAlign: 'center',
-  },
-  athletesList: {
-    gap: 12,
-  },
-  athleteCard: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 16,
-  },
-  athleteHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-  },
-  athleteAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#f59e0b',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  athleteInfo: {
-    flex: 1,
-  },
-  athleteName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  athleteSport: {
-    fontSize: 12,
-    color: '#647286',
-    marginTop: 2,
-  },
-  athleteFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopColor: '#f1f5f9',
-    borderTopWidth: 1,
-  },
-  athleteWeight: {
-    fontSize: 13,
-    color: '#475569',
-  },
-  viewButton: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    ...Platform.select({
-      web: { cursor: 'pointer' } as any,
-      default: {},
-    }),
-  },
-  viewButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 4,
-    marginBottom: 24,
-    gap: 8,
-  },
-  tabButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 6,
-    gap: 8,
-    ...Platform.select({
-      web: { cursor: 'pointer' } as any,
-      default: {},
-    }),
-  },
-  tabButtonActive: {
-    backgroundColor: '#eff6ff',
-    borderBottomWidth: 2,
-    borderBottomColor: '#3b82f6',
-  },
-  tabButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#647286',
-  },
-  tabButtonTextActive: {
-    color: '#3b82f6',
-    fontWeight: '700',
-  },
-  workoutsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#3b82f6',
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 4,
-    ...Platform.select({
-      web: { cursor: 'pointer' } as any,
-      default: {},
-    }),
-  },
-  addButtonDisabled: {
-    backgroundColor: '#cbd5e1',
-    opacity: 0.6,
-    ...Platform.select({
-      web: { cursor: 'not-allowed' } as any,
-      default: {},
-    }),
-  },
-  addButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  formCard: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 20,
-    marginBottom: 24,
-    gap: 16,
-  },
-  formTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 8,
-  },
-  fieldGroup: {
-    gap: 6,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  input: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    height: 40,
-    fontSize: 14,
-    color: '#0f172a',
-  },
-  textArea: {
-    height: 80,
-    paddingVertical: 8,
-    textAlignVertical: 'top',
-  },
-  athleteSelectorList: {
-    flexDirection: 'row',
-    paddingVertical: 4,
-  },
-  athleteSelectChip: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginRight: 8,
-  },
-  athleteSelectChipActive: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#3b82f6',
-    borderWidth: 1,
-  },
-  athleteSelectChipText: {
-    fontSize: 13,
-    color: '#647286',
-    fontWeight: '500',
-  },
-  athleteSelectChipTextActive: {
-    color: '#3b82f6',
-    fontWeight: '700',
-  },
-  helperText: {
-    fontSize: 13,
-    color: '#647286',
-    fontStyle: 'italic',
-  },
-  readOnlyInput: {
-    backgroundColor: '#f1f5f9',
-    color: '#647286',
-    borderColor: '#cbd5e1',
-  },
-  warningContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fef2f2',
-    borderColor: '#fee2e2',
-    borderWidth: 1,
-    borderRadius: 6,
-    padding: 10,
-    marginBottom: 16,
-    gap: 8,
-  },
-  warningText: {
-    fontSize: 13,
-    color: '#b91c1c',
-    fontWeight: '600',
-  },
-  noAthletesContainer: {
-    paddingVertical: 4,
-  },
-  noAthletesText: {
-    fontSize: 14,
-    color: '#b91c1c',
-    fontWeight: '600',
-  },
-  dropdownContainer: {
-    position: 'relative',
-    zIndex: 10,
-  },
-  dropdownInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  dropdownInput: {
-    flex: 1,
-    paddingRight: 40,
-  },
-  dropdownToggleBtn: {
-    position: 'absolute',
-    right: 12,
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dropdownList: {
-    backgroundColor: '#ffffff',
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    borderRadius: 6,
-    marginTop: 4,
-    maxHeight: 150,
-    overflow: 'hidden',
-  },
-  dropdownItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  dropdownItemText: {
-    fontSize: 14,
-    color: '#0f172a',
-  },
-  dropdownItemEmpty: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-  },
-  dropdownItemEmptyText: {
-    fontSize: 13,
-    color: '#647286',
-    fontStyle: 'italic',
-  },
-  exercisesHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  addExerciseBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  addExerciseBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#3b82f6',
-  },
-  exerciseRowCard: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 10,
-    gap: 8,
-  },
-  exerciseRowHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  exerciseRowIndex: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#647286',
-  },
-  exerciseInput: {
-    backgroundColor: '#fff',
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    height: 36,
-    fontSize: 13,
-    color: '#0f172a',
-  },
-  exerciseNumsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  numInputCol: {
-    flex: 1,
-    gap: 4,
-  },
-  numInputLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#647286',
-  },
-  numInput: {
-    backgroundColor: '#fff',
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    height: 36,
-    fontSize: 13,
-    color: '#0f172a',
-    textAlign: 'center',
-  },
-  buttonDisabled: {
-    backgroundColor: '#93c5fd',
-  },
-  formMessageText: {
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  errorMessage: {
-    color: '#ef4444',
-  },
-  successMessage: {
-    color: '#10b981',
-  },
-  workoutsList: {
-    gap: 16,
-  },
-  workoutCard: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 16,
-    gap: 10,
-  },
-  workoutCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  workoutMetaCol: {
-    flex: 1,
-  },
-  workoutTitleText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  workoutAthlete: {
-    fontSize: 12,
-    color: '#647286',
-    marginTop: 2,
-  },
-  statusBadge: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  statusBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  statusCompleted: {
-    backgroundColor: '#d1fae5',
-  },
-  statusCompletedText: {
-    color: '#065f46',
-  },
-  statusSkipped: {
-    backgroundColor: '#fee2e2',
-  },
-  statusSkippedText: {
-    color: '#991b1b',
-  },
-  workoutDesc: {
-    fontSize: 13,
-    color: '#475569',
-    lineHeight: 18,
-  },
-  workoutDate: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#647286',
-  },
-  exercisesList: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 6,
-    padding: 12,
-    gap: 6,
-  },
-  exercisesListTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#475569',
-    marginBottom: 2,
-  },
-  exerciseItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  exerciseItemText: {
-    fontSize: 13,
-    color: '#334155',
-  },
-  perfDetailHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  backBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    backgroundColor: '#fff',
-    gap: 6,
-    ...Platform.select({
-      web: { cursor: 'pointer' } as any,
-      default: {},
-    }),
-  },
-  backBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#3b82f6',
-  },
-  sectionSubtitleText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  perfList: {
-    gap: 16,
-  },
-  perfCard: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 16,
-    gap: 12,
-  },
-  perfCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  perfDateCol: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  perfDateText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  perfTimeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ecfdf5',
-    borderColor: '#a7f3d0',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    gap: 4,
-  },
-  perfTimeBadgeText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#047857',
-  },
-  perfMetricsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  perfMetricBox: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    alignItems: 'center',
-    gap: 4,
-  },
-  perfMetricLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#647286',
-    textTransform: 'uppercase',
-  },
-  perfMetricVal: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  remarksBox: {
-    backgroundColor: '#faf5ff',
-    borderColor: '#e9d5ff',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    gap: 4,
-  },
-  remarksLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#7e22ce',
-  },
-  remarksText: {
-    fontSize: 13,
-    color: '#581c87',
-    lineHeight: 18,
-  },
-  skeletonContainer: {
-    gap: 12,
-    marginBottom: 20,
-  },
-  skeletonCard: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 16,
-    gap: 12,
-  },
-  skeletonHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  skeletonAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#e2e8f0',
-  },
-  skeletonMeta: {
-    flex: 1,
-    gap: 8,
-  },
-  skeletonLineShort: {
-    height: 14,
-    width: '40%',
-    backgroundColor: '#e2e8f0',
-    borderRadius: 4,
-  },
-  skeletonLineLong: {
-    height: 10,
-    width: '70%',
-    backgroundColor: '#e2e8f0',
-    borderRadius: 4,
-  },
-  skeletonLineMedium: {
-    height: 12,
-    width: '50%',
-    backgroundColor: '#e2e8f0',
-    borderRadius: 4,
-  },
-  skeletonDivider: {
-    height: 1,
-    backgroundColor: '#f1f5f9',
-  },
-  skeletonFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  skeletonButton: {
-    height: 32,
-    width: 60,
-    backgroundColor: '#e2e8f0',
-    borderRadius: 6,
-  },
-  completionDetailsCard: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 12,
-  },
-  completionDetailsTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#475569',
-    marginBottom: 6,
-  },
-  completionDetailsText: {
-    fontSize: 12,
-    color: '#647286',
-    lineHeight: 18,
-  },
-  recordPerfBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#10b981',
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginTop: 12,
-    gap: 6,
-    ...Platform.select({
-      web: { cursor: 'pointer' } as any,
-      default: {},
-    }),
-  },
-  recordPerfBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalCard: {
-    backgroundColor: '#ffffff',
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 24,
-    width: '100%',
-    maxWidth: 500,
-    gap: 16,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: '#647286',
-    marginTop: -8,
-    marginBottom: 8,
-  },
-  modalFieldGroup: {
-    gap: 8,
-    marginBottom: 16,
-  },
-  modalFlexRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  modalLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  modalInput: {
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    height: 40,
-    fontSize: 14,
-    color: '#0f172a',
-    backgroundColor: '#f8fafc',
-  },
-  modalTextArea: {
-    height: 80,
-    paddingVertical: 8,
-    textAlignVertical: 'top',
-  },
-  modalActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-    marginTop: 8,
-  },
-  modalButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: 100,
-    ...Platform.select({
-      web: { cursor: 'pointer' } as any,
-      default: {},
-    }),
-  },
-  cancelButton: {
-    backgroundColor: '#f1f5f9',
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-  },
-  cancelButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  submitButton: {
-    backgroundColor: '#3b82f6',
-  },
-  submitButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  perfHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  perfEventTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  perfValueBadge: {
-    backgroundColor: '#fdf2f8',
-    borderColor: '#fbcfe8',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  perfValueBadgeText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#db2777',
-  },
-  perfDetailsGrid: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    gap: 8,
-    marginVertical: 12,
-  },
-  perfDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  perfDetailLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748b',
-  },
-  perfDetailValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1e293b',
-  },
-  perfNotesSection: {
-    marginTop: 10,
-    gap: 4,
-  },
-  notesSectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748b',
-    textTransform: 'uppercase',
-  },
-  notesSectionText: {
-    fontSize: 13,
-    color: '#334155',
-    lineHeight: 18,
-  },
-});
+function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boolean) {
+  return StyleSheet.create({
+    wrapper: {
+      flex: 1,
+      backgroundColor: colors.bg,
+    },
+    mainContainer: {
+      flex: 1,
+      flexDirection: 'row',
+    },
+    centeredStatus: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
+      gap: 16,
+    },
+    errorText: {
+      fontSize: 15,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+
+    // ── Sidebar ──
+    sidebar: {
+      width: 260,
+      backgroundColor: colors.bgCard,
+      borderRightWidth: 1,
+      borderRightColor: colors.border,
+      paddingVertical: 20,
+    },
+    sidebarFloating: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      bottom: 0,
+      zIndex: 1000,
+    },
+    sidebarHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      marginBottom: 24,
+    },
+    brandRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    sidebarBrand: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      letterSpacing: -0.5,
+    },
+    sidebarProfile: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginHorizontal: 16,
+      marginBottom: 20,
+      padding: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+    },
+    sidebarAvatar: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+    },
+    sidebarAvatarText: {
+      fontSize: 14,
+      fontWeight: '800',
+    },
+    sidebarProfileName: {
+      fontSize: 13,
+      fontWeight: '700',
+      marginBottom: 4,
+    },
+    sidebarNav: {
+      paddingHorizontal: 12,
+      gap: 4,
+    },
+    sidebarItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 10,
+    },
+    sidebarItemActive: {
+      backgroundColor: colors.emeraldDim,
+      borderColor: colors.borderEmerald,
+      borderWidth: 1,
+    },
+    sidebarItemLabel: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textSub,
+    },
+    sidebarItemLabelActive: {
+      color: colors.emerald,
+    },
+    sidebarBadge: {
+      backgroundColor: colors.bgMid,
+      borderRadius: 12,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    sidebarBadgeActive: {
+      backgroundColor: colors.emeraldDim,
+      borderColor: colors.borderEmerald,
+    },
+    sidebarBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.textSub,
+    },
+    sidebarBadgeTextActive: {
+      color: colors.emerald,
+    },
+    sidebarFooter: {
+      paddingHorizontal: 12,
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      marginTop: 20,
+    },
+    logoutButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 10,
+    },
+    logoutLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.error,
+    },
+
+    overlay: {
+      position: 'absolute',
+      inset: 0,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      zIndex: 999,
+    },
+
+    // ── Content Area ──
+    contentArea: {
+      flex: 1,
+      backgroundColor: colors.bg,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      backgroundColor: colors.bgCard,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    hamburgerBtn: {
+      padding: 8,
+      borderRadius: 8,
+      backgroundColor: colors.bgMid,
+    },
+    headerInfo: {
+      flex: 1,
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      letterSpacing: -0.5,
+    },
+    headerSubtitle: {
+      fontSize: 12,
+      color: colors.textSub,
+      marginTop: 2,
+    },
+    refreshBtn: {
+      padding: 8,
+      borderRadius: 8,
+      backgroundColor: colors.bgMid,
+    },
+    content: {
+      flex: 1,
+    },
+    contentInner: {
+      maxWidth: 1400,
+      alignSelf: 'center',
+      width: '100%',
+      gap: 0,
+    },
+    loaderContainer: {
+      paddingVertical: 60,
+      alignItems: 'center',
+      gap: 12,
+    },
+    loaderText: {
+      color: colors.textSub,
+      fontSize: 14,
+    },
+
+    // ── Metrics ──
+    metricsContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 16,
+      marginBottom: 24,
+      width: '100%',
+    },
+    metricHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    metricLabel: {
+      fontSize: 14,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    iconWrapper: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    derivedStatsContainer: {
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: 8,
+    },
+    derivedStatBox: {
+      flex: 1,
+      backgroundColor: colors.bgMid,
+      padding: 10,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    derivedStatVal: {
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    derivedStatLabel: {
+      fontSize: 10,
+      fontWeight: '600',
+      marginTop: 2,
+      textTransform: 'uppercase',
+    },
+
+    // ── Sections ──
+    section: {
+      marginBottom: 32,
+      width: '100%',
+    },
+    sectionHeader: {
+      marginBottom: 16,
+    },
+    sectionTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+    },
+
+    // ── Activity Feed ──
+    activityFeed: {
+      gap: 12,
+    },
+    activityRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderSubtle,
+    },
+    activityIconWrapper: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    activityContent: {
+      flex: 1,
+    },
+    activityTitleText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    activityMsgText: {
+      fontSize: 12,
+      color: colors.textSub,
+      marginTop: 2,
+    },
+    activityDateText: {
+      fontSize: 11,
+      color: colors.textMuted,
+    },
+    emptyActivityText: {
+      textAlign: 'center',
+      fontSize: 14,
+      paddingVertical: 20,
+    },
+
+    // ── Quick Actions ──
+    actionGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 16,
+      marginTop: 12,
+    },
+    actionCard: {
+      minWidth: 260,
+      backgroundColor: colors.bgCard,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 10,
+      padding: 20,
+      gap: 10,
+    },
+    actionCardTitle: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    actionCardDesc: {
+      fontSize: 14,
+      color: colors.textSub,
+      lineHeight: 20,
+    },
+
+    // ── Athletes Grid ──
+    athletesGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 16,
+      width: '100%',
+    },
+    athleteCard: {
+      width: isLargeScreen ? '31%' : '100%',
+      minWidth: 260,
+    },
+    athleteHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 16,
+    },
+    athleteAvatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+    },
+    avatarText: {
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    athleteInfo: {
+      flex: 1,
+    },
+    athleteName: {
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    athleteShortId: {
+      fontSize: 11,
+      fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+      marginTop: 2,
+    },
+    athleteEmail: {
+      fontSize: 13,
+      marginTop: 2,
+    },
+    athleteFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderTopWidth: 1,
+      paddingTop: 12,
+    },
+
+    // ── Athlete Selector (Performance tab) ──
+    athleteSelectorCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      padding: 12,
+      borderRadius: 10,
+      borderWidth: 1,
+      width: isLargeScreen ? '48%' : '100%',
+    },
+
+    // ── Table Cells ──
+    tableCellMain: {
+      paddingHorizontal: 16,
+      minWidth: 180,
+      flex: 2,
+      justifyContent: 'center',
+    },
+    tableCell: {
+      paddingHorizontal: 16,
+      minWidth: 100,
+      flex: 1,
+      justifyContent: 'center',
+    },
+    tableCellActions: {
+      paddingHorizontal: 16,
+      minWidth: 100,
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+    },
+    tableMainText: {
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    tableSubText: {
+      fontSize: 12,
+      marginTop: 2,
+    },
+    tableCellText: {
+      fontSize: 13,
+    },
+
+    // ── Forms ──
+    formFields: {
+      gap: 12,
+    },
+    formInput: {
+      borderWidth: 1,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 14,
+    },
+    formTextArea: {
+      minHeight: 80,
+      textAlignVertical: 'top',
+    },
+    formLabel: {
+      fontSize: 13,
+      fontWeight: '700',
+      marginTop: 4,
+    },
+    formMessage: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    exerciseRow: {
+      borderRadius: 8,
+      borderWidth: 1,
+      padding: 12,
+      gap: 8,
+    },
+    exerciseLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    dropdownList: {
+      borderWidth: 1,
+      borderRadius: 8,
+      overflow: 'hidden',
+      maxHeight: 200,
+    },
+    dropdownSearch: {
+      borderBottomWidth: 1,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      fontSize: 13,
+    },
+    dropdownItem: {
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      gap: 2,
+    },
+
+    // ── Modals ──
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 16,
+    },
+    modalMenu: {
+      width: Math.min(560, isWeb ? 560 : 400),
+      maxHeight: '90%',
+      borderRadius: 12,
+      borderWidth: 1,
+      overflow: 'hidden',
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      letterSpacing: -0.5,
+    },
+  });
+}

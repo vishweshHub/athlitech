@@ -3,18 +3,21 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import DockNav from '@/components/ui/DockNav';
 import ClickSpark from '@/components/animations/ClickSpark';
 import HeroSection from '../components/HeroSection';
-import FeaturesSection from '../components/FeaturesSection';
+import WhyAthliTechSection from '../components/WhyAthliTechSection';
 import HowItWorksSection from '../components/HowItWorksSection';
-import BenefitsSection from '../components/BenefitsSection';
+import WhoItsForSection from '../components/WhoItsForSection';
+import VisionSection from '../components/VisionSection';
 import CTASection from '../components/CTASection';
-import FAQSection from '../components/FAQSection';
 import Footer from '../components/Footer';
 
 /**
  * LandingScreen
  *
- * Public-facing marketing page. Uses the floating DockNav and ClickSpark
- * global click effect. All section components remain self-contained.
+ * Premium marketing page structured as a Scroll Stack narrative:
+ *   Hero → Why AthliTech → How It Works → Who It's For → Vision → CTA → Footer
+ *
+ * Uses the floating DockNav and ClickSpark global click effect.
+ * All section components are self-contained with scroll-reveal animations.
  */
 export default function LandingScreen() {
   return (
@@ -32,12 +35,25 @@ export default function LandingScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
+        {/* 1 — Hero: unchanged */}
         <HeroSection />
-        <FeaturesSection />
+
+        {/* 2 — Why AthliTech: problem → solution narrative */}
+        <WhyAthliTechSection />
+
+        {/* 3 — How It Works: Register → Connect → Workouts → Train → Record → Feedback */}
         <HowItWorksSection />
-        <BenefitsSection />
+
+        {/* 4 — Who It's For: Athletes · Coaches · Academies · Parents */}
+        <WhoItsForSection />
+
+        {/* 5 — Vision: AI-powered future */}
+        <VisionSection />
+
+        {/* 6 — CTA: unchanged */}
         <CTASection />
-        <FAQSection />
+
+        {/* 7 — Footer: unchanged */}
         <Footer />
       </ScrollView>
     </View>

@@ -39,7 +39,7 @@ async def register_user(user: UserRegister):
         "name": user.name,
         "email": email,
         "hashed_password": hashed_password,
-        "role": "athlete"
+        "role": user.role
     })
 
     return {"message": "User registered successfully"}

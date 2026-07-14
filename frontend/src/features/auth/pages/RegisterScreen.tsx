@@ -28,7 +28,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { registerUser } from '@/api/auth';
+import { registerUser, login, storeToken } from '@/api/auth';
 import GridMotion from '@/components/animations/GridMotion';
 import SplitText from '@/components/animations/SplitText';
 import GlassInput from '@/components/ui/GlassInput';
@@ -405,7 +405,13 @@ export default function RegisterScreen() {
         password,
         role: selectedRole, // strictly 'athlete' | 'coach'
       });
-      router.replace(LOGIN_ROUTE);
+      const result = await login(email.trim().toLowerCase(), password);
+      storeToken(result.access_token);
+      if (selectedRole === 'coach') {
+        router.replace('/coach-dashboard' as Href);
+      } else {
+        router.replace('/athlete-dashboard' as Href);
+      }
     } catch (err) {
       setServerError(err instanceof Error ? err.message : 'Registration failed.');
     } finally {
@@ -560,7 +566,7 @@ export default function RegisterScreen() {
               />
 
               {/* Password with strength bar */}
-              <View>
+              <View style={{ marginBottom: 18 }}>
                 <GlassInput
                   label="Password"
                   value={password}
@@ -572,6 +578,7 @@ export default function RegisterScreen() {
                   password
                   error={passwordError || undefined}
                   onBlur={() => setTouchedPassword(true)}
+                  containerStyle={{ marginBottom: 0 }}
                 />
                 <StrengthBar strength={passwordStrength} />
               </View>

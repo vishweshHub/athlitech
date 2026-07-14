@@ -10,9 +10,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
   useWindowDimensions,
+  Modal,
 } from 'react-native';
 
 import type { Role, User, Athlete } from '@/api/admin';
@@ -34,6 +34,19 @@ import { fetchAllWorkouts } from '@/api/workout';
 import type { PerformanceRecord } from '@/api/performance';
 import { fetchAllPerformances } from '@/api/performance';
 
+import {
+  Button,
+  Input,
+  Card,
+  Badge,
+  StatCard,
+  SearchBar,
+  Table,
+  ThemeToggle,
+} from '@/components/ui';
+import { useThemeColors } from '@/styles/tokens';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+
 interface AdminDashboardProps {
   user: AuthUser | null;
   token: string;
@@ -42,15 +55,17 @@ interface AdminDashboardProps {
 
 type TabType = 'dashboard' | 'users' | 'roles' | 'coaches' | 'athletes';
 
-// Responsive helpers
 const isWeb = Platform.OS === 'web';
-const isLargeScreenStatic = true;
 
 export default function AdminDashboard({ user, token, onSignOut }: AdminDashboardProps) {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
+  const colors = useThemeColors();
+  const scheme = useColorScheme();
   
+  const styles = getStyles(colors, isLargeScreen);
+
   // Navigation state
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(isLargeScreen);
@@ -125,11 +140,32 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
       console.warn('Backend API connection failed:', e);
       setDashboardError(message);
       setIsUsingFallback(true);
-      setUsers([]);
-      setRoles([]);
-      setAthletesData([]);
-      setWorkouts([]);
-      setPerformances([]);
+      // Local fallback mock data for testing
+      setUsers([
+        { id: '1', name: 'Admin User', email: 'admin@athlitech.com', role: 'admin' },
+        { id: '2', name: 'Coach Smith', email: 'coach.smith@athlitech.com', role: 'coach' },
+        { id: '3', name: 'Coach Davis', email: 'coach.davis@athlitech.com', role: 'coach' },
+        { id: '4', name: 'Alex Johnson', email: 'alex@athlete.com', role: 'athlete' },
+        { id: '5', name: 'Emma Wilson', email: 'emma@athlete.com', role: 'athlete' },
+        { id: '6', name: 'Ryan Miller', email: 'ryan@athlete.com', role: 'athlete' },
+      ]);
+      setRoles([
+        { id: 'r1', name: 'admin', permissions: ['read:all', 'write:all', 'delete:all'] },
+        { id: 'r2', name: 'coach', permissions: ['read:athlete', 'write:workout', 'write:performance'] },
+        { id: 'r3', name: 'athlete', permissions: ['read:workout', 'read:performance'] },
+      ]);
+      setAthletesData([
+        { athlete_id: '4', name: 'Alex Johnson', sport: 'Sprinting', weight: '72', coach_id: '2' },
+        { athlete_id: '5', name: 'Emma Wilson', sport: 'Sprinting', weight: '64', coach_id: '2' },
+        { athlete_id: '6', name: 'Ryan Miller', sport: 'Hurdles', weight: '76', coach_id: '' },
+      ]);
+      setWorkouts([
+        { workout_id: 'w1', athlete_id: '4', title: '100m Interval Sprints', status: 'completed', date: '2026-07-10', completed_at: '2026-07-10' },
+        { workout_id: 'w2', athlete_id: '5', title: 'Start Block Acceleration', status: 'pending', date: '2026-07-14' },
+      ]);
+      setPerformances([
+        { performance_id: 'p1', athlete_id: '4', sport_event: '100m Sprint', value: 10.45, unit: 's', recorded_at: '2026-07-10' },
+      ]);
     } finally {
       setIsLoadingData(false);
     }
@@ -148,7 +184,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
   const dashboardStatusMessage = isLoadingData
     ? 'Loading dashboard metrics from the backend...'
     : dashboardError
-      ? 'Unable to load dashboard metrics right now.'
+      ? 'Unable to load dashboard metrics (Running in Fallback Mode).'
       : hasDashboardData
         ? null
         : 'No dashboard data is available yet.';
@@ -317,7 +353,6 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
     setAthleteCoachMessage((prev) => ({ ...prev, [athleteId]: { text: 'Saving...', isError: false } }));
     try {
       if (isUsingFallback) {
-        // Update local mock state
         setAthletesData((prevAthletes) => {
           const exists = prevAthletes.some((a) => a.athlete_id === athleteId);
           if (exists) {
@@ -336,7 +371,6 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
           ...prev,
           [athleteId]: { text: 'Coach assigned successfully!', isError: false },
         }));
-        // Refresh athletes data immediately
         const fetchedAthletes = await fetchAllAthletes(token);
         setAthletesData(fetchedAthletes);
       }
@@ -352,7 +386,6 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
     setAthleteCoachMessage((prev) => ({ ...prev, [athleteId]: { text: 'Removing assignment...', isError: false } }));
     try {
       if (isUsingFallback) {
-        // Update local mock state
         setAthletesData((prevAthletes) => {
           return prevAthletes.map((a) => (a.athlete_id === athleteId ? { ...a, coach_id: '' } : a));
         });
@@ -366,12 +399,10 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
           ...prev,
           [athleteId]: { text: 'Coach assignment removed successfully!', isError: false },
         }));
-        // Reset local selection map
         setUpdatingAthleteCoachMap((prev) => ({
           ...prev,
           [athleteId]: '',
         }));
-        // Refresh athletes data immediately
         const fetchedAthletes = await fetchAllAthletes(token);
         setAthletesData(fetchedAthletes);
       }
@@ -500,12 +531,12 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
           <View style={[styles.sidebar, !isLargeScreen && styles.sidebarFloating]}>
             <View style={styles.sidebarHeader}>
               <View style={styles.brandRow}>
-                <Ionicons name="flash" size={22} color="#3b82f6" />
+                <Ionicons name="flash" size={22} color={colors.emerald} />
                 <Text style={styles.sidebarBrand}>AthliTech</Text>
               </View>
               {!isLargeScreen && (
                 <Pressable onPress={() => setSidebarOpen(false)}>
-                  <Ionicons name="close" size={24} color="#647286" />
+                  <Ionicons name="close" size={24} color={colors.textSub} />
                 </Pressable>
               )}
             </View>
@@ -534,7 +565,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                   <Ionicons
                     name={item.icon as any}
                     size={20}
-                    color={activeTab === item.id ? '#3b82f6' : '#647286'}
+                    color={activeTab === item.id ? colors.emerald : colors.textSub}
                   />
                   <Text
                     style={[
@@ -567,7 +598,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
 
             <View style={styles.sidebarFooter}>
               <Pressable style={styles.logoutButton} onPress={onSignOut}>
-                <Ionicons name="log-out" size={20} color="#ef4444" />
+                <Ionicons name="log-out" size={20} color={colors.error} />
                 <Text style={styles.logoutLabel}>Logout</Text>
               </Pressable>
             </View>
@@ -583,7 +614,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                 onPress={() => setSidebarOpen(!sidebarOpen)}
                 style={styles.hamburgerBtn}
               >
-                <Ionicons name="menu" size={24} color="#0f172a" />
+                <Ionicons name="menu" size={24} color={colors.textPrimary} />
               </Pressable>
             )}
             <View style={styles.headerInfo}>
@@ -596,9 +627,12 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
               </Text>
               <Text style={styles.headerSubtitle}>{user?.email || 'Admin'}</Text>
             </View>
-            <Pressable onPress={loadDashboardData} style={styles.refreshBtn}>
-              <Ionicons name="refresh" size={20} color="#1e293b" />
-            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <ThemeToggle />
+              <Pressable onPress={loadDashboardData} style={styles.refreshBtn}>
+                <Ionicons name="refresh" size={20} color={colors.textPrimary} />
+              </Pressable>
+            </View>
           </View>
 
           {/* Content */}
@@ -611,7 +645,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
           >
             {isLoadingData ? (
               <View style={styles.loaderContainer}>
-                <ActivityIndicator size="large" color="#3b82f6" />
+                <ActivityIndicator size="large" color={colors.emerald} />
                 <Text style={styles.loaderText}>Loading dashboard...</Text>
               </View>
             ) : (
@@ -621,126 +655,107 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                   <>
                     {/* Summary Cards */}
                     <View style={styles.metricsContainer}>
-                      <View style={[styles.metricCard, { borderLeftColor: '#3b82f6' }]}>
-                        <View style={styles.metricHeader}>
-                          <Text style={styles.metricLabel}>Total Users</Text>
-                          <View style={[styles.iconWrapper, { backgroundColor: '#eff6ff' }]}>
-                            <Ionicons name="people-outline" size={20} color="#3b82f6" />
-                          </View>
-                        </View>
-                        <Text style={styles.metricValue}>{totalUsers}</Text>
-                      </View>
-
-                      <View style={[styles.metricCard, { borderLeftColor: '#10b981' }]}>
-                        <View style={styles.metricHeader}>
-                          <Text style={styles.metricLabel}>Coaches</Text>
-                          <View style={[styles.iconWrapper, { backgroundColor: '#ecfdf5' }]}>
-                            <Ionicons name="fitness-outline" size={20} color="#10b981" />
-                          </View>
-                        </View>
-                        <Text style={styles.metricValue}>{totalCoaches}</Text>
-                      </View>
-
-                      <View style={[styles.metricCard, { borderLeftColor: '#f59e0b' }]}>
-                        <View style={styles.metricHeader}>
-                          <Text style={styles.metricLabel}>Athletes</Text>
-                          <View style={[styles.iconWrapper, { backgroundColor: '#fffbeb' }]}>
-                            <Ionicons name="walk-outline" size={20} color="#f59e0b" />
-                          </View>
-                        </View>
-                        <Text style={styles.metricValue}>{totalAthletes}</Text>
-                      </View>
-
-                      <View style={[styles.metricCard, { borderLeftColor: '#8b5cf6' }]}>
-                        <View style={styles.metricHeader}>
-                          <Text style={styles.metricLabel}>Roles</Text>
-                          <View style={[styles.iconWrapper, { backgroundColor: '#f5f3ff' }]}>
-                            <Ionicons name="shield-outline" size={20} color="#8b5cf6" />
-                          </View>
-                        </View>
-                        <Text style={styles.metricValue}>{totalRoles}</Text>
-                      </View>
+                      <StatCard
+                        label="Total Users"
+                        value={totalUsers}
+                        delay={0}
+                      />
+                      <StatCard
+                        label="Coaches"
+                        value={totalCoaches}
+                        delay={80}
+                      />
+                      <StatCard
+                        label="Athletes"
+                        value={totalAthletes}
+                        delay={160}
+                      />
+                      <StatCard
+                        label="Roles"
+                        value={totalRoles}
+                        delay={240}
+                      />
                     </View>
 
                     {/* Additional Summary Cards */}
                     <View style={styles.metricsContainer}>
                       {/* Workouts Overview Card */}
-                      <View style={[styles.metricCard, { borderLeftColor: '#06b6d4', flex: 1 }]}>
+                      <Card style={{ flex: 1 }}>
                         <View style={styles.metricHeader}>
-                          <Text style={styles.metricLabel}>Workouts Overview</Text>
-                          <View style={[styles.iconWrapper, { backgroundColor: '#ecfeff' }]}>
-                            <Ionicons name="barbell-outline" size={20} color="#06b6d4" />
+                          <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>Workouts Overview</Text>
+                          <View style={[styles.iconWrapper, { backgroundColor: colors.infoDim }]}>
+                            <Ionicons name="barbell-outline" size={20} color={colors.info} />
                           </View>
                         </View>
                         <View style={styles.derivedStatsContainer}>
                           <View style={styles.derivedStatBox}>
-                            <Text style={styles.derivedStatVal}>{workouts.length}</Text>
-                            <Text style={styles.derivedStatLabel}>Total</Text>
+                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{workouts.length}</Text>
+                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Total</Text>
                           </View>
                           <View style={styles.derivedStatBox}>
-                            <Text style={styles.derivedStatVal}>{workouts.filter(w => w.status === 'pending').length}</Text>
-                            <Text style={styles.derivedStatLabel}>Pending</Text>
+                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{workouts.filter(w => w.status === 'pending').length}</Text>
+                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Pending</Text>
                           </View>
                           <View style={styles.derivedStatBox}>
-                            <Text style={styles.derivedStatVal}>{workouts.filter(w => w.status === 'completed').length}</Text>
-                            <Text style={styles.derivedStatLabel}>Completed</Text>
+                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{workouts.filter(w => w.status === 'completed').length}</Text>
+                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Completed</Text>
                           </View>
                         </View>
-                      </View>
+                      </Card>
 
                       {/* Performance Overview Card */}
-                      <View style={[styles.metricCard, { borderLeftColor: '#ec4899', flex: 1 }]}>
+                      <Card style={{ flex: 1 }}>
                         <View style={styles.metricHeader}>
-                          <Text style={styles.metricLabel}>Performance & Assignments</Text>
-                          <View style={[styles.iconWrapper, { backgroundColor: '#fdf2f8' }]}>
-                            <Ionicons name="speedometer-outline" size={20} color="#ec4899" />
+                          <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>Performance & Assignments</Text>
+                          <View style={[styles.iconWrapper, { backgroundColor: colors.emeraldDim }]}>
+                            <Ionicons name="speedometer-outline" size={20} color={colors.emerald} />
                           </View>
                         </View>
                         <View style={styles.derivedStatsContainer}>
                           <View style={styles.derivedStatBox}>
-                            <Text style={styles.derivedStatVal}>{performances.length}</Text>
-                            <Text style={styles.derivedStatLabel}>Perf. Records</Text>
+                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{performances.length}</Text>
+                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Perf. Records</Text>
                           </View>
                           <View style={styles.derivedStatBox}>
-                            <Text style={styles.derivedStatVal}>{athletesData.filter(a => !!a.coach_id).length}</Text>
-                            <Text style={styles.derivedStatLabel}>Active Assignments</Text>
+                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{athletesData.filter(a => !!a.coach_id).length}</Text>
+                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Active Assignments</Text>
                           </View>
                         </View>
-                      </View>
+                      </Card>
                     </View>
 
                     {/* Recent Activity Section */}
-                    <View style={styles.section}>
-                      <Text style={styles.sectionTitle}>Recent Activity</Text>
+                    <Card style={styles.section}>
+                      <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 16 }]}>Recent Activity</Text>
                       <View style={styles.activityFeed}>
                         {getRecentActivities().length === 0 ? (
                           <Text style={styles.emptyActivityText}>No recent activity recorded.</Text>
                         ) : (
                           getRecentActivities().map((act) => {
                             let iconName = 'ellipse-outline';
-                            let iconColor = '#64748b';
-                            let bgColor = '#f1f5f9';
+                            let iconColor = colors.textSub;
+                            let bgColor = colors.bgMid;
 
                             if (act.type === 'registration') {
                               iconName = 'person-add-outline';
-                              iconColor = '#3b82f6';
-                              bgColor = '#eff6ff';
+                              iconColor = colors.info;
+                              bgColor = colors.infoDim;
                             } else if (act.type === 'assignment') {
                               iconName = 'people-outline';
-                              iconColor = '#10b981';
-                              bgColor = '#ecfdf5';
+                              iconColor = colors.emerald;
+                              bgColor = colors.emeraldDim;
                             } else if (act.type === 'workout_assign') {
                               iconName = 'barbell-outline';
-                              iconColor = '#8b5cf6';
-                              bgColor = '#f5f3ff';
+                              iconColor = colors.emerald;
+                              bgColor = colors.emeraldDim;
                             } else if (act.type === 'workout_comp') {
                               iconName = 'checkmark-done-circle-outline';
-                              iconColor = '#06b6d4';
-                              bgColor = '#ecfeff';
+                              iconColor = colors.emerald;
+                              bgColor = colors.emeraldDim;
                             } else if (act.type === 'performance') {
                               iconName = 'speedometer-outline';
-                              iconColor = '#ec4899';
-                              bgColor = '#fdf2f8';
+                              iconColor = colors.info;
+                              bgColor = colors.infoDim;
                             }
 
                             return (
@@ -758,14 +773,15 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                           })
                         )}
                       </View>
-                    </View>
+                    </Card>
 
                     {dashboardStatusMessage ? (
                       <View style={styles.statusCard}>
                         <Text
                           style={[
                             styles.statusText,
-                            dashboardError ? styles.statusErrorText : null,
+                            { color: colors.textPrimary },
+                            dashboardError ? { color: colors.error, fontWeight: '600' } : null,
                           ]}
                         >
                           {dashboardStatusMessage}
@@ -775,13 +791,13 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
 
                     {/* Quick Actions */}
                     <View style={styles.section}>
-                      <Text style={styles.sectionTitle}>Quick Actions</Text>
+                      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Quick Actions</Text>
                       <View style={styles.actionGrid}>
                         <Pressable
                           style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
                           onPress={() => setActiveTab('users')}
                         >
-                          <Ionicons name="people-circle" size={32} color="#3b82f6" />
+                          <Ionicons name="people-circle" size={32} color={colors.info} />
                           <Text style={styles.actionCardTitle}>Manage Users</Text>
                           <Text style={styles.actionCardDesc}>
                             Review and manage user accounts and roles.
@@ -792,32 +808,10 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                           style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
                           onPress={() => setActiveTab('roles')}
                         >
-                          <Ionicons name="shield-checkmark" size={32} color="#10b981" />
+                          <Ionicons name="shield-checkmark" size={32} color={colors.emerald} />
                           <Text style={styles.actionCardTitle}>Manage Roles</Text>
                           <Text style={styles.actionCardDesc}>
                             Create and configure system roles.
-                          </Text>
-                        </Pressable>
-
-                        <Pressable
-                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
-                          onPress={() => setActiveTab('coaches')}
-                        >
-                          <Ionicons name="fitness" size={32} color="#8b5cf6" />
-                          <Text style={styles.actionCardTitle}>Coaches</Text>
-                          <Text style={styles.actionCardDesc}>
-                            View and manage coach accounts.
-                          </Text>
-                        </Pressable>
-
-                        <Pressable
-                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
-                          onPress={() => setActiveTab('athletes')}
-                        >
-                          <Ionicons name="walk" size={32} color="#f59e0b" />
-                          <Text style={styles.actionCardTitle}>Athletes</Text>
-                          <Text style={styles.actionCardDesc}>
-                            Manage athlete profiles and assignments.
                           </Text>
                         </Pressable>
                       </View>
@@ -827,105 +821,125 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
 
                 {/* Users Tab */}
                 {activeTab === 'users' && (
-                  <View style={styles.section}>
+                  <Card style={styles.section}>
                     <View
                       style={[
                         styles.sectionHeader,
                         {
                           flexDirection: isLargeScreen ? 'row' : 'column',
                           alignItems: isLargeScreen ? 'center' : 'stretch',
+                          gap: 12,
+                          marginBottom: 20,
                         },
                       ]}
                     >
-                      <Text style={styles.sectionTitle}>User Registry ({filteredUsers.length})</Text>
-                      <TextInput
-                        style={[styles.searchBar, { width: isLargeScreen ? 300 : '100%' }]}
-                        placeholder="Search name, email, or role..."
-                        placeholderTextColor="#94a3b8"
-                        value={userSearchQuery}
-                        onChangeText={setUserSearchQuery}
-                      />
+                      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>User Registry ({filteredUsers.length})</Text>
+                      <View style={{ width: isLargeScreen ? 300 : '100%' }}>
+                        <SearchBar
+                          value={userSearchQuery}
+                          onChangeText={setUserSearchQuery}
+                          placeholder="Search name, email, or role..."
+                        />
+                      </View>
                     </View>
 
-                    <View style={styles.userList}>
-                      {filteredUsers.length === 0 ? (
-                        <View style={styles.emptyContainer}>
-                          <Text style={styles.emptyText}>No users matched your query</Text>
-                        </View>
-                      ) : (
-                        filteredUsers.map((item) => {
-                          const selectedRole = updatingUserRoleMap[item.id] || item.role;
-                          const message = userRoleMessage[item.id];
-                          return (
-                            <View
-                              key={item.id}
-                              style={[
-                                styles.userListItem,
-                                { flexDirection: isLargeScreen ? 'row' : 'column' },
-                                openDropdownUserId === item.id ? { zIndex: 10 } : { zIndex: 1 },
-                              ]}
-                            >
-                              <View style={styles.userInfo}>
-                                <Text style={styles.userNameText}>{item.name}</Text>
-                                <Text style={styles.userEmailText}>{item.email}</Text>
-                                <View style={styles.userMetaRow}>
-                                  <Text style={styles.userIdText}>ID: {item.id}</Text>
-                                  <View style={styles.roleBadge}>
-                                    <Text style={styles.roleBadgeText}>{item.role}</Text>
-                                  </View>
-                                </View>
-                                {message && (
-                                  <Text
-                                    style={[
-                                      styles.userItemMessage,
-                                      message.isError ? styles.errorText : styles.successText,
-                                    ]}
+                    <Table
+                      headers={['User Details', 'User ID', 'Role', 'Role Assigner', 'Actions']}
+                      data={filteredUsers}
+                      renderRow={(item: User, index: number) => {
+                        const selectedRole = updatingUserRoleMap[item.id] || item.role;
+                        const message = userRoleMessage[item.id];
+                        const isSelf = item.id === user?.id || item.email === user?.email;
+
+                        return (
+                          <React.Fragment key={item.id}>
+                            {/* User details */}
+                            <View style={styles.tableCellUser}>
+                              <Text style={[styles.userNameText, { color: colors.textPrimary }]}>{item.name}</Text>
+                              <Text style={[styles.userEmailText, { color: colors.textSub }]}>{item.email}</Text>
+                              {message && (
+                                <Text
+                                  style={[
+                                    styles.userItemMessage,
+                                    { color: message.isError ? colors.error : colors.success, marginTop: 4 }
+                                  ]}
+                                >
+                                  {message.text}
+                                </Text>
+                              )}
+                            </View>
+
+                            {/* ID */}
+                            <View style={styles.tableCellId}>
+                              <Text style={[styles.cellText, { color: colors.textSub }]}>{item.id}</Text>
+                            </View>
+
+                            {/* Current Role */}
+                            <View style={styles.tableCellBadge}>
+                              <Badge
+                                label={item.role}
+                                variant={
+                                  item.role === 'admin'
+                                    ? 'error'
+                                    : item.role === 'coach'
+                                    ? 'success'
+                                    : item.role === 'athlete'
+                                    ? 'info'
+                                    : 'neutral'
+                                }
+                              />
+                            </View>
+
+                            {/* Dropdown Role assigner */}
+                            <View style={styles.tableCellDropdown}>
+                              {isSelf ? (
+                                <Text style={[styles.currentUserRoleText, { color: colors.textMuted }]}>ADMIN (Self)</Text>
+                              ) : (
+                                <View style={styles.dropdownContainer}>
+                                  <Pressable
+                                    style={[styles.dropdownButton, { backgroundColor: colors.bgMid, borderColor: colors.border }]}
+                                    onPress={() =>
+                                      setOpenDropdownUserId(
+                                        openDropdownUserId === item.id ? null : item.id
+                                      )
+                                    }
                                   >
-                                    {message.text}
-                                  </Text>
-                                )}
-                              </View>
+                                    <Text style={[styles.dropdownButtonText, { color: colors.textPrimary }]}>
+                                      {selectedRole.toUpperCase()}
+                                    </Text>
+                                    <Ionicons
+                                      name={openDropdownUserId === item.id ? 'chevron-up' : 'chevron-down'}
+                                      size={16}
+                                      color={colors.textSub}
+                                    />
+                                  </Pressable>
 
-                              <View
-                                style={[
-                                  styles.userRoleEdit,
-                                  { alignItems: isLargeScreen ? 'flex-end' : 'flex-start' },
-                                ]}
-                              >
-                                {item.id === user?.id || item.email === user?.email ? (
-                                  <Text style={styles.currentUserRoleText}>ADMIN (Self)</Text>
-                                ) : (
-                                  <>
-                                    <Text style={styles.smallLabel}>Assign Role:</Text>
-                                    <View style={styles.dropdownContainer}>
+                                  {openDropdownUserId === item.id && (
+                                    <Modal
+                                      transparent
+                                      visible={true}
+                                      animationType="fade"
+                                      onRequestClose={() => setOpenDropdownUserId(null)}
+                                    >
                                       <Pressable
-                                        style={styles.dropdownButton}
-                                        onPress={() =>
-                                          setOpenDropdownUserId(
-                                            openDropdownUserId === item.id ? null : item.id
-                                          )
-                                        }
+                                        style={styles.modalOverlay}
+                                        onPress={() => setOpenDropdownUserId(null)}
                                       >
-                                        <Text style={styles.dropdownButtonText}>
-                                          {selectedRole.toUpperCase()}
-                                        </Text>
-                                        <Ionicons
-                                          name={
-                                            openDropdownUserId === item.id ? 'chevron-up' : 'chevron-down'
-                                          }
-                                          size={16}
-                                          color="#647286"
-                                        />
-                                      </Pressable>
-
-                                      {openDropdownUserId === item.id && (
-                                        <View style={styles.dropdownMenu}>
+                                        <View
+                                          style={[
+                                            styles.modalMenu,
+                                            { backgroundColor: colors.bgCard, borderColor: colors.border }
+                                          ]}
+                                        >
+                                          <Text style={[styles.modalHeader, { color: colors.textSub, borderBottomColor: colors.border }]}>
+                                            Change Role: {item.name}
+                                          </Text>
                                           {roles.map((r) => (
                                             <Pressable
                                               key={r.name}
                                               style={[
-                                                styles.dropdownItem,
-                                                selectedRole === r.name && styles.dropdownItemActive,
+                                                styles.modalItem,
+                                                selectedRole === r.name && { backgroundColor: colors.bgMid },
                                               ]}
                                               onPress={() => {
                                                 setUpdatingUserRoleMap((prev) => ({
@@ -937,214 +951,209 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                                             >
                                               <Text
                                                 style={[
-                                                  styles.dropdownItemText,
-                                                  selectedRole === r.name &&
-                                                    styles.dropdownItemTextActive,
+                                                  styles.modalItemText,
+                                                  { color: selectedRole === r.name ? colors.emerald : colors.textPrimary, flex: 1 },
                                                 ]}
                                               >
                                                 {r.name.toUpperCase()}
                                               </Text>
                                               {selectedRole === r.name && (
-                                                <Ionicons name="checkmark" size={16} color="#3b82f6" />
+                                                <Ionicons name="checkmark" size={16} color={colors.emerald} />
                                               )}
                                             </Pressable>
                                           ))}
                                         </View>
-                                      )}
-                                    </View>
-
-                                    {selectedRole !== item.role && (
-                                      <Pressable
-                                        style={styles.saveRoleButton}
-                                        onPress={() => handleUpdateUserRole(item.id)}
-                                      >
-                                        <Text style={styles.saveRoleButtonText}>Apply Role</Text>
                                       </Pressable>
-                                    )}
-                                  </>
-                                )}
-
-                                {item.id !== user?.id && item.email !== user?.email && (
-                                  <Pressable
-                                    style={styles.deleteUserButton}
-                                    onPress={() => handleDeletePress(item)}
-                                  >
-                                    <Ionicons name="trash-outline" size={14} color="#ef4444" />
-                                    <Text style={styles.deleteUserButtonText}>Delete User</Text>
-                                  </Pressable>
-                                )}
-                              </View>
+                                    </Modal>
+                                  )}
+                                </View>
+                              )}
                             </View>
-                          );
-                        })
-                      )}
-                    </View>
-                  </View>
+
+                            {/* Actions */}
+                            <View style={styles.tableCellActions}>
+                              <Button
+                                label=""
+                                onPress={() => {
+                                  if (item.role === 'coach') {
+                                    router.push(`/coach-details?coachId=${item.id}`);
+                                  } else {
+                                    router.push(`/athlete-details?athleteId=${item.id}`);
+                                  }
+                                }}
+                                variant="secondary"
+                                size="sm"
+                                prefix={<Ionicons name="eye-outline" size={16} color={colors.textPrimary} />}
+                                style={{ paddingHorizontal: 12, marginRight: 8 }}
+                              />
+                              {!isSelf && selectedRole !== item.role && (
+                                <Button
+                                  label="Apply"
+                                  onPress={() => handleUpdateUserRole(item.id)}
+                                  variant="primary"
+                                  size="sm"
+                                  style={{ marginRight: 8 }}
+                                />
+                              )}
+                              {!isSelf && (
+                                <Button
+                                  label=""
+                                  onPress={() => handleDeletePress(item)}
+                                  variant="danger"
+                                  size="sm"
+                                  prefix={<Ionicons name="trash-outline" size={16} color={colors.error} />}
+                                  style={{ paddingHorizontal: 12 }}
+                                />
+                              )}
+                            </View>
+                          </React.Fragment>
+                        );
+                      }}
+                    />
+                  </Card>
                 )}
 
                 {/* Roles Tab */}
                 {activeTab === 'roles' && (
                   <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>System Roles</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 16 }]}>System Roles</Text>
                     <View style={styles.rolesGrid}>
                       {roles.map((r) => {
                         const isDefault = ['admin', 'coach', 'athlete'].includes(r.name.toLowerCase());
                         const isEditing = editingRoleName === r.name;
 
                         return (
-                          <View key={r.name} style={styles.roleDetailCard}>
+                          <Card key={r.name} style={styles.roleDetailCard}>
                             <View style={styles.roleHeaderRow}>
                               <View style={styles.roleBadgeHeader}>
-                                <Ionicons name="shield-checkmark" size={16} color={isDefault ? "#3b82f6" : "#475569"} />
-                                <Text style={styles.roleTitle}>{r.name.toUpperCase()}</Text>
+                                <Ionicons name="shield-checkmark" size={16} color={isDefault ? colors.emerald : colors.textSub} />
+                                <Text style={[styles.roleTitle, { color: colors.textPrimary }]}>{r.name.toUpperCase()}</Text>
                               </View>
                               {isDefault && (
-                                <View style={styles.defaultRoleBadge}>
-                                  <Text style={styles.defaultRoleBadgeText}>System Default</Text>
-                                </View>
+                                <Badge label="System Default" variant="neutral" />
                               )}
                             </View>
 
                             {roleActionError[r.name] ? (
-                              <Text style={styles.roleActionErrorText}>{roleActionError[r.name]}</Text>
+                              <Text style={[styles.roleActionErrorText, { color: colors.error }]}>{roleActionError[r.name]}</Text>
                             ) : null}
 
                             {isEditing ? (
                               <View style={styles.editPermissionsForm}>
-                                <TextInput
-                                  style={styles.textInput}
+                                <Input
                                   value={editingRolePermissionsInput}
                                   onChangeText={setEditingRolePermissionsInput}
                                   placeholder="e.g. read:stats, write:stats"
-                                  placeholderTextColor="#94a3b8"
                                 />
                                 <View style={styles.editActionRow}>
-                                  <Pressable
-                                    style={[styles.saveRoleBtn, isSavingRolePermissions && styles.disabledBtn]}
+                                  <Button
+                                    label={isSavingRolePermissions ? 'Saving...' : 'Save'}
                                     onPress={() => handleSaveRolePermissions(r.name)}
                                     disabled={isSavingRolePermissions}
-                                  >
-                                    <Text style={styles.saveRoleBtnText}>
-                                      {isSavingRolePermissions ? 'Saving...' : 'Save'}
-                                    </Text>
-                                  </Pressable>
-                                  <Pressable
-                                    style={styles.cancelRoleBtn}
+                                    size="sm"
+                                  />
+                                  <Button
+                                    label="Cancel"
                                     onPress={() => setEditingRoleName(null)}
-                                  >
-                                    <Text style={styles.cancelRoleBtnText}>Cancel</Text>
-                                  </Pressable>
+                                    variant="ghost"
+                                    size="sm"
+                                  />
                                 </View>
                               </View>
                             ) : (
                               <>
                                 <View style={styles.permissionsContainer}>
                                   {r.permissions.length === 0 ? (
-                                    <Text style={styles.noPermissionsText}>No permissions assigned</Text>
+                                    <Text style={[styles.noPermissionsText, { color: colors.textMuted }]}>No permissions assigned</Text>
                                   ) : (
                                     r.permissions.map((p) => (
-                                      <View key={p} style={styles.permissionChip}>
-                                        <Text style={styles.permissionText}>{p}</Text>
-                                      </View>
+                                      <Badge key={p} label={p} variant="neutral" style={{ marginRight: 6, marginBottom: 6 }} />
                                     ))
                                   )}
                                 </View>
 
                                 {!isDefault && (
                                   <View style={styles.roleActionButtonsRow}>
-                                    <Pressable
-                                      style={styles.editRoleBtn}
+                                    <Button
+                                      label="Edit"
                                       onPress={() => {
                                         setEditingRoleName(r.name);
                                         setEditingRolePermissionsInput(r.permissions.join(', '));
                                       }}
-                                    >
-                                      <Ionicons name="create-outline" size={14} color="#3b82f6" />
-                                      <Text style={styles.editRoleBtnText}>Edit Permissions</Text>
-                                    </Pressable>
-                                    <Pressable
-                                      style={styles.deleteRoleBtn}
+                                      variant="secondary"
+                                      size="sm"
+                                      prefix={<Ionicons name="create-outline" size={14} color={colors.textPrimary} />}
+                                    />
+                                    <Button
+                                      label="Delete"
                                       onPress={() => handleDeleteRoleClick(r.name)}
-                                    >
-                                      <Ionicons name="trash-outline" size={14} color="#ef4444" />
-                                      <Text style={styles.deleteRoleBtnText}>Delete Role</Text>
-                                    </Pressable>
+                                      variant="danger"
+                                      size="sm"
+                                      prefix={<Ionicons name="trash-outline" size={14} color={colors.error} />}
+                                    />
                                   </View>
                                 )}
                               </>
                             )}
-                          </View>
+                          </Card>
                         );
                       })}
                     </View>
 
-                    <View style={styles.formCard}>
-                      <Text style={styles.formTitle}>Create Custom Role</Text>
+                    <Card style={styles.formCard}>
+                      <Text style={[styles.formTitle, { color: colors.textPrimary }]}>Create Custom Role</Text>
                       {roleFormMessage && (
                         <Text
                           style={[
                             styles.formMessage,
-                            roleFormMessage.isError ? styles.errorText : styles.successText,
+                            { color: roleFormMessage.isError ? colors.error : colors.success, marginBottom: 12 },
                           ]}
                         >
                           {roleFormMessage.text}
                         </Text>
                       )}
 
-                      <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>Role Name</Text>
-                        <TextInput
-                          style={styles.textInput}
-                          placeholder="e.g. physiotherapist, auditor"
-                          placeholderTextColor="#94a3b8"
+                      <View style={styles.formFields}>
+                        <Input
+                          label="Role Name"
                           value={newRoleName}
                           onChangeText={setNewRoleName}
+                          placeholder="e.g. manager"
+                          autoCapitalize="none"
                         />
-                      </View>
 
-                      <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>Permissions (comma separated)</Text>
-                        <TextInput
-                          style={styles.textInput}
-                          placeholder="e.g. read:stats, write:stats"
-                          placeholderTextColor="#94a3b8"
+                        <Input
+                          label="Permissions (comma-separated)"
                           value={newRolePermissions}
                           onChangeText={setNewRolePermissions}
+                          placeholder="e.g. read:reports, write:reports"
+                          autoCapitalize="none"
+                        />
+
+                        <Button
+                          label="Create Custom Role"
+                          onPress={handleCreateRole}
+                          loading={isCreatingRole}
+                          variant="primary"
                         />
                       </View>
-
-                      <Pressable
-                        style={({ pressed }) => [
-                          styles.primaryButton,
-                          pressed && styles.buttonPressed,
-                          isCreatingRole && styles.buttonDisabled,
-                        ]}
-                        onPress={handleCreateRole}
-                        disabled={isCreatingRole}
-                      >
-                        {isCreatingRole ? (
-                          <ActivityIndicator color="#fff" size="small" />
-                        ) : (
-                          <Text style={styles.primaryButtonText}>Create Role</Text>
-                        )}
-                      </Pressable>
-                    </View>
+                    </Card>
                   </View>
                 )}
 
                 {/* Coaches Tab */}
                 {activeTab === 'coaches' && (
                   <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Coaches ({coachesList.length})</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 16 }]}>Coaches ({coachesList.length})</Text>
                     <View style={styles.coachesGrid}>
                       {coachesList.length === 0 ? (
                         <View style={styles.emptyContainer}>
-                          <Ionicons name="fitness-outline" size={48} color="#cbd5e1" />
+                          <Ionicons name="fitness-outline" size={48} color={colors.textMuted} />
                           <Text style={styles.emptyText}>No coaches registered yet</Text>
                         </View>
                       ) : (
                         coachesList.map((coach) => (
-                          <View key={coach.id} style={styles.coachCard}>
+                          <Card key={coach.id} style={styles.coachCard}>
                             <View style={styles.coachHeader}>
                               <View style={styles.coachAvatar}>
                                 <Text style={styles.avatarText}>
@@ -1156,18 +1165,16 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                                 <Text style={styles.coachEmail}>{coach.email}</Text>
                               </View>
                             </View>
-                              <View style={styles.coachFooter}>
-                                <View style={styles.badge}>
-                                  <Text style={styles.badgeText}>Coach</Text>
-                                </View>
-                                <Pressable
-                                  style={styles.viewBtn}
-                                  onPress={() => router.push(`/coach-details?coachId=${coach.id}`)}
-                                >
-                                  <Text style={styles.viewBtnText}>View</Text>
-                                </Pressable>
-                              </View>
-                          </View>
+                            <View style={styles.coachFooter}>
+                              <Badge label="Coach" variant="success" />
+                              <Button
+                                label="View"
+                                onPress={() => router.push(`/coach-details?coachId=${coach.id}`)}
+                                variant="secondary"
+                                size="sm"
+                              />
+                            </View>
+                          </Card>
                         ))
                       )}
                     </View>
@@ -1177,11 +1184,11 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                 {/* Athletes Tab */}
                 {activeTab === 'athletes' && (
                   <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Athletes ({athletesList.length})</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 16 }]}>Athletes ({athletesList.length})</Text>
                     <View style={styles.athletesGrid}>
                       {athletesList.length === 0 ? (
                         <View style={styles.emptyContainer}>
-                          <Ionicons name="walk-outline" size={48} color="#cbd5e1" />
+                          <Ionicons name="walk-outline" size={48} color={colors.textMuted} />
                           <Text style={styles.emptyText}>No athletes registered yet</Text>
                         </View>
                       ) : (
@@ -1200,7 +1207,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                           const message = athleteCoachMessage[athlete.id];
 
                           return (
-                            <View
+                            <Card
                               key={athlete.id}
                               style={[
                                 styles.athleteCard,
@@ -1221,7 +1228,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                                       : athlete.id}
                                   </Text>
                                   <Text style={styles.athleteEmail}>{athlete.email}</Text>
-                                  <Text style={{ fontSize: 12, color: '#647286', marginTop: 4 }}>
+                                  <Text style={{ fontSize: 12, color: colors.textSub, marginTop: 4 }}>
                                     Current Coach: {currentCoach ? currentCoach.name : 'No coach assigned'}
                                   </Text>
                                 </View>
@@ -1231,7 +1238,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                               <View style={{ 
                                 marginVertical: 12, 
                                 borderTopWidth: 1, 
-                                borderTopColor: '#f1f5f9', 
+                                borderTopColor: colors.borderSubtle, 
                                 paddingTop: 12, 
                                 gap: 8,
                                 zIndex: openCoachDropdownAthleteId === athlete.id ? 20 : 1
@@ -1239,28 +1246,28 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                                 <Text style={styles.smallLabel}>Assign Coach:</Text>
                                 <View style={[styles.dropdownContainer, { width: '100%' }]}>
                                   <Pressable
-                                    style={styles.dropdownButton}
+                                    style={[styles.dropdownButton, { backgroundColor: colors.bgMid, borderColor: colors.border }]}
                                     onPress={() =>
                                       setOpenCoachDropdownAthleteId(
                                         openCoachDropdownAthleteId === athlete.id ? null : athlete.id
                                       )
                                     }
                                   >
-                                    <Text style={styles.dropdownButtonText}>
+                                    <Text style={[styles.dropdownButtonText, { color: colors.textPrimary }]}>
                                       {selectedCoach ? selectedCoach.name : 'Select Coach...'}
                                     </Text>
                                     <Ionicons
                                       name={openCoachDropdownAthleteId === athlete.id ? 'chevron-up' : 'chevron-down'}
                                       size={16}
-                                      color="#647286"
+                                      color={colors.textSub}
                                     />
                                   </Pressable>
 
                                   {openCoachDropdownAthleteId === athlete.id && (
-                                    <View style={styles.dropdownMenu}>
+                                    <View style={[styles.dropdownMenu, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                                       {coachesList.length === 0 ? (
                                         <View style={{ padding: 10 }}>
-                                          <Text style={{ fontSize: 12, color: '#94a3b8' }}>No coaches registered</Text>
+                                          <Text style={{ fontSize: 12, color: colors.textMuted }}>No coaches registered</Text>
                                         </View>
                                       ) : (
                                         coachesList.map((coach) => {
@@ -1270,7 +1277,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                                               key={coach.id}
                                               style={[
                                                 styles.dropdownItem,
-                                                selectedCoachId === coachKey && styles.dropdownItemActive,
+                                                selectedCoachId === coachKey && { backgroundColor: colors.bgMid },
                                               ]}
                                               onPress={() => {
                                                 setUpdatingAthleteCoachMap((prev) => ({
@@ -1283,13 +1290,13 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                                               <Text
                                                 style={[
                                                   styles.dropdownItemText,
-                                                  selectedCoachId === coachKey && styles.dropdownItemTextActive,
+                                                  { color: selectedCoachId === coachKey ? colors.emerald : colors.textPrimary },
                                                 ]}
                                               >
                                                 {coach.name}
                                               </Text>
                                               {selectedCoachId === coachKey && (
-                                                <Ionicons name="checkmark" size={16} color="#3b82f6" />
+                                                <Ionicons name="checkmark" size={16} color={colors.emerald} />
                                               )}
                                             </Pressable>
                                           );
@@ -1300,29 +1307,29 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                                 </View>
 
                                 {selectedCoachId !== (currentCoachId || '') && selectedCoachId !== '' && (
-                                  <Pressable
-                                    style={[styles.saveRoleButton, { marginTop: 4, alignSelf: 'stretch', alignItems: 'center' }]}
+                                  <Button
+                                    label="Apply Coach"
                                     onPress={() => handleAssignCoach(athlete.id, selectedCoachId)}
-                                  >
-                                    <Text style={styles.saveRoleButtonText}>Apply Coach</Text>
-                                  </Pressable>
+                                    variant="primary"
+                                    size="sm"
+                                  />
                                 )}
 
                                 {currentCoach && (
-                                  <Pressable
-                                    style={[styles.removeCoachBtn, { marginTop: 4, alignSelf: 'stretch' }]}
+                                  <Button
+                                    label="Remove Assignment"
                                     onPress={() => handleRemoveCoachAssignment(athlete.id)}
-                                  >
-                                    <Ionicons name="close-circle-outline" size={14} color="#ef4444" />
-                                    <Text style={styles.removeCoachBtnText}>Remove Assignment</Text>
-                                  </Pressable>
+                                    variant="danger"
+                                    size="sm"
+                                    prefix={<Ionicons name="close-circle-outline" size={14} color={colors.error} />}
+                                  />
                                 )}
 
                                 {message && (
                                   <Text
                                     style={[
                                       styles.userItemMessage,
-                                      message.isError ? styles.errorText : styles.successText,
+                                      { color: message.isError ? colors.error : colors.success }
                                     ]}
                                   >
                                     {message.text}
@@ -1331,17 +1338,15 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                               </View>
 
                               <View style={styles.athleteFooter}>
-                                <View style={styles.badge}>
-                                  <Text style={styles.badgeText}>Athlete</Text>
-                                </View>
-                                <Pressable
-                                  style={styles.viewBtn}
+                                <Badge label="Athlete" variant="info" />
+                                <Button
+                                  label="View Details"
                                   onPress={() => router.push(`/athlete-details?athleteId=${athlete.id}`)}
-                                >
-                                  <Text style={styles.viewBtnText}>View Details</Text>
-                                </Pressable>
+                                  variant="secondary"
+                                  size="sm"
+                                />
                               </View>
-                            </View>
+                            </Card>
                           );
                         })
                       )}
@@ -1362,20 +1367,20 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, isLargeScreen: boolean) => StyleSheet.create({
   wrapper: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bg,
   },
   mainContainer: {
     flex: 1,
     flexDirection: 'row',
   },
   sidebar: {
-    width: isWeb ? 260 : '70%',
-    backgroundColor: '#fff',
+    width: Platform.OS === 'web' ? 260 : '70%',
+    backgroundColor: colors.bgMid,
     borderRightWidth: 1,
-    borderRightColor: '#e2e8f0',
+    borderRightColor: colors.border,
     paddingTop: 16,
   },
   sidebarFloating: {
@@ -1404,12 +1409,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: colors.borderSubtle,
   },
   sidebarBrand: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   sidebarNav: {
     paddingVertical: 16,
@@ -1427,21 +1432,21 @@ const styles = StyleSheet.create({
     borderLeftColor: 'transparent',
   },
   sidebarItemActive: {
-    backgroundColor: '#eff6ff',
-    borderLeftColor: '#3b82f6',
+    backgroundColor: colors.emeraldDim,
+    borderLeftColor: colors.emerald,
   },
   sidebarItemLabel: {
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
-    color: '#647286',
+    color: colors.textSub,
   },
   sidebarItemLabelActive: {
-    color: '#3b82f6',
+    color: colors.emerald,
     fontWeight: '700',
   },
   sidebarBadge: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -1450,12 +1455,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sidebarBadgeActive: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: colors.emerald,
   },
   sidebarBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#647286',
+    color: colors.textSub,
   },
   sidebarBadgeTextActive: {
     color: '#fff',
@@ -1464,7 +1469,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: colors.borderSubtle,
     marginTop: 'auto',
   },
   logoutButton: {
@@ -1473,13 +1478,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#fef2f2',
+    backgroundColor: colors.errorDim,
     gap: 10,
   },
   logoutLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#ef4444',
+    color: colors.error,
   },
   contentArea: {
     flex: 1,
@@ -1492,15 +1497,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#fff',
+    backgroundColor: colors.bgCard,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: colors.border,
     gap: 12,
   },
   hamburgerBtn: {
     padding: 8,
     borderRadius: 6,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.bgMid,
   },
   headerInfo: {
     flex: 1,
@@ -1508,21 +1513,21 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   headerSubtitle: {
     fontSize: 13,
-    color: '#647286',
+    color: colors.textSub,
     marginTop: 2,
   },
   refreshBtn: {
     padding: 8,
     borderRadius: 6,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.bgMid,
   },
   content: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bg,
   },
   contentInner: {
     maxWidth: 1400,
@@ -1536,7 +1541,7 @@ const styles = StyleSheet.create({
   },
   loaderText: {
     marginTop: 12,
-    color: '#647286',
+    color: colors.textSub,
     fontSize: 14,
   },
   metricsContainer: {
@@ -1544,27 +1549,19 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 16,
     marginBottom: 24,
-  },
-  metricCard: {
-    flex: isWeb || isLargeScreenStatic ? 1 : undefined,
-    width: isWeb || isLargeScreenStatic ? undefined : '100%',
-    minWidth: 200,
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderLeftWidth: 5,
-    borderRadius: 8,
-    padding: 20,
+    width: '100%',
   },
   metricHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
   },
   metricLabel: {
     fontSize: 14,
-    color: '#647286',
-    fontWeight: '600',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   iconWrapper: {
     width: 36,
@@ -1573,15 +1570,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  metricValue: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#0f172a',
+  derivedStatsContainer: {
+    flexDirection: 'row',
+    gap: 12,
     marginTop: 8,
   },
+  derivedStatBox: {
+    flex: 1,
+    backgroundColor: colors.bgMid,
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  derivedStatVal: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  derivedStatLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 2,
+    textTransform: 'uppercase',
+  },
   statusCard: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
+    backgroundColor: colors.bgCard,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 14,
@@ -1590,37 +1603,17 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 13,
-    color: '#475569',
-  },
-  statusErrorText: {
-    color: '#b91c1c',
-    fontWeight: '600',
   },
   section: {
     marginBottom: 32,
+    width: '100%',
   },
   sectionHeader: {
-    flexDirection: isLargeScreenStatic ? 'row' : 'column',
-    justifyContent: 'space-between',
-    alignItems: isLargeScreenStatic ? 'center' : 'stretch',
     marginBottom: 16,
-    gap: 12,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#0f172a',
-  },
-  searchBar: {
-    backgroundColor: '#fff',
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    height: 40,
-    width: isLargeScreenStatic ? 300 : '100%',
-    fontSize: 14,
-    color: '#0f172a',
   },
   actionGrid: {
     flexDirection: 'row',
@@ -1629,10 +1622,9 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   actionCard: {
-    width: isLargeScreenStatic ? '48%' : '100%',
     minWidth: 260,
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
+    backgroundColor: colors.bgCard,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 10,
     padding: 20,
@@ -1641,103 +1633,102 @@ const styles = StyleSheet.create({
   actionCardTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   actionCardDesc: {
     fontSize: 14,
-    color: '#647286',
+    color: colors.textSub,
     lineHeight: 20,
   },
   emptyContainer: {
     padding: 40,
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.bgCard,
     borderRadius: 8,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     borderWidth: 1,
+    width: '100%',
   },
   emptyText: {
-    color: '#647286',
+    color: colors.textSub,
     fontSize: 15,
     marginTop: 12,
   },
-  userList: {
-    gap: 12,
+  // Table Cells Custom Styles
+  tableCellUser: {
+    paddingHorizontal: 16,
+    minWidth: 220,
+    flex: 2,
+    justifyContent: 'center',
   },
-  userListItem: {
-    flexDirection: isLargeScreenStatic ? 'row' : 'column',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 16,
-    gap: 16,
-  },
-  userInfo: {
+  tableCellId: {
+    paddingHorizontal: 16,
+    minWidth: 100,
     flex: 1,
     justifyContent: 'center',
   },
+  tableCellBadge: {
+    paddingHorizontal: 16,
+    minWidth: 110,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  tableCellDropdown: {
+    paddingHorizontal: 16,
+    minWidth: 180,
+    flex: 1.5,
+    justifyContent: 'center',
+  },
+  tableCellActions: {
+    paddingHorizontal: 16,
+    minWidth: 120,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
   userNameText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#0f172a',
   },
   userEmailText: {
-    fontSize: 14,
-    color: '#475569',
+    fontSize: 13,
     marginTop: 2,
   },
-  userIdText: {
-    fontSize: 11,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    color: '#94a3b8',
-    marginTop: 4,
+  cellText: {
+    fontSize: 13,
   },
   userItemMessage: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    marginTop: 8,
   },
-  userRoleEdit: {
-    justifyContent: 'center',
-    alignItems: isLargeScreenStatic ? 'flex-end' : 'flex-start',
-    gap: 8,
-  },
-  smallLabel: {
-    fontSize: 12,
-    color: '#647286',
-    fontWeight: '600',
+  currentUserRoleText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   dropdownContainer: {
     position: 'relative',
-    width: 200,
-    zIndex: 50,
+    width: '100%',
   },
   dropdownButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    borderColor: '#cbd5e1',
     borderWidth: 1,
     borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     width: '100%',
   },
   dropdownButtonText: {
-    fontSize: 12,
-    color: '#0f172a',
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
   },
   dropdownMenu: {
     position: 'absolute',
-    top: 42,
+    top: 36,
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
     borderWidth: 1,
     borderRadius: 6,
     paddingVertical: 4,
@@ -1752,193 +1743,155 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-  },
-  dropdownItemActive: {
-    backgroundColor: '#eff6ff',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   dropdownItemText: {
-    fontSize: 12,
-    color: '#475569',
-    fontWeight: '500',
+    fontSize: 11,
+    fontWeight: '600',
   },
-  dropdownItemTextActive: {
-    color: '#3b82f6',
-    fontWeight: '700',
-  },
-  saveRoleButton: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
     alignItems: 'center',
+    padding: 16,
   },
-  saveRoleButtonText: {
-    color: '#fff',
+  modalMenu: {
+    width: 280,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  modalHeader: {
     fontSize: 12,
     fontWeight: '700',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  deleteUserButton: {
+  modalItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fef2f2',
-    borderColor: '#fee2e2',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 6,
-    marginTop: 8,
-    width: 200,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
-  deleteUserButtonText: {
-    color: '#ef4444',
-    fontSize: 12,
-    fontWeight: '700',
+  modalItemText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
+  // Roles list
   rolesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
     marginBottom: 24,
+    width: '100%',
   },
   roleDetailCard: {
-    flex: isWeb || isLargeScreenStatic ? 1 : undefined,
-    width: isWeb || isLargeScreenStatic ? undefined : '100%',
-    minWidth: 260,
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 16,
+    flex: isLargeScreen ? 1 : undefined,
+    width: isLargeScreen ? undefined : '100%',
+    minWidth: 280,
+  },
+  roleHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
   },
   roleBadgeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    paddingBottom: 8,
-    marginBottom: 10,
   },
   roleTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1e293b',
+  },
+  roleActionErrorText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  editPermissionsForm: {
+    gap: 10,
+  },
+  editActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'flex-end',
   },
   permissionsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+    marginBottom: 16,
   },
-  permissionChip: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+  noPermissionsText: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
-  permissionText: {
-    fontSize: 11,
-    color: '#475569',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  roleActionButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSubtle,
+    paddingTop: 12,
+    marginTop: 'auto',
   },
   formCard: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 24,
-    maxWidth: 600,
     width: '100%',
-    alignSelf: 'center',
   },
   formTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
+    marginBottom: 12,
   },
   formMessage: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    marginBottom: 16,
   },
-  inputGroup: {
-    marginBottom: 16,
+  formFields: {
+    gap: 14,
   },
-  inputLabel: {
-    fontSize: 14,
-    color: '#344054',
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  textInput: {
-    backgroundColor: '#fff',
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    height: 42,
-    fontSize: 14,
-    color: '#0f172a',
-  },
-  primaryButton: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 6,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  buttonPressed: {
-    opacity: 0.85,
-  },
-  buttonDisabled: {
-    backgroundColor: '#93c5fd',
-  },
-  successText: {
-    color: '#15803d',
-  },
-  errorText: {
-    color: '#b91c1c',
-  },
+  // Coaches
   coachesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
+    width: '100%',
   },
   coachCard: {
-    flex: isWeb || isLargeScreenStatic ? 1 : undefined,
-    width: isWeb || isLargeScreenStatic ? undefined : '100%',
-    minWidth: 280,
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 16,
+    width: isLargeScreen ? '31%' : '100%',
+    minWidth: 260,
   },
   coachHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   coachAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#8b5cf6',
-    justifyContent: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.emeraldDim,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderEmerald,
+  },
+  avatarText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.emerald,
   },
   coachInfo: {
     flex: 1,
@@ -1946,49 +1899,47 @@ const styles = StyleSheet.create({
   coachName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   coachEmail: {
-    fontSize: 12,
-    color: '#647286',
+    fontSize: 13,
+    color: colors.textSub,
     marginTop: 2,
   },
   coachFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 12,
-    borderTopColor: '#f1f5f9',
     borderTopWidth: 1,
+    borderTopColor: colors.borderSubtle,
+    paddingTop: 12,
   },
+  // Athletes
   athletesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
+    width: '100%',
   },
   athleteCard: {
-    flex: isWeb || isLargeScreenStatic ? 1 : undefined,
-    width: isWeb || isLargeScreenStatic ? undefined : '100%',
+    width: isLargeScreen ? '31%' : '100%',
     minWidth: 280,
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 16,
   },
   athleteHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   athleteAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#f59e0b',
-    justifyContent: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.infoDim,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(14,165,233,0.2)',
   },
   athleteInfo: {
     flex: 1,
@@ -1996,290 +1947,73 @@ const styles = StyleSheet.create({
   athleteName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   athleteShortId: {
     fontSize: 11,
-    fontWeight: '500',
-    color: '#94a3b8',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    color: colors.textMuted,
     marginTop: 2,
-    fontFamily: Platform.OS === 'web' ? 'monospace' : undefined,
   },
   athleteEmail: {
-    fontSize: 12,
-    color: '#647286',
+    fontSize: 13,
+    color: colors.textSub,
     marginTop: 2,
   },
   athleteFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 12,
-    borderTopColor: '#f1f5f9',
     borderTopWidth: 1,
-  },
-  badge: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#3b82f6',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#3b82f6',
-  },
-  viewBtn: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  viewBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#fff',
-  },
-  userMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
-  },
-  roleBadge: {
-    backgroundColor: '#dbeafe',
-    borderColor: '#3b82f6',
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  roleBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#1d4ed8',
-    textTransform: 'uppercase',
-  },
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    zIndex: 999,
-  },
-  currentUserRoleText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#64748b',
-    backgroundColor: '#f1f5f9',
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    textTransform: 'uppercase',
-    marginTop: 8,
-  },
-  removeCoachBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    borderColor: '#f87171',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 6,
-    ...Platform.select({
-      web: { cursor: 'pointer' } as any,
-      default: {},
-    }),
-  },
-  removeCoachBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#ef4444',
-  },
-  derivedStatsContainer: {
-    flexDirection: 'row',
-    gap: 16,
+    borderTopColor: colors.borderSubtle,
+    paddingTop: 12,
     marginTop: 12,
   },
-  derivedStatBox: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    alignItems: 'center',
-  },
-  derivedStatVal: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  derivedStatLabel: {
-    fontSize: 11,
-    color: '#647286',
-    fontWeight: '600',
-    marginTop: 4,
-    textTransform: 'uppercase',
-  },
   activityFeed: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 16,
     gap: 12,
   },
   activityRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    gap: 12,
+    borderBottomColor: colors.borderSubtle,
   },
   activityIconWrapper: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   activityContent: {
     flex: 1,
   },
   activityTitleText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#334155',
+    color: colors.textPrimary,
   },
   activityMsgText: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textSub,
     marginTop: 2,
   },
   activityDateText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   emptyActivityText: {
-    fontSize: 13,
-    color: '#94a3b8',
     textAlign: 'center',
+    fontSize: 14,
+    color: colors.textMuted,
     paddingVertical: 20,
   },
-  roleHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  defaultRoleBadge: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  defaultRoleBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#1d4ed8',
-    textTransform: 'uppercase',
-  },
-  roleActionErrorText: {
-    fontSize: 12,
-    color: '#ef4444',
-    marginBottom: 8,
-    fontWeight: '600',
-  },
-  editPermissionsForm: {
-    gap: 8,
-    marginTop: 8,
-  },
-  editActionRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  saveRoleBtn: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  saveRoleBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  cancelRoleBtn: {
-    backgroundColor: '#fff',
-    borderColor: '#cbd5e1',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cancelRoleBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748b',
-  },
-  noPermissionsText: {
-    fontSize: 12,
-    color: '#94a3b8',
-    fontStyle: 'italic',
-    paddingVertical: 4,
-  },
-  roleActionButtonsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-    paddingTop: 12,
-  },
-  editRoleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  editRoleBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#3b82f6',
-  },
-  deleteRoleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  deleteRoleBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#ef4444',
-  },
-  disabledBtn: {
-    opacity: 0.5,
+  overlay: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    zIndex: 999,
   },
 });

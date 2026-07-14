@@ -211,3 +211,16 @@ export async function deleteRole(token: string, roleName: string): Promise<{ mes
   }
   return response.json();
 }
+
+export async function fetchUserById(token: string, userId: string): Promise<User> {
+  const response = await fetch(`${API_URL}/users/${userId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.detail ?? 'Failed to fetch user details');
+  }
+  return response.json();
+}
