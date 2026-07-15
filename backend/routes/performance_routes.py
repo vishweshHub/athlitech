@@ -93,7 +93,26 @@ async def get_athlete_performance_history(
 @router.get("/", response_model=List[PerformanceRead], dependencies=[Depends(require_admin)])
 async def get_all_performances(current_user: dict = Depends(get_current_user)):
     records = []
-    from database.mongodb import performance_collection
+    from database.mongodb import performance_collection, users_collection
+    from bson.objectid import ObjectId
     async for rec in performance_collection.find():
         records.append(rec)
-    return [PerformanceRead(**rec) for rec in records]
+
+    valid_records = []
+    for rec in records:
+        ath_id = rec.get("athlete_id")
+        if not ath_id:
+            continue
+        user_exists = False
+        if ObjectId.is_valid(ath_id):
+            user = await users_collection.find_one({"_id": ObjectId(ath_id)})
+            if user:
+                user_exists = True
+        else:
+            user = await users_collection.find_one({"_id": ath_id})
+            if user:
+                user_exists = True
+        if user_exists:
+            valid_records.append(rec)
+
+    return [PerformanceRead(**rec) for rec in valid_records]

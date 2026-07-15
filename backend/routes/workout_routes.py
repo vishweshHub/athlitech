@@ -29,6 +29,26 @@ async def get_all_workouts(current_user: dict = Depends(get_current_user)):
     from repositories.workout_repository import workout_repository
     async for w in workout_repository.collection.find():
         workouts.append(w)
+
+    from database.mongodb import users_collection
+    from bson.objectid import ObjectId
+    valid_workouts = []
+    for w in workouts:
+        ath_id = w.get("athlete_id")
+        if not ath_id:
+            continue
+        user_exists = False
+        if ObjectId.is_valid(ath_id):
+            user = await users_collection.find_one({"_id": ObjectId(ath_id)})
+            if user:
+                user_exists = True
+        else:
+            user = await users_collection.find_one({"_id": ath_id})
+            if user:
+                user_exists = True
+        if user_exists:
+            valid_workouts.append(w)
+
     return [
         WorkoutRead(
             workout_id=w.get("workout_id"),
@@ -44,5 +64,5 @@ async def get_all_workouts(current_user: dict = Depends(get_current_user)):
             athlete_notes=w.get("athlete_notes"),
             created_at=w.get("created_at")
         )
-        for w in workouts
+        for w in valid_workouts
     ]

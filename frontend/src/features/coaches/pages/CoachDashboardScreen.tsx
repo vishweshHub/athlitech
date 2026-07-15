@@ -1256,7 +1256,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                     />
                     <View style={{ flexDirection: 'row', gap: 8 }}>
                       <TextInput
-                        style={[styles.formInput, { flex: 1, color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                        style={[styles.formInput, { flex: 1, minWidth: 0, color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
                         placeholder="Sets"
                         placeholderTextColor={colors.textMuted}
                         value={String(ex.sets)}
@@ -1268,7 +1268,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                         keyboardType="numeric"
                       />
                       <TextInput
-                        style={[styles.formInput, { flex: 1, color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                        style={[styles.formInput, { flex: 1, minWidth: 0, color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
                         placeholder="Reps"
                         placeholderTextColor={colors.textMuted}
                         value={String(ex.reps)}
@@ -1280,7 +1280,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                         keyboardType="numeric"
                       />
                       <TextInput
-                        style={[styles.formInput, { flex: 1, color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                        style={[styles.formInput, { flex: 1, minWidth: 0, color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
                         placeholder="Duration"
                         placeholderTextColor={colors.textMuted}
                         value={ex.duration || ''}
@@ -1866,6 +1866,7 @@ function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boo
       paddingHorizontal: 12,
       paddingVertical: 10,
       fontSize: 14,
+      minWidth: 0,
     },
     formTextArea: {
       minHeight: 80,

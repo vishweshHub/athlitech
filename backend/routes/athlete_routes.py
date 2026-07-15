@@ -31,30 +31,70 @@ async def get_coach_athletes(coach_id: str, current_user: dict = Depends(get_cur
         if user_coach_id != coach_id:
             raise HTTPException(status_code=403, detail="Coaches can only view their own athletes")
 
-    athletes = []
+    from bson.objectid import ObjectId
+
+    raw_athletes = []
     async for a in athletes_collection.find({"coach_id": coach_id}):
-        athletes.append({
-            "athlete_id": a.get("athlete_id"),
-            "name": a.get("name"),
-            "sport": a.get("sport"),
-            "weight": a.get("weight"),
-            "coach_id": a.get("coach_id"),
-        })
+        raw_athletes.append(a)
+
+    athletes = []
+    for a in raw_athletes:
+        ath_id = a.get("athlete_id")
+        if not ath_id:
+            continue
+        user_exists = False
+        if ObjectId.is_valid(ath_id):
+            user = await users_collection.find_one({"_id": ObjectId(ath_id)})
+            if user:
+                user_exists = True
+        else:
+            user = await users_collection.find_one({"_id": ath_id})
+            if user:
+                user_exists = True
+
+        if user_exists:
+            athletes.append({
+                "athlete_id": a.get("athlete_id"),
+                "name": a.get("name"),
+                "sport": a.get("sport"),
+                "weight": a.get("weight"),
+                "coach_id": a.get("coach_id"),
+            })
 
     return athletes
 
 
 @router.get("/athletes/", dependencies=[Depends(require_coach_or_admin)], tags=["Athletes"])
 async def list_athletes(current_user: dict = Depends(get_current_user)):
-    athletes = []
+    from bson.objectid import ObjectId
+
+    raw_athletes = []
     async for a in athletes_collection.find():
-        athletes.append({
-            "athlete_id": a.get("athlete_id"),
-            "name": a.get("name"),
-            "sport": a.get("sport"),
-            "weight": a.get("weight"),
-            "coach_id": a.get("coach_id"),
-        })
+        raw_athletes.append(a)
+
+    athletes = []
+    for a in raw_athletes:
+        ath_id = a.get("athlete_id")
+        if not ath_id:
+            continue
+        user_exists = False
+        if ObjectId.is_valid(ath_id):
+            user = await users_collection.find_one({"_id": ObjectId(ath_id)})
+            if user:
+                user_exists = True
+        else:
+            user = await users_collection.find_one({"_id": ath_id})
+            if user:
+                user_exists = True
+
+        if user_exists:
+            athletes.append({
+                "athlete_id": a.get("athlete_id"),
+                "name": a.get("name"),
+                "sport": a.get("sport"),
+                "weight": a.get("weight"),
+                "coach_id": a.get("coach_id"),
+            })
     return athletes
 
 
@@ -80,8 +120,22 @@ async def get_coach_by_id(coach_id: str):
 
 @router.get("/athletes/{athlete_id}", tags=["Athletes"])
 async def get_athlete_by_id(athlete_id: str, current_user: dict = Depends(get_current_user)):
-    athlete = await athletes_collection.find_one({"athlete_id": athlete_id})
     from bson.objectid import ObjectId
+
+    user_exists = False
+    if ObjectId.is_valid(athlete_id):
+        user_val = await users_collection.find_one({"_id": ObjectId(athlete_id)})
+        if user_val:
+            user_exists = True
+    else:
+        user_val = await users_collection.find_one({"_id": athlete_id})
+        if user_val:
+            user_exists = True
+
+    if not user_exists:
+        raise HTTPException(status_code=404, detail="Athlete not found")
+
+    athlete = await athletes_collection.find_one({"athlete_id": athlete_id})
 
     if not athlete:
         user = await users_collection.find_one({"_id": ObjectId(athlete_id)}) if ObjectId.is_valid(athlete_id) else None

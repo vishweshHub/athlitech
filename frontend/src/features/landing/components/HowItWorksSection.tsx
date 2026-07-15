@@ -31,8 +31,8 @@ const FLOW_STEPS = [
   {
     step: '02',
     icon: '⟳',
-    title: 'Connect',
-    desc: 'Athletes are linked to their assigned coach. Everyone gets their role.',
+    title: 'Connect with Coach',
+    desc: 'Athletes are linked to their assigned coach. Roles and permissions are applied.',
     color: '#6366f1',
     colorDim: 'rgba(99,102,241,0.12)',
     colorBorder: 'rgba(99,102,241,0.25)',
@@ -68,10 +68,19 @@ const FLOW_STEPS = [
     step: '06',
     icon: '★',
     title: 'Coach Feedback',
-    desc: 'Athletes receive structured feedback. Coaches refine programs. The cycle repeats — smarter.',
+    desc: 'Athletes receive structured feedback and annotations on their sessions.',
     color: '#10b981',
     colorDim: 'rgba(16,185,129,0.12)',
     colorBorder: 'rgba(16,185,129,0.25)',
+  },
+  {
+    step: '07',
+    icon: '📈',
+    title: 'Improve Performance',
+    desc: 'Performance trends show continuous improvement based on data, not guesswork.',
+    color: '#6366f1',
+    colorDim: 'rgba(99,102,241,0.12)',
+    colorBorder: 'rgba(99,102,241,0.25)',
   },
 ];
 
@@ -131,7 +140,8 @@ export default function HowItWorksSection() {
   const step3 = useScrollReveal(240);
   const step4 = useScrollReveal(320);
   const step5 = useScrollReveal(400);
-  const stepReveal = [step0, step1, step2, step3, step4, step5];
+  const step6 = useScrollReveal(480);
+  const stepReveal = [step0, step1, step2, step3, step4, step5, step6];
 
   // 2 columns on mid, 3 on wide, 1 on narrow
   const cols = isNarrow ? 1 : isMid ? 2 : 3;
@@ -154,7 +164,7 @@ export default function HowItWorksSection() {
           <Text style={styles.pillText}>How It Works</Text>
         </View>
         <Text style={[styles.title, isNarrow ? styles.titleNarrow : styles.titleWide]}>
-          Six steps from{' '}
+          Seven steps from{' '}
           <Text style={styles.titleAccent}>signup to excellence</Text>
         </Text>
         <Text style={styles.subtitle}>

@@ -77,8 +77,8 @@ async def delete_user_by_id(user_id: str):
 
     from database.mongodb import athletes_collection, workouts_collection, performance_collection
     if role == "athlete":
-        # Deleting an athlete removes all coach assignments / deletes athlete profile record
-        await athletes_collection.delete_one({"athlete_id": user_id})
+        # Deleting an athlete removes all coach assignments / deletes athlete profile records
+        await athletes_collection.delete_many({"athlete_id": user_id})
         # Prevent orphan references by deleting their workouts and performance history
         await workouts_collection.delete_many({"athlete_id": user_id})
         await performance_collection.delete_many({"athlete_id": user_id})
