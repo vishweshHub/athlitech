@@ -7,5 +7,5 @@ async def add_performance(performance: Performance):
     return {"message": "Performance record added", "performance_id": performance.performance_id}
 
 
-async def get_athlete_performances(athlete_id: str):
-    return await performance_repository.get_by_athlete(athlete_id)
+async def get_athlete_performances(athlete_id: str, skip: int = 0, limit: int = 100, sport_event: str | None = None):
+    return await performance_repository.get_by_athlete(athlete_id, skip=skip, limit=limit, sport_event=sport_event)

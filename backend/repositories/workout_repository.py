@@ -21,15 +21,21 @@ class WorkoutRepository:
         await self.collection.insert_one(workout_data)
         return workout_data
 
-    async def get_by_coach(self, coach_id: str) -> list:
+    async def get_by_coach(self, coach_id: str, skip: int = 0, limit: int = 100, status: str | None = None) -> list:
+        query = {"coach_id": coach_id}
+        if status:
+            query["status"] = status
         workouts = []
-        async for w in self.collection.find({"coach_id": coach_id}):
+        async for w in self.collection.find(query).skip(skip).limit(limit):
             workouts.append(w)
         return workouts
 
-    async def get_by_athlete(self, athlete_id: str) -> list:
+    async def get_by_athlete(self, athlete_id: str, skip: int = 0, limit: int = 100, status: str | None = None) -> list:
+        query = {"athlete_id": athlete_id}
+        if status:
+            query["status"] = status
         workouts = []
-        async for w in self.collection.find({"athlete_id": athlete_id}):
+        async for w in self.collection.find(query).skip(skip).limit(limit):
             workouts.append(w)
         return workouts
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from schemas.user_schema import UserRoleUpdate
 from services.auth_service import get_current_user, require_admin, require_admin_or_self
@@ -8,8 +8,14 @@ router = APIRouter(prefix="/users", tags=["Users"])
 
 
 @router.get("/", dependencies=[Depends(require_admin)])
-async def list_users(current_user: dict = Depends(get_current_user)):
-    return await get_all_users()
+async def list_users(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    role: str | None = Query(None),
+    search: str | None = Query(None),
+    current_user: dict = Depends(get_current_user)
+):
+    return await get_all_users(skip=skip, limit=limit, role=role, search=search)
 
 
 @router.get("/{user_id}")

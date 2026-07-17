@@ -406,7 +406,7 @@ export default function RegisterScreen() {
         role: selectedRole, // strictly 'athlete' | 'coach'
       });
       const result = await login(email.trim().toLowerCase(), password);
-      storeToken(result.access_token);
+      await storeToken(result.access_token);
       if (selectedRole === 'coach') {
         router.replace('/coach-dashboard' as Href);
       } else {

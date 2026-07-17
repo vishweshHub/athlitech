@@ -10,8 +10,21 @@ from routes.workout_routes import router as workout_router
 from services.role_service import seed_default_roles
 from services.user_seed_service import seed_demo_users
 from routes.performance_routes import router as performance_router
+from routes.dashboard_routes import router as dashboard_router
 
-app = FastAPI()
+app = FastAPI(
+    title="AthliTech API",
+    openapi_tags=[
+        {"name": "Authentication"},
+        {"name": "Users"},
+        {"name": "Roles"},
+        {"name": "Coaches"},
+        {"name": "Athletes"},
+        {"name": "Performance"},
+        {"name": "Workouts"},
+        {"name": "Dashboard"},
+    ]
+)
 
 app.add_middleware(
     CORSMiddleware, 
@@ -27,6 +40,7 @@ app.include_router(user_router)
 app.include_router(role_router)
 app.include_router(workout_router)
 app.include_router(performance_router)
+app.include_router(dashboard_router)
 
 
 @app.on_event("startup")

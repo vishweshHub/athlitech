@@ -6,8 +6,8 @@ from repositories.user_repository import user_repository
 from schemas.user_schema import UserRead, UserRoleUpdate
 
 
-async def get_all_users():
-    users = await user_repository.get_all_users()
+async def get_all_users(skip: int = 0, limit: int = 100, role: str | None = None, search: str | None = None):
+    users = await user_repository.get_all_users(skip=skip, limit=limit, role=role, search=search)
     return [
         UserRead(
             id=str(user["_id"]),
@@ -86,6 +86,15 @@ async def delete_user_by_id(user_id: str):
         # Deleting a coach removes athlete assignments (sets coach_id to None)
         coach_id = user.get("coach_id") or user_id
         await athletes_collection.update_many(
+            {"coach_id": coach_id},
+            {"$set": {"coach_id": None}}
+        )
+        # Clear coach references from workouts and performance history
+        await workouts_collection.update_many(
+            {"coach_id": coach_id},
+            {"$set": {"coach_id": None}}
+        )
+        await performance_collection.update_many(
             {"coach_id": coach_id},
             {"$set": {"coach_id": None}}
         )

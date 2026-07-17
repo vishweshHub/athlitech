@@ -35,5 +35,6 @@ if not MONGODB_URI:
 if not JWT_SECRET:
     raise ValueError("JWT_SECRET is missing. Add it to your .env file.")
 
-if not MONGODB_USERNAME or not MONGODB_PASSWORD or not MONGODB_CLUSTER:
-    raise ValueError("MongoDB connection values are missing. Add MONGODB_USERNAME, MONGODB_PASSWORD, and MONGODB_CLUSTER to your .env file.")
+if not MONGODB_URI:
+    if not MONGODB_USERNAME or not MONGODB_PASSWORD or not MONGODB_CLUSTER:
+        raise ValueError("MongoDB connection values are missing. Add MONGODB_URI or MONGODB_USERNAME, MONGODB_PASSWORD, and MONGODB_CLUSTER to your .env file.")

@@ -12,9 +12,17 @@ class UserRepository:
             pass
         return mongodb.users_collection
 
-    async def get_all_users(self) -> list:
+    async def get_all_users(self, skip: int = 0, limit: int = 100, role: str | None = None, search: str | None = None) -> list:
+        query = {}
+        if role:
+            query["role"] = role
+        if search:
+            query["$or"] = [
+                {"name": {"$regex": search, "$options": "i"}},
+                {"email": {"$regex": search, "$options": "i"}}
+            ]
         users = []
-        async for user in self.collection.find():
+        async for user in self.collection.find(query).skip(skip).limit(limit):
             users.append(user)
         return users
 

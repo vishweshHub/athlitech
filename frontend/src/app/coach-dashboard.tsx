@@ -13,7 +13,7 @@ export default function CoachDashboardRoute() {
 
   useEffect(() => {
     async function loadSession() {
-      const storedToken = getStoredToken();
+      const storedToken = await getStoredToken();
       if (!storedToken) {
         router.replace('/login');
         return;
@@ -27,7 +27,7 @@ export default function CoachDashboardRoute() {
         setUser(currentUser);
         setToken(storedToken);
       } catch (err) {
-        clearStoredToken();
+        await clearStoredToken();
         router.replace('/login');
       } finally {
         setIsLoading(false);
@@ -36,8 +36,8 @@ export default function CoachDashboardRoute() {
     loadSession();
   }, []);
 
-  const handleSignOut = () => {
-    clearStoredToken();
+  const handleSignOut = async () => {
+    await clearStoredToken();
     router.replace('/login');
   };
 

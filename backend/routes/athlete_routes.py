@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from database.mongodb import athletes_collection, users_collection
 from services.athlete_service import assign_athlete_to_coach
@@ -22,7 +22,14 @@ async def assign_athlete(athlete_id: str, coach_id: str, current_user: dict = De
 
 
 @router.get("/coaches/{coach_id}/athletes", dependencies=[Depends(require_coach_or_admin)], tags=["Coaches"])
-async def get_coach_athletes(coach_id: str, current_user: dict = Depends(get_current_user)):
+async def get_coach_athletes(
+    coach_id: str,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    sport: str | None = Query(None),
+    search: str | None = Query(None),
+    current_user: dict = Depends(get_current_user)
+):
     if current_user.get("role") == "coach":
         user = await users_collection.find_one({"email": current_user.get("email")})
         if not user:
@@ -33,26 +40,36 @@ async def get_coach_athletes(coach_id: str, current_user: dict = Depends(get_cur
 
     from bson.objectid import ObjectId
 
+    query = {"coach_id": coach_id}
+    if sport:
+        query["sport"] = sport
+    if search:
+        query["name"] = {"$regex": search, "$options": "i"}
+
     raw_athletes = []
-    async for a in athletes_collection.find({"coach_id": coach_id}):
+    async for a in athletes_collection.find(query).skip(skip).limit(limit):
         raw_athletes.append(a)
+
+    # Resolve all users in a single batch query
+    ath_ids = list({a.get("athlete_id") for a in raw_athletes if a.get("athlete_id")})
+    object_ids = [ObjectId(uid) for uid in ath_ids if ObjectId.is_valid(uid)]
+    string_ids = [uid for uid in ath_ids if not ObjectId.is_valid(uid)]
+    
+    user_query = {"$or": []}
+    if object_ids:
+        user_query["$or"].append({"_id": {"$in": object_ids}})
+    if string_ids:
+        user_query["$or"].append({"_id": {"$in": string_ids}})
+
+    user_map = {}
+    if user_query["$or"]:
+        async for u in users_collection.find(user_query):
+            user_map[str(u["_id"])] = u
 
     athletes = []
     for a in raw_athletes:
         ath_id = a.get("athlete_id")
-        if not ath_id:
-            continue
-        user_exists = False
-        if ObjectId.is_valid(ath_id):
-            user = await users_collection.find_one({"_id": ObjectId(ath_id)})
-            if user:
-                user_exists = True
-        else:
-            user = await users_collection.find_one({"_id": ath_id})
-            if user:
-                user_exists = True
-
-        if user_exists:
+        if ath_id in user_map:
             athletes.append({
                 "athlete_id": a.get("athlete_id"),
                 "name": a.get("name"),
@@ -65,29 +82,47 @@ async def get_coach_athletes(coach_id: str, current_user: dict = Depends(get_cur
 
 
 @router.get("/athletes/", dependencies=[Depends(require_coach_or_admin)], tags=["Athletes"])
-async def list_athletes(current_user: dict = Depends(get_current_user)):
+async def list_athletes(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    sport: str | None = Query(None),
+    coach_id: str | None = Query(None),
+    search: str | None = Query(None),
+    current_user: dict = Depends(get_current_user)
+):
     from bson.objectid import ObjectId
 
+    query = {}
+    if sport:
+        query["sport"] = sport
+    if coach_id:
+        query["coach_id"] = coach_id
+    if search:
+        query["name"] = {"$regex": search, "$options": "i"}
+
     raw_athletes = []
-    async for a in athletes_collection.find():
+    async for a in athletes_collection.find(query).skip(skip).limit(limit):
         raw_athletes.append(a)
+
+    ath_ids = list({a.get("athlete_id") for a in raw_athletes if a.get("athlete_id")})
+    object_ids = [ObjectId(uid) for uid in ath_ids if ObjectId.is_valid(uid)]
+    string_ids = [uid for uid in ath_ids if not ObjectId.is_valid(uid)]
+    
+    user_query = {"$or": []}
+    if object_ids:
+        user_query["$or"].append({"_id": {"$in": object_ids}})
+    if string_ids:
+        user_query["$or"].append({"_id": {"$in": string_ids}})
+
+    user_map = {}
+    if user_query["$or"]:
+        async for u in users_collection.find(user_query):
+            user_map[str(u["_id"])] = u
 
     athletes = []
     for a in raw_athletes:
         ath_id = a.get("athlete_id")
-        if not ath_id:
-            continue
-        user_exists = False
-        if ObjectId.is_valid(ath_id):
-            user = await users_collection.find_one({"_id": ObjectId(ath_id)})
-            if user:
-                user_exists = True
-        else:
-            user = await users_collection.find_one({"_id": ath_id})
-            if user:
-                user_exists = True
-
-        if user_exists:
+        if ath_id in user_map:
             athletes.append({
                 "athlete_id": a.get("athlete_id"),
                 "name": a.get("name"),

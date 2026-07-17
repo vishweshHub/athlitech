@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List
 from services.auth_service import get_current_user, require_admin
 from services.performance_service import add_performance, get_athlete_performances
@@ -66,6 +66,9 @@ async def create_performance(
 @router.get("/athlete/{athlete_id}", response_model=List[PerformanceRead])
 async def get_athlete_performance_history(
     athlete_id: str,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    sport_event: str | None = Query(None),
     current_user: dict = Depends(get_current_user)
 ):
     # Athlete can view own history
@@ -86,33 +89,53 @@ async def get_athlete_performance_history(
     elif current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
-    records = await get_athlete_performances(athlete_id)
+    records = await get_athlete_performances(athlete_id, skip=skip, limit=limit, sport_event=sport_event)
     return [PerformanceRead(**rec) for rec in records]
 
 
 @router.get("/", response_model=List[PerformanceRead], dependencies=[Depends(require_admin)])
-async def get_all_performances(current_user: dict = Depends(get_current_user)):
+async def get_all_performances(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    sport_event: str | None = Query(None),
+    search: str | None = Query(None),
+    current_user: dict = Depends(get_current_user)
+):
+    query = {}
+    if sport_event:
+        query["sport_event"] = sport_event
+    if search:
+        query["$or"] = [
+            {"coach_remarks": {"$regex": search, "$options": "i"}},
+            {"feedback": {"$regex": search, "$options": "i"}},
+            {"sport_event": {"$regex": search, "$options": "i"}},
+        ]
+
     records = []
     from database.mongodb import performance_collection, users_collection
     from bson.objectid import ObjectId
-    async for rec in performance_collection.find():
+    async for rec in performance_collection.find(query).skip(skip).limit(limit):
         records.append(rec)
+
+    ath_ids = list({rec.get("athlete_id") for rec in records if rec.get("athlete_id")})
+    object_ids = [ObjectId(uid) for uid in ath_ids if ObjectId.is_valid(uid)]
+    string_ids = [uid for uid in ath_ids if not ObjectId.is_valid(uid)]
+    
+    user_query = {"$or": []}
+    if object_ids:
+        user_query["$or"].append({"_id": {"$in": object_ids}})
+    if string_ids:
+        user_query["$or"].append({"_id": {"$in": string_ids}})
+
+    user_map = {}
+    if user_query["$or"]:
+        async for u in users_collection.find(user_query):
+            user_map[str(u["_id"])] = u
 
     valid_records = []
     for rec in records:
         ath_id = rec.get("athlete_id")
-        if not ath_id:
-            continue
-        user_exists = False
-        if ObjectId.is_valid(ath_id):
-            user = await users_collection.find_one({"_id": ObjectId(ath_id)})
-            if user:
-                user_exists = True
-        else:
-            user = await users_collection.find_one({"_id": ath_id})
-            if user:
-                user_exists = True
-        if user_exists:
+        if ath_id in user_map:
             valid_records.append(rec)
 
     return [PerformanceRead(**rec) for rec in valid_records]

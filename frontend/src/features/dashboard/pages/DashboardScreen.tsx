@@ -30,7 +30,7 @@ export default function DashboardScreen() {
     let isMounted = true;
 
     async function loadUser() {
-      const storedToken = getStoredToken();
+      const storedToken = await getStoredToken();
 
       if (!storedToken) {
         router.replace('/login');
@@ -52,13 +52,13 @@ export default function DashboardScreen() {
             setUser(currentUser);
             setToken(storedToken);
           } else {
-            clearStoredToken();
+            await clearStoredToken();
             router.replace('/login');
             return;
           }
         }
       } catch (currentUserError) {
-        clearStoredToken();
+        await clearStoredToken();
         if (isMounted) {
           setError(
             currentUserError instanceof Error ? currentUserError.message : 'Session expired.'
@@ -79,8 +79,8 @@ export default function DashboardScreen() {
     };
   }, [router]);
 
-  function handleSignOut() {
-    clearStoredToken();
+  async function handleSignOut() {
+    await clearStoredToken();
     router.replace('/login');
   }
 

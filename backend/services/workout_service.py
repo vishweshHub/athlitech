@@ -46,7 +46,9 @@ async def create_workout(workout_data: WorkoutCreate, current_user: dict):
     return {"message": "Workout plan created successfully", "workout_id": new_workout.workout_id}
 
 
-async def get_coach_workouts(coach_id: str, current_user: dict) -> List[WorkoutRead]:
+async def get_coach_workouts(
+    coach_id: str, current_user: dict, skip: int = 0, limit: int = 100, status: str | None = None
+) -> List[WorkoutRead]:
     # Coach can only view their own workouts
     if current_user.get("role") == "coach":
         if not ObjectId.is_valid(current_user.get("id")):
@@ -58,25 +60,29 @@ async def get_coach_workouts(coach_id: str, current_user: dict) -> List[WorkoutR
     elif current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
-    workouts = await workout_repository.get_by_coach(coach_id)
+    workouts = await workout_repository.get_by_coach(coach_id, skip=skip, limit=limit, status=status)
 
     from database.mongodb import users_collection
+    
+    ath_ids = list({w.get("athlete_id") for w in workouts if w.get("athlete_id")})
+    object_ids = [ObjectId(uid) for uid in ath_ids if ObjectId.is_valid(uid)]
+    string_ids = [uid for uid in ath_ids if not ObjectId.is_valid(uid)]
+    
+    user_query = {"$or": []}
+    if object_ids:
+        user_query["$or"].append({"_id": {"$in": object_ids}})
+    if string_ids:
+        user_query["$or"].append({"_id": {"$in": string_ids}})
+
+    user_map = {}
+    if user_query["$or"]:
+        async for u in users_collection.find(user_query):
+            user_map[str(u["_id"])] = u
+
     valid_workouts = []
     for w in workouts:
         ath_id = w.get("athlete_id")
-        if not ath_id:
-            continue
-        user_exists = False
-        if ObjectId.is_valid(ath_id):
-            user = await users_collection.find_one({"_id": ObjectId(ath_id)})
-            if user:
-                user_exists = True
-        else:
-            user = await users_collection.find_one({"_id": ath_id})
-            if user:
-                user_exists = True
-
-        if user_exists:
+        if ath_id in user_map:
             valid_workouts.append(w)
 
     return [
@@ -98,7 +104,9 @@ async def get_coach_workouts(coach_id: str, current_user: dict) -> List[WorkoutR
     ]
 
 
-async def get_athlete_workouts(athlete_id: str, current_user: dict) -> List[WorkoutRead]:
+async def get_athlete_workouts(
+    athlete_id: str, current_user: dict, skip: int = 0, limit: int = 100, status: str | None = None
+) -> List[WorkoutRead]:
     # Athlete can view their own workouts. Coach can view their assigned athlete's workouts. Admin can view all.
     if current_user.get("role") == "athlete":
         if current_user.get("id") != athlete_id:
@@ -116,7 +124,7 @@ async def get_athlete_workouts(athlete_id: str, current_user: dict) -> List[Work
     elif current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
-    workouts = await workout_repository.get_by_athlete(athlete_id)
+    workouts = await workout_repository.get_by_athlete(athlete_id, skip=skip, limit=limit, status=status)
     return [
         WorkoutRead(
             workout_id=w.get("workout_id"),

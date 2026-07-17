@@ -59,7 +59,7 @@ export default function LoginScreen() {
     let isMounted = true;
 
     async function validateExistingSession() {
-      const token = getStoredToken();
+      const token = await getStoredToken();
       if (!token) {
         if (isMounted) setIsCheckingSession(false);
         return;
@@ -116,7 +116,7 @@ export default function LoginScreen() {
     setIsLoading(true);
     try {
       const result = await login(email.trim(), password);
-      storeToken(result.access_token);
+      await storeToken(result.access_token);
       const currentUser = await fetchCurrentUser(result.access_token);
       if (currentUser.role === 'coach') router.replace('/coach-dashboard' as Href);
       else if (currentUser.role === 'athlete') router.replace('/athlete-dashboard' as Href);

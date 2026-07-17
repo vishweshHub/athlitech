@@ -57,7 +57,7 @@ export default function AthleteDetailsScreen({ user: propUser, token: propToken,
 
     async function restoreSession() {
       try {
-        const storedToken = getStoredToken();
+        const storedToken = await getStoredToken();
         if (!storedToken) {
           setIsAuthLoading(false);
           return;
@@ -141,11 +141,11 @@ export default function AthleteDetailsScreen({ user: propUser, token: propToken,
     loadAthleteDetails();
   }, [athleteId, token]);
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     if (propOnSignOut) {
       propOnSignOut();
     } else {
-      clearStoredToken();
+      await clearStoredToken();
       router.replace('/');
     }
   };
