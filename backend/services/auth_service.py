@@ -11,7 +11,9 @@ from core.security import (
     verify_password,
 )
 from database.mongodb import users_collection
-from schemas.auth_schema import UserLogin, UserRegister
+from schemas.auth_schema import UserLogin, RegisterRequest
+import uuid
+from datetime import datetime
 
 
 def _validate_role(current_user: dict, allowed_roles: set[str]):
@@ -22,7 +24,7 @@ def _validate_role(current_user: dict, allowed_roles: set[str]):
     return current_user
 
 
-async def register_user(user: UserRegister):
+async def register_user(user: RegisterRequest):
     email = str(user.email).lower()
 
     existing_user = await users_collection.find_one({"email": email})
@@ -35,14 +37,35 @@ async def register_user(user: UserRegister):
 
     hashed_password = hash_password(user.password)
 
-    await users_collection.insert_one({
-        "name": user.name,
+    role = user.role
+    user_doc = {
+        "name": f"{user.first_name} {user.last_name}",
+        "first_name": user.first_name,
+        "last_name": user.last_name,
         "email": email,
         "hashed_password": hashed_password,
-        "role": user.role
-    })
+        "role": role,
+        "account_status": "active",
+        "profile_completed": False,
+        "onboarding_completed": False,
+        "registration_source": "self",
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+    }
 
-    return {"message": "User registered successfully"}
+    if role == "coach":
+        user_doc["verification_status"] = "unverified"
+        user_doc["coach_id"] = str(uuid.uuid4())
+
+    result = await users_collection.insert_one(user_doc)
+    user_id = str(result.inserted_id)
+
+    return {
+        "message": "User registered successfully",
+        "user_id": user_id,
+        "role": role,
+        "email": email
+    }
 
 
 async def login_user(user: UserLogin):

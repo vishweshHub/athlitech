@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Cookie, HTTPException, Response
 
-from schemas.auth_schema import TokenResponse, UserLogin, UserRegister
+from schemas.auth_schema import TokenResponse, UserLogin, RegisterRequest, RegisterResponse
 from services.auth_service import (
     get_current_user,
     login_user,
@@ -11,8 +11,8 @@ from services.auth_service import (
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post("/register")
-async def register(user: UserRegister):
+@router.post("/register", response_model=RegisterResponse)
+async def register(user: RegisterRequest):
     return await register_user(user)
 
 
