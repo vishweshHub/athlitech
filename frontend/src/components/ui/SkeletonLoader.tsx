@@ -53,8 +53,8 @@ export default function SkeletonLoader({
     <Animated.View
       style={[
         {
-          width,
-          height,
+          width: width as any,
+          height: height as any,
           borderRadius: resolvedRadius,
           backgroundColor: colors.skeletonBg,
           opacity: pulseAnim,

@@ -24,8 +24,8 @@ export default function Badge({ label, variant = 'neutral', style }: BadgeProps)
         };
       case 'warning':
         return {
-          bg: colors.theme === 'light' ? 'rgba(217,119,6,0.08)' : 'rgba(245,158,11,0.08)',
-          border: colors.theme === 'light' ? 'rgba(217,119,6,0.15)' : 'rgba(245,158,11,0.15)',
+          bg: colors.id === 'light' ? 'rgba(217,119,6,0.08)' : 'rgba(245,158,11,0.08)',
+          border: colors.id === 'light' ? 'rgba(217,119,6,0.15)' : 'rgba(245,158,11,0.15)',
           text: colors.warning,
         };
       case 'error':

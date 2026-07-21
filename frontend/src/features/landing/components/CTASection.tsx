@@ -1,5 +1,6 @@
 import { Href, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useThemeColors } from '@/styles/tokens';
 
 const REGISTER_ROUTE = '/register' as Href;
 const LOGIN_ROUTE = '/login' as Href;
@@ -8,6 +9,8 @@ export default function CTASection() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isNarrow = width < 768;
+  const colors = useThemeColors();
+  const styles = getStyles(colors);
 
   return (
     <View style={styles.section}>
@@ -52,9 +55,9 @@ export default function CTASection() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   section: {
-    backgroundColor: '#0d1220',
+    backgroundColor: 'transparent',
     paddingVertical: 80,
     paddingHorizontal: 24,
     alignItems: 'center',
@@ -62,8 +65,8 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 780,
-    backgroundColor: '#0f1d2e',
-    borderColor: 'rgba(16,185,129,0.2)',
+    backgroundColor: colors.bgGlass || '#0f1d2e',
+    borderColor: colors.emeraldGlow || 'rgba(16,185,129,0.2)',
     borderWidth: 1,
     borderRadius: 24,
     padding: 52,
@@ -78,13 +81,13 @@ const styles = StyleSheet.create({
     width: 260,
     height: 260,
     borderRadius: 999,
-    backgroundColor: 'rgba(16,185,129,0.08)',
+    backgroundColor: colors.emeraldDim || 'rgba(16,185,129,0.08)',
   },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16,185,129,0.1)',
-    borderColor: 'rgba(16,185,129,0.25)',
+    backgroundColor: colors.emeraldDim || 'rgba(16,185,129,0.1)',
+    borderColor: colors.emeraldGlow || 'rgba(16,185,129,0.25)',
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 12,
@@ -96,16 +99,16 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 99,
-    backgroundColor: '#10b981',
+    backgroundColor: colors.emerald,
   },
   badgeText: {
-    color: '#10b981',
+    color: colors.emerald,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
   title: {
-    color: '#f0f4f8',
+    color: colors.textPrimary,
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 16,
@@ -119,10 +122,10 @@ const styles = StyleSheet.create({
     lineHeight: 52,
   },
   titleAccent: {
-    color: '#10b981',
+    color: colors.emerald,
   },
   subtitle: {
-    color: '#8a9ab5',
+    color: colors.textSub,
     fontSize: 16,
     lineHeight: 26,
     textAlign: 'center',
@@ -142,45 +145,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   primaryBtn: {
-    backgroundColor: '#10b981',
+    backgroundColor: colors.emerald,
     borderRadius: 10,
     paddingHorizontal: 32,
     paddingVertical: 15,
     alignItems: 'center',
-    shadowColor: '#10b981',
+    shadowColor: colors.emerald,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
     shadowRadius: 16,
     elevation: 8,
   },
   primaryBtnPressed: {
-    backgroundColor: '#059669',
+    backgroundColor: colors.emeraldPressed,
   },
   primaryBtnText: {
-    color: '#ffffff',
+    color: '#ffffff', // keep white on emerald
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: 0.2,
   },
   secondaryBtn: {
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 32,
     paddingVertical: 15,
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: colors.inputBg || 'rgba(255,255,255,0.04)',
   },
   secondaryBtnPressed: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.borderSubtle,
   },
   secondaryBtnText: {
-    color: '#c8d8e8',
+    color: colors.textPrimary,
     fontSize: 17,
     fontWeight: '600',
   },
   finePrint: {
-    color: '#4a5568',
+    color: colors.textDimmed,
     fontSize: 13,
   },
 });

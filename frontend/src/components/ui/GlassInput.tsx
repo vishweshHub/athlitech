@@ -16,7 +16,6 @@
 
 import React, { useRef, useState } from 'react';
 import {
-  Animated,
   Pressable,
   StyleSheet,
   Text,
@@ -24,9 +23,10 @@ import {
   TextInputProps,
   View,
 } from 'react-native';
+import Animated, { useAnimatedStyle, withTiming, useSharedValue } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 
-import { COLORS, RADIUS } from '@/styles/tokens';
+import { RADIUS, useThemeColors } from '@/styles/tokens';
 
 interface GlassInputProps extends Omit<TextInputProps, 'style'> {
   label?: string;
@@ -48,52 +48,52 @@ export default function GlassInput({
 }: GlassInputProps) {
   const [isFocused, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const colors = useThemeColors();
 
-  // Animate border color: 0 = dim, 1 = emerald
-  const focusAnim = useRef(new Animated.Value(0)).current;
+  const isFocusedValue = useSharedValue(0);
 
   function handleFocus() {
     setIsFocused(true);
-    Animated.timing(focusAnim, {
-      toValue: 1,
-      duration: 220,
-      useNativeDriver: false, // must be false for color interpolation
-    }).start();
+    isFocusedValue.value = withTiming(1, { duration: 220 });
   }
 
   function handleBlur() {
     setIsFocused(false);
-    Animated.timing(focusAnim, {
-      toValue: 0,
-      duration: 220,
-      useNativeDriver: false,
-    }).start();
+    isFocusedValue.value = withTiming(0, { duration: 220 });
   }
 
-  const borderColor = focusAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [
-      error ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.1)',
-      error ? 'rgba(239,68,68,0.8)' : COLORS.emerald,
-    ],
-  });
+  const animatedStyle = useAnimatedStyle(() => {
+    let borderColor, shadowColor, shadowOpacity;
+    
+    if (error) {
+      borderColor = isFocusedValue.value === 1 ? 'rgba(239,68,68,0.8)' : 'rgba(239,68,68,0.4)';
+      shadowColor = colors.error;
+      shadowOpacity = isFocusedValue.value === 1 ? 0.45 : 0;
+    } else {
+      // interpolate doesn't work with string colors in reanimated out of the box unless specified,
+      // but since we are just doing focus on/off, we can just switch the color using withTiming
+      borderColor = isFocusedValue.value === 1 ? colors.emerald : (colors.border || 'rgba(255,255,255,0.1)');
+      shadowColor = colors.emerald;
+      shadowOpacity = isFocusedValue.value === 1 ? 0.45 : 0;
+    }
 
-  const shadowOpacity = focusAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 0.45],
+    return {
+      borderColor: withTiming(borderColor, { duration: 220 }),
+      backgroundColor: withTiming(colors.inputBg || 'rgba(255,255,255,0.04)', { duration: 400 }),
+      shadowColor: withTiming(shadowColor, { duration: 220 }),
+      shadowOpacity: withTiming(shadowOpacity, { duration: 220 }),
+    };
   });
 
   return (
     <View style={[styles.wrapper, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text style={[styles.label, { color: colors.textSub }]}>{label}</Text>}
 
       <Animated.View
         style={[
           styles.inputRow,
+          animatedStyle,
           {
-            borderColor,
-            shadowColor: error ? COLORS.error : COLORS.emerald,
-            shadowOpacity,
             shadowOffset: { width: 0, height: 0 },
             shadowRadius: 12,
             elevation: 0,
@@ -101,15 +101,15 @@ export default function GlassInput({
         ]}
       >
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: colors.textPrimary }]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={COLORS.textMuted}
+          placeholderTextColor={colors.textMuted}
           secureTextEntry={password && !showPassword}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          selectionColor={COLORS.emerald}
+          selectionColor={colors.emerald}
           {...rest}
         />
 
@@ -122,13 +122,13 @@ export default function GlassInput({
             <Ionicons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
               size={20}
-              color={isFocused ? COLORS.emerald : COLORS.textMuted}
+              color={isFocused ? colors.emerald : colors.textMuted}
             />
           </Pressable>
         )}
       </Animated.View>
 
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error && <Text style={[styles.error, { color: colors.error }]}>{error}</Text>}
     </View>
   );
 }
@@ -139,7 +139,6 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   label: {
-    color: COLORS.textSub,
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.4,
@@ -157,7 +156,6 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: COLORS.textPrimary,
     fontSize: 16,
     paddingHorizontal: 16,
     paddingVertical: 0,
@@ -170,7 +168,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   error: {
-    color: COLORS.error,
     fontSize: 13,
     marginTop: 6,
     width: '100%',

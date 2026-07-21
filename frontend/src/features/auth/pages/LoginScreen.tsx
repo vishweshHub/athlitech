@@ -12,6 +12,7 @@ import {
   useWindowDimensions,
   ActivityIndicator,
 } from 'react-native';
+import Reanimated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 
 import { fetchCurrentUser, getStoredToken, login, storeToken } from '@/api/auth';
@@ -19,8 +20,8 @@ import GridMotion from '@/components/animations/GridMotion';
 import SplitText from '@/components/animations/SplitText';
 import GlassInput from '@/components/ui/GlassInput';
 import PressButton from '@/components/ui/PressButton';
-import { COLORS, RADIUS, SHADOW } from '@/styles/tokens';
-
+import { RADIUS, SHADOW, useThemeColors } from '@/styles/tokens';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 const DASHBOARD_ROUTE = '/dashboard' as Href;
 const REGISTER_ROUTE = '/register' as Href;
 
@@ -44,6 +45,8 @@ export default function LoginScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
+  const colors = useThemeColors();
+  const styles = getStyles(colors);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -128,13 +131,21 @@ export default function LoginScreen() {
     }
   }
 
+  const animatedCardStyle = useAnimatedStyle(() => {
+    return {
+      backgroundColor: withTiming(colors.bgGlass, { duration: 400 }),
+      borderColor: withTiming(colors.border, { duration: 400 }),
+      shadowColor: withTiming(colors.cardShadow || '#000', { duration: 400 }),
+    };
+  });
+
   // ── Session check loading state ───────────────────────────────────────────
   if (isCheckingSession) {
     return (
       <SafeAreaView style={styles.screen}>
         {Platform.OS === 'web' && <GridMotion opacity={0.025} zIndex={0} />}
         <View style={styles.loadingCenter}>
-          <ActivityIndicator color={COLORS.emerald} size="large" />
+          <ActivityIndicator color={colors.emerald} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -142,22 +153,10 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      {/* Animated dark gradient background */}
-      {Platform.OS === 'web' &&
-        React.createElement('div', {
-          'aria-hidden': true,
-          style: {
-            position: 'fixed',
-            inset: 0,
-            background: [
-              'radial-gradient(ellipse 80% 55% at 30% -10%, rgba(16,185,129,0.14) 0%, transparent 60%)',
-              'radial-gradient(ellipse 60% 45% at 80% 100%, rgba(14,165,233,0.07) 0%, transparent 60%)',
-              'linear-gradient(160deg, #060b14 0%, #0a0f1a 55%, #0d1525 100%)',
-            ].join(', '),
-            pointerEvents: 'none',
-            zIndex: 0,
-          },
-        })}
+      <View style={{ position: 'absolute', top: 16, right: 16, zIndex: 100 }}>
+        <ThemeToggle />
+      </View>
+      {/* Animated dark gradient background removed - handled by ThemeTransition */}
 
       {/* Subtle moving grid */}
       <GridMotion opacity={0.025} animDuration={28} zIndex={1} />
@@ -187,7 +186,7 @@ export default function LoginScreen() {
             </Text>
             <View style={styles.brandQuote}>
               <Text style={styles.brandQuoteText}>
-                "The only platform that gives coaches and athletes a truly shared view of progress."
+                &quot;The only platform that gives coaches and athletes a truly shared view of progress.&quot;
               </Text>
               <Text style={styles.brandQuoteAuthor}>— AthliTech Beta User</Text>
             </View>
@@ -197,10 +196,12 @@ export default function LoginScreen() {
         {/* Right panel — glass login card */}
         <Animated.View
           style={[
-            styles.card,
+            styles.cardBase,
             { opacity: cardFade, transform: [{ translateY: cardSlide }] },
           ]}
         >
+          <Reanimated.View style={[StyleSheet.absoluteFill, animatedCardStyle, { borderRadius: 20 }]} />
+          
           {/* Glass blur overlay (web) */}
           {Platform.OS === 'web' &&
             React.createElement('div', {
@@ -266,7 +267,7 @@ export default function LoginScreen() {
                   <Ionicons
                     name="alert-circle-outline"
                     size={16}
-                    color={COLORS.error}
+                    color={colors.error}
                     style={{ marginTop: 1 }}
                   />
                   <Text style={styles.errorText}>{error}</Text>
@@ -295,10 +296,10 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: COLORS.bg,
+    backgroundColor: 'transparent',
     position: 'relative',
   },
   loadingCenter: {
@@ -338,46 +339,45 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 99,
-    backgroundColor: COLORS.emerald,
+    backgroundColor: colors.emerald,
   },
   brandName: {
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   brandTagline: {
-    color: COLORS.textSub,
+    color: colors.textSub,
     fontSize: 18,
     lineHeight: 30,
     fontWeight: '600',
     marginBottom: 36,
   },
   brandQuote: {
-    borderLeftColor: COLORS.emerald,
+    borderLeftColor: colors.emerald,
     borderLeftWidth: 2,
     paddingLeft: 16,
   },
   brandQuoteText: {
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 22,
     fontStyle: 'italic',
     marginBottom: 8,
   },
   brandQuoteAuthor: {
-    color: COLORS.textDimmed,
+    color: colors.textDimmed,
     fontSize: 12,
     fontWeight: '600',
   },
 
   // Glass login card
-  card: {
+  cardBase: {
     width: '100%',
     maxWidth: 420,
-    backgroundColor: COLORS.bgGlass,
-    borderColor: COLORS.border,
     borderWidth: 1,
+    borderColor: 'transparent',
     borderRadius: 20,
     overflow: 'hidden',
     zIndex: 5,
@@ -400,13 +400,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   headingText: {
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
     fontSize: 30,
     fontWeight: '800',
     letterSpacing: -0.8,
   },
   subtitle: {
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     fontSize: 15,
     lineHeight: 22,
     marginBottom: 28,
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: COLORS.errorDim,
+    backgroundColor: colors.errorDim,
     borderColor: 'rgba(239,68,68,0.25)',
     borderWidth: 1,
     borderRadius: RADIUS.sm,
@@ -433,19 +433,19 @@ const styles = StyleSheet.create({
   },
   errorText: {
     flex: 1,
-    color: COLORS.error,
+    color: colors.error,
     fontSize: 13,
     lineHeight: 20,
   },
 
   footerText: {
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     fontSize: 14,
     textAlign: 'center',
     marginTop: 20,
   },
   footerLink: {
-    color: COLORS.emerald,
+    color: colors.emerald,
     fontWeight: '700',
   },
 });

@@ -22,14 +22,15 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
-import { COLORS, RADIUS, SHADOW } from '@/styles/tokens';
+import { RADIUS, SHADOW, useThemeColors } from '@/styles/tokens';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 
 const LOGIN_ROUTE = '/login' as Href;
 const REGISTER_ROUTE = '/register' as Href;
 
 const NAV_LINKS = ['Features', 'How It Works', 'Benefits', 'FAQ'] as const;
 
-function NavItem({ label }: { label: string }) {
+function NavItem({ label, colors, styles }: { label: string; colors: any; styles: any }) {
   const scale = useRef(new Animated.Value(1)).current;
 
   const handleIn = Platform.OS === 'web'
@@ -58,6 +59,8 @@ export default function DockNav() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isNarrow = width < 680;
+  const colors = useThemeColors();
+  const styles = getStyles(colors);
 
   return (
     <View style={styles.outer} pointerEvents="box-none">
@@ -89,13 +92,14 @@ export default function DockNav() {
         {!isNarrow && (
           <View style={styles.links}>
             {NAV_LINKS.map((label) => (
-              <NavItem key={label} label={label} />
+              <NavItem key={label} label={label} colors={colors} styles={styles} />
             ))}
           </View>
         )}
 
         {/* Auth buttons */}
         <View style={styles.auth}>
+          <ThemeToggle />
           <Pressable
             onPress={() => router.push(LOGIN_ROUTE)}
             style={({ pressed }) => [
@@ -123,7 +127,7 @@ export default function DockNav() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   outer: {
     position: 'absolute',
     top: 16,
@@ -131,11 +135,12 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 100,
     borderRadius: RADIUS.full,
-    backgroundColor: 'rgba(10,15,26,0.75)',
-    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.bgGlass || 'rgba(10,15,26,0.75)',
+    borderColor: colors.border || 'rgba(255,255,255,0.08)',
     borderWidth: 1,
     overflow: 'hidden',
     ...SHADOW.card,
+    shadowColor: colors.cardShadow || '#000',
   },
   inner: {
     flexDirection: 'row',
@@ -153,10 +158,10 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 99,
-    backgroundColor: COLORS.emerald,
+    backgroundColor: colors.emerald,
   },
   logoText: {
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '800',
     letterSpacing: -0.5,
@@ -172,7 +177,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
   },
   navLinkText: {
-    color: COLORS.textSub,
+    color: colors.textSub,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -187,26 +192,27 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
   },
   signInBtnPressed: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.borderSubtle || 'rgba(255,255,255,0.06)',
   },
   signInText: {
-    color: COLORS.textSub,
+    color: colors.textSub,
     fontSize: 14,
     fontWeight: '600',
   },
   getStartedBtn: {
-    backgroundColor: COLORS.emerald,
+    backgroundColor: colors.emerald,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: RADIUS.full,
     ...SHADOW.emerald,
+    shadowColor: colors.emerald,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 8,
     shadowOpacity: 0.3,
     elevation: 4,
   },
   getStartedBtnPressed: {
-    backgroundColor: COLORS.emeraldPressed,
+    backgroundColor: colors.emeraldPressed,
   },
   getStartedText: {
     color: '#ffffff',

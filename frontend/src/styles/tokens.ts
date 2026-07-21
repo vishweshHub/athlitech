@@ -1,4 +1,4 @@
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/theme/useTheme';
 
 /**
  * Design tokens shared across the entire AthliTech UI.
@@ -92,11 +92,9 @@ export const THEME_COLORS = {
   },
 } as const;
 
-export type ThemeColors = typeof THEME_COLORS.dark;
-
-export function useThemeColors(): ThemeColors {
-  const scheme = useColorScheme() ?? 'dark';
-  return THEME_COLORS[scheme] || THEME_COLORS.dark;
+export function useThemeColors() {
+  const { colors } = useTheme();
+  return colors;
 }
 
 export const RADIUS = {

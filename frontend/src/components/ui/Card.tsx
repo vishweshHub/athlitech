@@ -1,5 +1,6 @@
 import React from 'react';
 import { Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import Reanimated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 
 import ScrollReveal from '@/components/animations/ScrollReveal';
 import { useThemeColors, RADIUS } from '@/styles/tokens';
@@ -23,10 +24,16 @@ export default function Card({
 }: CardProps) {
   const colors = useThemeColors();
 
+  const animatedCardStyle = useAnimatedStyle(() => {
+    if (!surface) return {};
+    return {
+      backgroundColor: withTiming(colors.bgGlass, { duration: 400 }),
+      borderColor: withTiming(colors.border, { duration: 400 }),
+    };
+  }, [surface, colors]);
+
   const cardStyle: ViewStyle = surface
     ? {
-        backgroundColor: colors.bgGlass,
-        borderColor: colors.border,
         borderWidth: 1,
         borderRadius: RADIUS.lg,
         padding: 24,
@@ -48,7 +55,7 @@ export default function Card({
     : {};
 
   const content = (
-    <View style={[cardStyle, style]}>
+    <Reanimated.View style={[cardStyle, surface && animatedCardStyle, style]}>
       {/* Premium glass blur overlay (Web only) */}
       {surface && Platform.OS === 'web' && (
         <div
@@ -64,7 +71,7 @@ export default function Card({
         />
       )}
       {children}
-    </View>
+    </Reanimated.View>
   );
 
   if (animated) {

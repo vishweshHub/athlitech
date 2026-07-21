@@ -63,11 +63,11 @@ export default function LandingScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#060b14',
+    backgroundColor: 'transparent',
   },
   scroll: {
     flex: 1,
-    backgroundColor: '#060b14',
+    backgroundColor: 'transparent',
   },
   scrollContent: {
     flexGrow: 1,

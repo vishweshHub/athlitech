@@ -27,7 +27,7 @@ import {
   Button,
   Card,
   Badge,
-  StatCard,
+  SummaryCard,
   Table,
   ThemeToggle,
   EmptyState,
@@ -426,10 +426,16 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
 
                     {/* Stat Cards */}
                     <View style={styles.metricsContainer}>
-                      <StatCard label="Total Workouts" value={totalWorkouts} delay={0} />
-                      <StatCard label="Completed" value={completedWorkouts} delay={80} trendDirection="up" />
-                      <StatCard label="Pending" value={pendingWorkouts} delay={160} />
-                      <StatCard label="Completion Rate" value={completionRate} suffix="%" delay={240} trendDirection="up" />
+                      <SummaryCard
+                        title="Dashboard Summary"
+                        iconName="stats-chart-outline"
+                        metrics={[
+                          { label: 'Total Workouts', value: totalWorkouts },
+                          { label: 'Completed', value: completedWorkouts },
+                          { label: 'Pending', value: pendingWorkouts },
+                          { label: 'Completion Rate', value: completionRate, suffix: '%' },
+                        ]}
+                      />
                     </View>
 
                     {/* Workout Breakdown Card */}
@@ -911,7 +917,7 @@ function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boo
   return StyleSheet.create({
     wrapper: {
       flex: 1,
-      backgroundColor: colors.bg,
+      backgroundColor: 'transparent',
     },
     mainContainer: {
       flex: 1,
@@ -1067,7 +1073,7 @@ function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boo
     // ── Header ──
     contentArea: {
       flex: 1,
-      backgroundColor: colors.bg,
+      backgroundColor: 'transparent',
     },
     header: {
       flexDirection: 'row',

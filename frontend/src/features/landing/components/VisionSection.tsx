@@ -18,6 +18,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { useThemeColors } from '@/styles/tokens';
 
 const PILLARS = [
   {
@@ -93,6 +94,8 @@ function useScrollReveal(delay = 0, threshold = 0.12) {
 export default function VisionSection() {
   const { width } = useWindowDimensions();
   const isNarrow = width < 768;
+  const colors = useThemeColors();
+  const styles = getStyles(colors);
 
   const header = useScrollReveal(0, 0.1);
   const quote = useScrollReveal(150, 0.1);
@@ -219,9 +222,9 @@ export default function VisionSection() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   section: {
-    backgroundColor: '#060b14',
+    backgroundColor: 'transparent',
     paddingVertical: 110,
     paddingHorizontal: 24,
     alignItems: 'center',
@@ -253,7 +256,7 @@ const styles = StyleSheet.create({
   starDot: {
     position: 'absolute',
     borderRadius: 999,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.textPrimary,
   },
 
   // Header
@@ -280,7 +283,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   title: {
-    color: '#f0f4f8',
+    color: colors.textPrimary,
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 20,
@@ -288,9 +291,9 @@ const styles = StyleSheet.create({
   },
   titleNarrow: { fontSize: 30, lineHeight: 42 },
   titleWide: { fontSize: 46, lineHeight: 60 },
-  titleAccent: { color: '#6366f1' },
+  titleAccent: { color: colors.info },
   subtitle: {
-    color: '#8a9ab5',
+    color: colors.textSub,
     fontSize: 17,
     lineHeight: 28,
     textAlign: 'center',
@@ -303,8 +306,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     maxWidth: 740,
     width: '100%',
-    backgroundColor: '#0f1928',
-    borderColor: 'rgba(99,102,241,0.2)',
+    backgroundColor: colors.bgGlass || '#0f1928',
+    borderColor: colors.infoDim || 'rgba(99,102,241,0.2)',
     borderWidth: 1,
     borderRadius: 18,
     marginBottom: 64,
@@ -323,13 +326,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   quoteText: {
-    color: '#c8d8e8',
+    color: colors.textPrimary,
     fontSize: 16,
     lineHeight: 28,
     fontStyle: 'italic',
   },
   quoteAuthor: {
-    color: '#4a5568',
+    color: colors.textDimmed,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -379,7 +382,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   pillarDesc: {
-    color: '#718096',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 22,
     marginBottom: 20,
@@ -393,7 +396,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: colors.inputBg || 'rgba(0,0,0,0.2)',
   },
   comingSoonDot: {
     width: 6,
@@ -420,7 +423,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   closingTitle: {
-    color: '#f0f4f8',
+    color: colors.textPrimary,
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 14,
@@ -429,7 +432,7 @@ const styles = StyleSheet.create({
   closingTitleNarrow: { fontSize: 26, lineHeight: 34 },
   closingTitleWide: { fontSize: 36, lineHeight: 46 },
   closingSubtitle: {
-    color: '#8a9ab5',
+    color: colors.textSub,
     fontSize: 16,
     lineHeight: 26,
     textAlign: 'center',

@@ -27,7 +27,7 @@ import {
   Button,
   Card,
   Badge,
-  StatCard,
+  SummaryCard,
   SearchBar,
   Table,
   ThemeToggle,
@@ -567,28 +567,15 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                   <>
                     {/* Stat Cards Row */}
                     <View style={styles.metricsContainer}>
-                      <StatCard
-                        label="My Athletes"
-                        value={totalAthletes}
-                        delay={0}
-                      />
-                      <StatCard
-                        label="Total Workouts"
-                        value={totalWorkouts}
-                        delay={80}
-                      />
-                      <StatCard
-                        label="Completed"
-                        value={completedWorkouts}
-                        delay={160}
-                        trendDirection="up"
-                      />
-                      <StatCard
-                        label="Completion Rate"
-                        value={completionRate}
-                        suffix="%"
-                        delay={240}
-                        trendDirection="up"
+                      <SummaryCard
+                        title="Dashboard Summary"
+                        iconName="stats-chart-outline"
+                        metrics={[
+                          { label: 'My Athletes', value: totalAthletes },
+                          { label: 'Total Workouts', value: totalWorkouts },
+                          { label: 'Completed', value: completedWorkouts },
+                          { label: 'Completion Rate', value: completionRate, suffix: '%' },
+                        ]}
                       />
                     </View>
 
@@ -1416,7 +1403,7 @@ function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boo
   return StyleSheet.create({
     wrapper: {
       flex: 1,
-      backgroundColor: colors.bg,
+      backgroundColor: 'transparent',
     },
     mainContainer: {
       flex: 1,
@@ -1572,7 +1559,7 @@ function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boo
     // ── Content Area ──
     contentArea: {
       flex: 1,
-      backgroundColor: colors.bg,
+      backgroundColor: 'transparent',
     },
     header: {
       flexDirection: 'row',

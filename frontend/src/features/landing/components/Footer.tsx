@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useThemeColors } from '@/styles/tokens';
 
 const FOOTER_LINKS = [
   {
@@ -22,6 +23,8 @@ const FOOTER_LINKS = [
 export default function Footer() {
   const { width } = useWindowDimensions();
   const isNarrow = width < 768;
+  const colors = useThemeColors();
+  const styles = getStyles(colors);
 
   return (
     <View style={styles.footer}>
@@ -80,10 +83,10 @@ export default function Footer() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   footer: {
-    backgroundColor: '#060b14',
-    borderTopColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'transparent',
+    borderTopColor: colors.borderSubtle || 'rgba(255,255,255,0.06)',
     borderTopWidth: 1,
     paddingHorizontal: 32,
     paddingTop: 60,
@@ -114,16 +117,16 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 99,
-    backgroundColor: '#10b981',
+    backgroundColor: colors.emerald,
   },
   logoText: {
-    color: '#f0f4f8',
+    color: colors.textPrimary,
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   brandDesc: {
-    color: '#4a5568',
+    color: colors.textDimmed,
     fontSize: 14,
     lineHeight: 22,
     marginBottom: 20,
@@ -136,14 +139,14 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 8,
-    backgroundColor: '#111827',
-    borderColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: colors.inputBg || '#111827',
+    borderColor: colors.borderSubtle || 'rgba(255,255,255,0.07)',
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   socialBtnText: {
-    color: '#8a9ab5',
+    color: colors.textSub,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -161,7 +164,7 @@ const styles = StyleSheet.create({
     minWidth: 120,
   },
   linkHeading: {
-    color: '#c8d8e8',
+    color: colors.textPrimary,
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -169,14 +172,14 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   linkItem: {
-    color: '#4a5568',
+    color: colors.textDimmed,
     fontSize: 14,
     marginBottom: 10,
     lineHeight: 20,
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.borderSubtle || 'rgba(255,255,255,0.06)',
     marginBottom: 24,
   },
   bottomRow: {
@@ -192,7 +195,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   copyright: {
-    color: '#4a5568',
+    color: colors.textDimmed,
     fontSize: 13,
   },
   bottomLinks: {
@@ -200,7 +203,7 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   bottomLink: {
-    color: '#4a5568',
+    color: colors.textDimmed,
     fontSize: 13,
   },
 });

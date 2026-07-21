@@ -14,9 +14,10 @@ import {
   Platform,
   StyleSheet,
   Text,
-  View,
   useWindowDimensions,
+  View,
 } from 'react-native';
+import { useThemeColors } from '@/styles/tokens';
 
 const FLOW_STEPS = [
   {
@@ -132,6 +133,8 @@ export default function HowItWorksSection() {
   const { width } = useWindowDimensions();
   const isNarrow = width < 768;
   const isMid = width < 1100 && width >= 768;
+  const colors = useThemeColors();
+  const styles = getStyles(colors);
 
   const header = useScrollReveal(0);
   const step0 = useScrollReveal(0);
@@ -231,9 +234,9 @@ export default function HowItWorksSection() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   section: {
-    backgroundColor: '#0d1220',
+    backgroundColor: 'transparent',
     paddingVertical: 100,
     paddingHorizontal: 24,
     alignItems: 'center',
@@ -248,7 +251,7 @@ const styles = StyleSheet.create({
     width: 300,
     height: 300,
     borderRadius: 999,
-    backgroundColor: 'rgba(16,185,129,0.06)',
+    backgroundColor: colors.emeraldDim || 'rgba(16,185,129,0.06)',
   },
   header: {
     alignItems: 'center',
@@ -257,8 +260,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   pill: {
-    backgroundColor: 'rgba(16,185,129,0.12)',
-    borderColor: 'rgba(16,185,129,0.28)',
+    backgroundColor: colors.emeraldDim || 'rgba(16,185,129,0.12)',
+    borderColor: colors.emeraldGlow || 'rgba(16,185,129,0.28)',
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 16,
@@ -266,14 +269,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   pillText: {
-    color: '#10b981',
+    color: colors.emerald,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
   title: {
-    color: '#f0f4f8',
+    color: colors.textPrimary,
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 16,
@@ -281,9 +284,9 @@ const styles = StyleSheet.create({
   },
   titleNarrow: { fontSize: 28, lineHeight: 38 },
   titleWide: { fontSize: 40, lineHeight: 52 },
-  titleAccent: { color: '#10b981' },
+  titleAccent: { color: colors.emerald },
   subtitle: {
-    color: '#8a9ab5',
+    color: colors.textSub,
     fontSize: 16,
     lineHeight: 26,
     textAlign: 'center',
@@ -309,7 +312,7 @@ const styles = StyleSheet.create({
 
   // Step card
   stepCard: {
-    backgroundColor: '#0f1928',
+    backgroundColor: colors.bgGlass || '#0f1928',
     borderWidth: 1,
     borderRadius: 16,
     padding: 24,
@@ -353,14 +356,14 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   stepTitle: {
-    color: '#e2e8f0',
+    color: colors.textPrimary,
     fontSize: 17,
     fontWeight: '800',
     marginBottom: 8,
     letterSpacing: -0.2,
   },
   stepDesc: {
-    color: '#718096',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 22,
   },
@@ -383,10 +386,10 @@ const styles = StyleSheet.create({
   closingLine: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.borderSubtle || 'rgba(255,255,255,0.06)',
   },
   closingText: {
-    color: '#4a5568',
+    color: colors.textDimmed,
     fontSize: 13,
     fontStyle: 'italic',
     textAlign: 'center',

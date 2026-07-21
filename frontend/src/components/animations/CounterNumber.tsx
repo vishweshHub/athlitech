@@ -12,7 +12,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Platform, Text, TextStyle } from 'react-native';
+import { Animated, Easing, Platform, StyleProp, Text, TextStyle } from 'react-native';
 
 interface CounterNumberProps {
   /** The final number to count to */
@@ -26,7 +26,7 @@ interface CounterNumberProps {
   /** Delay before counting starts (ms) */
   delay?: number;
   /** Style for the Text element */
-  style?: TextStyle;
+  style?: StyleProp<TextStyle>;
   /** If true, formats with locale separator (e.g. 10,000) */
   formatted?: boolean;
 }

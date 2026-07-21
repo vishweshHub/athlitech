@@ -15,6 +15,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { useThemeColors } from '@/styles/tokens';
 
 const PROBLEMS = [
   {
@@ -86,6 +87,8 @@ function useScrollReveal(delay = 0) {
 export default function WhyAthliTechSection() {
   const { width } = useWindowDimensions();
   const isNarrow = width < 768;
+  const colors = useThemeColors();
+  const styles = getStyles(colors);
 
   const header = useScrollReveal(0);
   const stat1 = useScrollReveal(80);
@@ -193,9 +196,9 @@ export default function WhyAthliTechSection() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   section: {
-    backgroundColor: '#0a0f1a',
+    backgroundColor: 'transparent',
     paddingVertical: 100,
     paddingHorizontal: 24,
     alignItems: 'center',
@@ -219,8 +222,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   pill: {
-    backgroundColor: 'rgba(16,185,129,0.12)',
-    borderColor: 'rgba(16,185,129,0.28)',
+    backgroundColor: colors.emeraldDim || 'rgba(16,185,129,0.12)',
+    borderColor: colors.emeraldGlow || 'rgba(16,185,129,0.28)',
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 16,
@@ -228,14 +231,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   pillText: {
-    color: '#10b981',
+    color: colors.emerald,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
   title: {
-    color: '#f0f4f8',
+    color: colors.textPrimary,
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 20,
@@ -244,10 +247,10 @@ const styles = StyleSheet.create({
   titleNarrow: { fontSize: 30, lineHeight: 40 },
   titleWide: { fontSize: 44, lineHeight: 56 },
   titleAccent: {
-    color: '#10b981',
+    color: colors.emerald,
   },
   subtitle: {
-    color: '#8a9ab5',
+    color: colors.textSub,
     fontSize: 17,
     lineHeight: 28,
     textAlign: 'center',
@@ -271,8 +274,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   statCard: {
-    backgroundColor: 'rgba(16,185,129,0.06)',
-    borderColor: 'rgba(16,185,129,0.18)',
+    backgroundColor: colors.emeraldDim || 'rgba(16,185,129,0.06)',
+    borderColor: colors.emeraldGlow || 'rgba(16,185,129,0.18)',
     borderWidth: 1,
     borderRadius: 16,
     paddingVertical: 28,
@@ -282,14 +285,14 @@ const styles = StyleSheet.create({
   statCardNarrow: { width: '100%', maxWidth: 360 },
   statCardWide: { flex: 1 },
   statValue: {
-    color: '#10b981',
+    color: colors.emerald,
     fontSize: 40,
     fontWeight: '900',
     letterSpacing: -1,
     marginBottom: 8,
   },
   statLabel: {
-    color: '#8a9ab5',
+    color: colors.textSub,
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
@@ -303,7 +306,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   problemsLabel: {
-    color: '#4a5568',
+    color: colors.textDimmed,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.5,
@@ -323,8 +326,8 @@ const styles = StyleSheet.create({
   },
   problemCard: {
     flex: 1,
-    backgroundColor: '#0f1928',
-    borderColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.bgGlass || '#0f1928',
+    borderColor: colors.borderSubtle || 'rgba(255,255,255,0.06)',
     borderWidth: 1,
     borderRadius: 14,
     padding: 20,
@@ -334,7 +337,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: 'rgba(16,185,129,0.1)',
+    backgroundColor: colors.emeraldDim || 'rgba(16,185,129,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
@@ -342,7 +345,7 @@ const styles = StyleSheet.create({
   problemIcon: { fontSize: 20 },
   problemBefore: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   problemBeforePill: {
-    backgroundColor: 'rgba(239,68,68,0.12)',
+    backgroundColor: colors.errorDim || 'rgba(239,68,68,0.12)',
     borderColor: 'rgba(239,68,68,0.2)',
     borderWidth: 1,
     borderRadius: 6,
@@ -350,27 +353,27 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   problemBeforeText: {
-    color: '#ef4444',
+    color: colors.error,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
   problemTitle: {
-    color: '#718096',
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '600',
     textDecorationLine: 'line-through',
   },
   problemArrow: {
-    color: 'rgba(16,185,129,0.5)',
+    color: colors.emeraldGlow || 'rgba(16,185,129,0.5)',
     fontSize: 18,
     fontWeight: '700',
   },
   problemAfter: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   problemAfterPill: {
-    backgroundColor: 'rgba(16,185,129,0.12)',
-    borderColor: 'rgba(16,185,129,0.25)',
+    backgroundColor: colors.emeraldDim || 'rgba(16,185,129,0.12)',
+    borderColor: colors.emeraldGlow || 'rgba(16,185,129,0.25)',
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 8,
@@ -379,14 +382,14 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   problemAfterText: {
-    color: '#10b981',
+    color: colors.emerald,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
   problemSolution: {
-    color: '#c8d8e8',
+    color: colors.textPrimary,
     fontSize: 14,
     lineHeight: 20,
     flex: 1,

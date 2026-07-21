@@ -13,7 +13,6 @@
 import React, { useRef } from 'react';
 import {
   ActivityIndicator,
-  Animated,
   Platform,
   Pressable,
   StyleSheet,
@@ -21,8 +20,9 @@ import {
   TextStyle,
   ViewStyle,
 } from 'react-native';
+import Animated, { useAnimatedStyle, withTiming, withSpring, useSharedValue } from 'react-native-reanimated';
 
-import { COLORS, RADIUS, SHADOW } from '@/styles/tokens';
+import { RADIUS, SHADOW, useThemeColors } from '@/styles/tokens';
 
 type Variant = 'primary' | 'ghost' | 'danger';
 
@@ -50,92 +50,96 @@ export default function PressButton({
   suffix,
   id,
 }: PressButtonProps) {
-  const scale = useRef(new Animated.Value(1)).current;
+  const colors = useThemeColors();
+  const scale = useSharedValue(1);
 
   function handlePressIn() {
-    Animated.spring(scale, {
-      toValue: 0.96,
-      useNativeDriver: true,
-      tension: 300,
-      friction: 10,
-    }).start();
+    scale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
   }
 
   function handlePressOut() {
-    Animated.spring(scale, {
-      toValue: 1,
-      useNativeDriver: true,
-      tension: 300,
-      friction: 10,
-    }).start();
+    scale.value = withSpring(1, { damping: 10, stiffness: 300 });
   }
 
   const isDisabled = disabled || loading;
 
-  const variantStyle: ViewStyle =
-    variant === 'primary'
-      ? styles.primary
-      : variant === 'ghost'
-      ? styles.ghost
-      : styles.danger;
+  const animatedStyle = useAnimatedStyle(() => {
+    let bgColor, borderColor, shadowColor, shadowOpacity;
+    if (variant === 'primary') {
+      bgColor = colors.emerald;
+      borderColor = 'transparent';
+      shadowColor = colors.emerald;
+      shadowOpacity = 0.35;
+    } else if (variant === 'ghost') {
+      bgColor = colors.inputBg || 'rgba(255,255,255,0.04)';
+      borderColor = colors.border || 'rgba(255,255,255,0.1)';
+      shadowColor = 'transparent';
+      shadowOpacity = 0;
+    } else {
+      bgColor = colors.errorDim || 'rgba(239,68,68,0.1)';
+      borderColor = 'rgba(239,68,68,0.25)';
+      shadowColor = 'transparent';
+      shadowOpacity = 0;
+    }
+
+    return {
+      transform: [{ scale: scale.value }],
+      backgroundColor: withTiming(bgColor, { duration: 400 }),
+      borderColor: withTiming(borderColor, { duration: 400 }),
+      shadowColor: withTiming(shadowColor, { duration: 400 }),
+      shadowOpacity: withTiming(shadowOpacity, { duration: 400 }),
+    };
+  });
+
+  const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
   const variantText: TextStyle =
     variant === 'primary'
-      ? styles.primaryText
+      ? { color: '#ffffff' } // white on emerald always
       : variant === 'ghost'
-      ? styles.ghostText
-      : styles.dangerText;
+      ? { color: colors.textSub }
+      : { color: colors.error };
 
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
-      <Pressable
-        id={id}
-        onPress={isDisabled ? undefined : onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        style={[
-          styles.base,
-          variantStyle,
-          isDisabled && styles.disabled,
-          style,
-        ]}
-        // @ts-ignore — web hover
-        onMouseEnter={
-          Platform.OS === 'web' && variant === 'primary'
-            ? () =>
-                Animated.spring(scale, {
-                  toValue: 1.02,
-                  useNativeDriver: true,
-                  tension: 200,
-                  friction: 12,
-                }).start()
-            : undefined
-        }
-        onMouseLeave={
-          Platform.OS === 'web' && variant === 'primary'
-            ? () =>
-                Animated.spring(scale, {
-                  toValue: 1,
-                  useNativeDriver: true,
-                  tension: 200,
-                  friction: 12,
-                }).start()
-            : undefined
-        }
-      >
-        {loading ? (
-          <ActivityIndicator
-            color={variant === 'primary' ? '#ffffff' : COLORS.emerald}
-            size="small"
-          />
-        ) : (
-          <>
-            <Text style={[styles.label, variantText, textStyle]}>{label}</Text>
-            {suffix}
-          </>
-        )}
-      </Pressable>
-    </Animated.View>
+    <AnimatedPressable
+      id={id}
+      onPress={isDisabled ? undefined : onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={[
+        styles.base,
+        isDisabled && styles.disabled,
+        animatedStyle,
+        style,
+      ]}
+      // @ts-ignore
+      onMouseEnter={
+        Platform.OS === 'web' && variant === 'primary'
+          ? () => {
+              scale.value = withSpring(1.02, { damping: 12, stiffness: 200 });
+            }
+          : undefined
+      }
+      onMouseLeave={
+        Platform.OS === 'web' && variant === 'primary'
+          ? () => {
+              scale.value = withSpring(1, { damping: 12, stiffness: 200 });
+            }
+          : undefined
+      }
+    >
+      {loading ? (
+        <ActivityIndicator
+          color={variant === 'primary' ? '#ffffff' : colors.emerald}
+          size="small"
+        />
+      ) : (
+        <>
+          <Text style={[styles.label, variantText, textStyle]}>{label}</Text>
+          {suffix}
+        </>
+      )}
+    </AnimatedPressable>
   );
 }
 
@@ -149,20 +153,10 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: RADIUS.md,
     gap: 8,
-  },
-  primary: {
-    backgroundColor: COLORS.emerald,
-    ...SHADOW.emerald,
-  },
-  ghost: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderColor: 'rgba(255,255,255,0.1)',
     borderWidth: 1,
-  },
-  danger: {
-    backgroundColor: COLORS.errorDim,
-    borderColor: 'rgba(239,68,68,0.25)',
-    borderWidth: 1,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 8,
   },
   disabled: {
     opacity: 0.5,
@@ -170,14 +164,5 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '700',
-  },
-  primaryText: {
-    color: '#ffffff',
-  },
-  ghostText: {
-    color: COLORS.textSub,
-  },
-  dangerText: {
-    color: COLORS.error,
   },
 });

@@ -26,6 +26,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import Reanimated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 
 import { registerUser, login, storeToken } from '@/api/auth';
@@ -33,8 +34,8 @@ import GridMotion from '@/components/animations/GridMotion';
 import SplitText from '@/components/animations/SplitText';
 import GlassInput from '@/components/ui/GlassInput';
 import PressButton from '@/components/ui/PressButton';
-import { COLORS, RADIUS, SHADOW } from '@/styles/tokens';
-
+import { RADIUS, SHADOW, useThemeColors } from '@/styles/tokens';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Role = 'athlete' | 'coach';
@@ -170,6 +171,8 @@ function RoleCard({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const colors = useThemeColors();
+  const roleStyles = getRoleStyles(colors);
   const scale = useRef(new Animated.Value(1)).current;
   const borderAnim = useRef(new Animated.Value(selected ? 1 : 0)).current;
 
@@ -183,11 +186,11 @@ function RoleCard({
 
   const borderColor = borderAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['rgba(255,255,255,0.07)', COLORS.emerald],
+    outputRange: [colors.border, colors.emerald],
   });
   const bgColor = borderAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['rgba(255,255,255,0.02)', 'rgba(16,185,129,0.08)'],
+    outputRange: [colors.inputBg || 'rgba(255,255,255,0.02)', colors.emeraldDim || 'rgba(16,185,129,0.08)'],
   });
 
   function handlePressIn() {
@@ -237,7 +240,7 @@ function RoleCard({
             <Ionicons
               name={role.icon}
               size={26}
-              color={selected ? COLORS.emerald : COLORS.textMuted}
+              color={selected ? colors.emerald : colors.textMuted}
             />
           </View>
 
@@ -251,7 +254,7 @@ function RoleCard({
   );
 }
 
-const roleStyles = StyleSheet.create({
+const getRoleStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   card: {
     borderWidth: 1,
     borderRadius: RADIUS.lg,
@@ -281,39 +284,39 @@ const roleStyles = StyleSheet.create({
     marginBottom: -4,
   },
   radioSelected: {
-    borderColor: COLORS.emerald,
+    borderColor: colors.emerald,
   },
   radioDot: {
     width: 8,
     height: 8,
     borderRadius: 99,
-    backgroundColor: COLORS.emerald,
+    backgroundColor: colors.emerald,
   },
   iconWrap: {
     width: 52,
     height: 52,
     borderRadius: RADIUS.md,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: colors.inputBg || 'rgba(255,255,255,0.04)',
+    borderColor: colors.border,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconWrapSelected: {
-    backgroundColor: COLORS.emeraldDim,
-    borderColor: 'rgba(16,185,129,0.3)',
+    backgroundColor: colors.emeraldDim,
+    borderColor: colors.emeraldGlow || 'rgba(16,185,129,0.3)',
   },
   title: {
-    color: COLORS.textSub,
+    color: colors.textSub,
     fontSize: 15,
     fontWeight: '700',
     textAlign: 'center',
   },
   titleSelected: {
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   desc: {
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     fontSize: 12,
     lineHeight: 18,
     textAlign: 'center',
@@ -326,6 +329,8 @@ export default function RegisterScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
+  const colors = useThemeColors();
+  const styles = getStyles(colors);
 
   // Form state
   const [name, setName] = useState('');
@@ -419,26 +424,22 @@ export default function RegisterScreen() {
     }
   }
 
+  const animatedCardStyle = useAnimatedStyle(() => {
+    return {
+      backgroundColor: withTiming(colors.bgGlass, { duration: 400 }),
+      borderColor: withTiming(colors.border, { duration: 400 }),
+      shadowColor: withTiming(colors.cardShadow || '#000', { duration: 400 }),
+    };
+  });
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <SafeAreaView style={styles.screen}>
-      {/* Animated radial gradient background (web) */}
-      {Platform.OS === 'web' &&
-        React.createElement('div', {
-          'aria-hidden': true,
-          style: {
-            position: 'fixed',
-            inset: 0,
-            background: [
-              'radial-gradient(ellipse 70% 50% at 70% -5%, rgba(16,185,129,0.13) 0%, transparent 60%)',
-              'radial-gradient(ellipse 55% 40% at 15% 100%, rgba(14,165,233,0.07) 0%, transparent 60%)',
-              'linear-gradient(160deg, #060b14 0%, #0a0f1a 55%, #0d1525 100%)',
-            ].join(', '),
-            pointerEvents: 'none',
-            zIndex: 0,
-          },
-        })}
+      <View style={{ position: 'absolute', top: 16, right: 16, zIndex: 100 }}>
+        <ThemeToggle />
+      </View>
+      {/* Animated radial gradient background removed - handled by ThemeTransition */}
 
       {/* Subtle moving grid */}
       <GridMotion opacity={0.025} animDuration={28} zIndex={1} />
@@ -474,7 +475,7 @@ export default function RegisterScreen() {
                 'Secure, role-based access',
               ].map((feat) => (
                 <View key={feat} style={styles.brandFeatureRow}>
-                  <Ionicons name="checkmark-circle" size={16} color={COLORS.emerald} />
+                  <Ionicons name="checkmark-circle" size={16} color={colors.emerald} />
                   <Text style={styles.brandFeatureText}>{feat}</Text>
                 </View>
               ))}
@@ -485,10 +486,12 @@ export default function RegisterScreen() {
         {/* ── Glass registration card ──────────────────────────────────────── */}
         <Animated.View
           style={[
-            styles.card,
+            styles.cardBase,
             { opacity: cardFade, transform: [{ translateY: cardSlide }] },
           ]}
         >
+          <Reanimated.View style={[StyleSheet.absoluteFill, animatedCardStyle, { borderRadius: 20 }]} />
+          
           {/* Backdrop blur (web) */}
           {Platform.OS === 'web' &&
             React.createElement('div', {
@@ -602,7 +605,7 @@ export default function RegisterScreen() {
                   <Ionicons
                     name="alert-circle-outline"
                     size={16}
-                    color={COLORS.error}
+                    color={colors.error}
                     style={{ marginTop: 1 }}
                   />
                   <Text style={styles.errorText}>{serverError}</Text>
@@ -634,10 +637,10 @@ export default function RegisterScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: COLORS.bg,
+    backgroundColor: 'transparent',
     position: 'relative',
   },
 
@@ -678,16 +681,16 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 99,
-    backgroundColor: COLORS.emerald,
+    backgroundColor: colors.emerald,
   },
   brandName: {
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   brandTagline: {
-    color: COLORS.textSub,
+    color: colors.textSub,
     fontSize: 17,
     lineHeight: 28,
     fontWeight: '600',
@@ -702,7 +705,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   brandFeatureText: {
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -714,12 +717,11 @@ const styles = StyleSheet.create({
   },
 
   // Glass card
-  card: {
+  cardBase: {
     width: '100%',
     maxWidth: 460,
-    backgroundColor: COLORS.bgGlass,
-    borderColor: COLORS.border,
     borderWidth: 1,
+    borderColor: 'transparent',
     borderRadius: 20,
     overflow: 'hidden',
     zIndex: 5,
@@ -736,13 +738,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   headingText: {
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
     fontSize: 28,
     fontWeight: '800',
     letterSpacing: -0.7,
   },
   subtitle: {
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 22,
     marginBottom: 26,
@@ -750,7 +752,7 @@ const styles = StyleSheet.create({
 
   // Role selector
   sectionLabel: {
-    color: COLORS.textSub,
+    color: colors.textSub,
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.4,
@@ -777,7 +779,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: COLORS.errorDim,
+    backgroundColor: colors.errorDim,
     borderColor: 'rgba(239,68,68,0.25)',
     borderWidth: 1,
     borderRadius: RADIUS.sm,
@@ -786,20 +788,20 @@ const styles = StyleSheet.create({
   },
   errorText: {
     flex: 1,
-    color: COLORS.error,
+    color: colors.error,
     fontSize: 13,
     lineHeight: 20,
   },
 
   // Footer
   footerText: {
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     fontSize: 14,
     textAlign: 'center',
     marginTop: 22,
   },
   footerLink: {
-    color: COLORS.emerald,
+    color: colors.emerald,
     fontWeight: '700',
   },
 });

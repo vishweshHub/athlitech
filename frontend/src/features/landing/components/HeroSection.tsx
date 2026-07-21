@@ -13,6 +13,7 @@ import {
 
 import GridMotion from '@/components/animations/GridMotion';
 import CounterNumber from '@/components/animations/CounterNumber';
+import { useThemeColors } from '@/styles/tokens';
 
 const LOGIN_ROUTE = '/login' as Href;
 const REGISTER_ROUTE = '/register' as Href;
@@ -49,6 +50,8 @@ export default function HeroSection() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isNarrow = width < 768;
+  const colors = useThemeColors();
+  const styles = getStyles(colors);
 
   // ── Animated values ────────────────────────────────────────────────────────
   const badgeFade = useRef(new Animated.Value(0)).current;
@@ -223,10 +226,8 @@ export default function HeroSection() {
             position: 'absolute',
             inset: 0,
             background: [
-              'radial-gradient(ellipse 85% 55% at 50% -8%, rgba(16,185,129,0.20) 0%, transparent 62%)',
-              'radial-gradient(ellipse 55% 45% at 92% 88%, rgba(14,165,233,0.08) 0%, transparent 60%)',
-              'radial-gradient(ellipse 40% 35% at 8% 80%, rgba(124,58,237,0.06) 0%, transparent 55%)',
-              'linear-gradient(175deg, #060b14 0%, #080e1a 40%, #0c1424 100%)',
+              `radial-gradient(ellipse 85% 55% at 50% -8%, ${colors.emeraldGlow || 'rgba(16,185,129,0.20)'} 0%, transparent 62%)`,
+              `radial-gradient(ellipse 55% 45% at 92% 88%, ${colors.infoDim || 'rgba(14,165,233,0.08)'} 0%, transparent 60%)`,
             ].join(', '),
             pointerEvents: 'none',
             zIndex: 0,
@@ -241,8 +242,8 @@ export default function HeroSection() {
             position: 'absolute',
             inset: 0,
             backgroundImage: [
-              'linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px)',
-              'linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px)',
+              `linear-gradient(${colors.borderSubtle || 'rgba(255,255,255,0.028)'} 1px, transparent 1px)`,
+              `linear-gradient(90deg, ${colors.borderSubtle || 'rgba(255,255,255,0.028)'} 1px, transparent 1px)`,
             ].join(', '),
             backgroundSize: '76px 76px',
             WebkitMaskImage:
@@ -265,7 +266,7 @@ export default function HeroSection() {
             height: 440,
             borderRadius: '50%',
             background:
-              'radial-gradient(circle, rgba(16,185,129,0.14) 0%, rgba(16,185,129,0.05) 40%, transparent 72%)',
+              `radial-gradient(circle, ${colors.emeraldDim || 'rgba(16,185,129,0.14)'} 0%, transparent 72%)`,
             transform: 'translate(-50%, -50%)',
             pointerEvents: 'none',
             transition: 'opacity 0.5s ease',
@@ -442,10 +443,10 @@ export default function HeroSection() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   // ── Layout ────────────────────────────────────────────────────────────────
   section: {
-    backgroundColor: '#060b14',
+    backgroundColor: 'transparent',
     minHeight: 700,
     justifyContent: 'center',
     alignItems: 'center',
@@ -473,8 +474,8 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16,185,129,0.07)',
-    borderColor: 'rgba(16,185,129,0.18)',
+    backgroundColor: colors.emeraldDim || 'rgba(16,185,129,0.07)',
+    borderColor: colors.emeraldGlow || 'rgba(16,185,129,0.18)',
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 16,
@@ -486,10 +487,10 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 99,
-    backgroundColor: '#10b981',
+    backgroundColor: colors.emerald,
   },
   badgeText: {
-    color: '#10b981',
+    color: colors.emerald,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.2,
@@ -511,7 +512,7 @@ const styles = StyleSheet.create({
     marginBottom: 34,
   },
   headline: {
-    color: '#f2f7ff',
+    color: colors.textPrimary,
     fontWeight: '900',
     letterSpacing: -2,
   },
@@ -527,12 +528,12 @@ const styles = StyleSheet.create({
   },
   headlineAccent: {
     // Emerald for "Better."
-    color: '#10b981',
+    color: colors.emerald,
   },
 
   // ── Subheadline ───────────────────────────────────────────────────────────
   subheadline: {
-    color: '#5c6e8a',
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 30,
     marginBottom: 44,
@@ -568,23 +569,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#10b981',
+    backgroundColor: colors.emerald,
     borderRadius: 12,
     paddingHorizontal: 34,
     paddingVertical: 17,
     gap: 4,
-    shadowColor: '#10b981',
+    shadowColor: colors.emerald,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
     shadowRadius: 24,
     elevation: 12,
   },
   ctaPrimaryPressed: {
-    backgroundColor: '#059669',
+    backgroundColor: colors.emeraldPressed,
     shadowOpacity: 0.25,
   },
   ctaPrimaryText: {
-    color: '#ffffff',
+    color: '#ffffff', // Keep white for contrast on emerald
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.1,
@@ -599,29 +600,28 @@ const styles = StyleSheet.create({
   ctaSecondary: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 34,
     paddingVertical: 17,
-    backgroundColor: 'rgba(255,255,255,0.025)',
+    backgroundColor: colors.inputBg || 'rgba(255,255,255,0.025)',
   },
   ctaSecondaryPressed: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: colors.borderSubtle,
   },
   ctaSecondaryText: {
-    color: '#7a8fa8',
+    color: colors.textSub,
     fontSize: 16,
     fontWeight: '600',
   },
 
   // ── Stats strip ───────────────────────────────────────────────────────────
   statsRow: {
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.02)',
+    backgroundColor: colors.inputBg || 'rgba(255,255,255,0.02)',
   },
   statsRowNarrow: {
     flexDirection: 'column',
@@ -636,18 +636,18 @@ const styles = StyleSheet.create({
     paddingVertical: 22,
   },
   statItemBorder: {
-    borderRightColor: 'rgba(255,255,255,0.05)',
+    borderRightColor: colors.border,
     borderRightWidth: 1,
   },
   statNumber: {
-    color: '#10b981',
+    color: colors.emerald,
     fontSize: 28,
     fontWeight: '800',
     marginBottom: 5,
     letterSpacing: -0.5,
   },
   statLabel: {
-    color: '#3d5168',
+    color: colors.textDimmed,
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 1,

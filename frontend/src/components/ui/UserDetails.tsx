@@ -204,13 +204,13 @@ export default function UserDetails({
       {role === 'athlete' && (
         <View style={styles.metricsGrid}>
           <View style={styles.metricCol}>
-            <StatCard title="Assigned Workouts" value={athleteTotalWorkouts} suffix="total" trend="+12%" trendType="up" />
+            <StatCard label="Assigned Workouts" value={athleteTotalWorkouts} suffix="total" trend="+12%" trendDirection="up" />
           </View>
           <View style={styles.metricCol}>
-            <StatCard title="Completed Workouts" value={athleteCompletedWorkouts} suffix="completed" trend="+8%" trendType="up" />
+            <StatCard label="Completed Workouts" value={athleteCompletedWorkouts} suffix="completed" trend="+8%" trendDirection="up" />
           </View>
           <View style={styles.metricCol}>
-            <StatCard title="Completion Rate" value={athleteCompletionRate} suffix="%" trend="+5%" trendType="up" />
+            <StatCard label="Completion Rate" value={athleteCompletionRate} suffix="%" trend="+5%" trendDirection="up" />
           </View>
         </View>
       )}
@@ -218,13 +218,13 @@ export default function UserDetails({
       {role === 'coach' && (
         <View style={styles.metricsGrid}>
           <View style={styles.metricCol}>
-            <StatCard title="Assigned Athletes" value={coachTotalAthletes} suffix="athletes" />
+            <StatCard label="Assigned Athletes" value={coachTotalAthletes} suffix="athletes" />
           </View>
           <View style={styles.metricCol}>
-            <StatCard title="Workouts Assigned" value={coachTotalWorkouts} suffix="workouts" />
+            <StatCard label="Workouts Assigned" value={coachTotalWorkouts} suffix="workouts" />
           </View>
           <View style={styles.metricCol}>
-            <StatCard title="Workouts Completed" value={coachCompletedWorkouts} suffix="completed" />
+            <StatCard label="Workouts Completed" value={coachCompletedWorkouts} suffix="completed" />
           </View>
         </View>
       )}
@@ -232,13 +232,13 @@ export default function UserDetails({
       {role === 'admin' && (
         <View style={styles.metricsGrid}>
           <View style={styles.metricCol}>
-            <StatCard title="System Users" value={systemStats?.totalUsers ?? 12} suffix="total" />
+            <StatCard label="System Users" value={systemStats?.totalUsers ?? 12} suffix="total" />
           </View>
           <View style={styles.metricCol}>
-            <StatCard title="Coaches Registered" value={systemStats?.totalCoaches ?? 4} suffix="coaches" />
+            <StatCard label="Coaches Registered" value={systemStats?.totalCoaches ?? 4} suffix="coaches" />
           </View>
           <View style={styles.metricCol}>
-            <StatCard title="Athletes Registered" value={systemStats?.totalAthletes ?? 8} suffix="athletes" />
+            <StatCard label="Athletes Registered" value={systemStats?.totalAthletes ?? 8} suffix="athletes" />
           </View>
         </View>
       )}

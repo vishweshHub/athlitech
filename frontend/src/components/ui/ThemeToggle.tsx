@@ -1,17 +1,15 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-import { useTheme } from '@/context/ThemeContext';
-import { useThemeColors, RADIUS } from '@/styles/tokens';
+import { useTheme } from '@/theme/useTheme';
+import { RADIUS } from '@/theme/spacing';
 
 interface ThemeToggleProps {
   style?: ViewStyle;
 }
 
 export default function ThemeToggle({ style }: ThemeToggleProps) {
-  const { theme, toggleTheme } = useTheme();
-  const colors = useThemeColors();
+  const { theme, toggleTheme, colors } = useTheme();
   const rotateAnim = useRef(new Animated.Value(theme === 'dark' ? 0 : 1)).current;
 
   useEffect(() => {
@@ -41,6 +39,7 @@ export default function ThemeToggle({ style }: ThemeToggleProps) {
         {
           backgroundColor: colors.bgMid,
           borderColor: colors.border,
+          shadowColor: theme === 'dark' ? '#000' : colors.textPrimary,
         },
         style,
       ]}
@@ -54,7 +53,7 @@ export default function ThemeToggle({ style }: ThemeToggleProps) {
         <Ionicons
           name={theme === 'dark' ? 'moon-outline' : 'sunny-outline'}
           size={20}
-          color={theme === 'dark' ? '#fbbf24' : colors.emerald}
+          color={theme === 'dark' ? '#fbbf24' : colors.warning}
         />
       </Animated.View>
     </Pressable>
@@ -69,8 +68,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    // Subtle shadow
-    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,

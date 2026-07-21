@@ -18,6 +18,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { useThemeColors } from '@/styles/tokens';
 
 const PERSONAS = [
   {
@@ -121,6 +122,8 @@ function PersonaCard({
 }) {
   const [hovered, setHovered] = useState(false);
   const glowAnim = useRef(new Animated.Value(0)).current;
+  const colors = useThemeColors();
+  const styles = getStyles(colors);
 
   useEffect(() => {
     Animated.timing(glowAnim, {
@@ -193,6 +196,8 @@ export default function WhoItsForSection() {
   const { width } = useWindowDimensions();
   const isNarrow = width < 768;
   const isMid = width >= 768 && width < 1100;
+  const colors = useThemeColors();
+  const styles = getStyles(colors);
 
   const header = useScrollReveal(0);
   const card0 = useScrollReveal(60);
@@ -244,9 +249,9 @@ export default function WhoItsForSection() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.create({
   section: {
-    backgroundColor: '#0a0f1a',
+    backgroundColor: 'transparent',
     paddingVertical: 100,
     paddingHorizontal: 24,
     alignItems: 'center',
@@ -278,8 +283,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   pill: {
-    backgroundColor: 'rgba(16,185,129,0.12)',
-    borderColor: 'rgba(16,185,129,0.28)',
+    backgroundColor: colors.emeraldDim || 'rgba(16,185,129,0.12)',
+    borderColor: colors.emeraldGlow || 'rgba(16,185,129,0.28)',
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 16,
@@ -287,14 +292,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   pillText: {
-    color: '#10b981',
+    color: colors.emerald,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
   title: {
-    color: '#f0f4f8',
+    color: colors.textPrimary,
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 16,
@@ -302,9 +307,9 @@ const styles = StyleSheet.create({
   },
   titleNarrow: { fontSize: 28, lineHeight: 38 },
   titleWide: { fontSize: 42, lineHeight: 54 },
-  titleAccent: { color: '#10b981' },
+  titleAccent: { color: colors.emerald },
   subtitle: {
-    color: '#8a9ab5',
+    color: colors.textSub,
     fontSize: 16,
     lineHeight: 26,
     textAlign: 'center',
@@ -347,7 +352,7 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 14,
     borderWidth: 1,
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: colors.inputBg || 'rgba(0,0,0,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -375,7 +380,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   body: {
-    color: '#8a9ab5',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 22,
     marginBottom: 20,
@@ -386,15 +391,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tag: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.inputBg || 'rgba(255,255,255,0.06)',
+    borderColor: colors.borderSubtle || 'rgba(255,255,255,0.1)',
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   tagText: {
-    color: '#6b7280',
+    color: colors.textDimmed,
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.3,

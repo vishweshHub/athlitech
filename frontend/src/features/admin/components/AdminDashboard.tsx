@@ -39,7 +39,7 @@ import {
   Input,
   Card,
   Badge,
-  StatCard,
+  SummaryCard,
   SearchBar,
   Table,
   ThemeToggle,
@@ -160,11 +160,11 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
         { athlete_id: '6', name: 'Ryan Miller', sport: 'Hurdles', weight: '76', coach_id: '' },
       ]);
       setWorkouts([
-        { workout_id: 'w1', athlete_id: '4', title: '100m Interval Sprints', status: 'completed', date: '2026-07-10', completed_at: '2026-07-10' },
-        { workout_id: 'w2', athlete_id: '5', title: 'Start Block Acceleration', status: 'pending', date: '2026-07-14' },
+        { workout_id: 'w1', athlete_id: '4', coach_id: 'c1', title: '100m Interval Sprints', status: 'completed', exercises: [], date: '2026-07-10', created_at: '2026-07-10', completed_at: '2026-07-10' },
+        { workout_id: 'w2', athlete_id: '5', coach_id: 'c1', title: 'Start Block Acceleration', status: 'pending', exercises: [], date: '2026-07-14', created_at: '2026-07-14' },
       ]);
       setPerformances([
-        { performance_id: 'p1', athlete_id: '4', sport_event: '100m Sprint', value: 10.45, unit: 's', recorded_at: '2026-07-10' },
+        { performance_id: 'p1', athlete_id: '4', coach_id: 'c1', sport_event: '100m Sprint', value: 10.45, unit: 's', recorded_at: '2026-07-10', created_at: '2026-07-10' },
       ]);
     } finally {
       setIsLoadingData(false);
@@ -655,25 +655,15 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                   <>
                     {/* Summary Cards */}
                     <View style={styles.metricsContainer}>
-                      <StatCard
-                        label="Total Users"
-                        value={totalUsers}
-                        delay={0}
-                      />
-                      <StatCard
-                        label="Coaches"
-                        value={totalCoaches}
-                        delay={80}
-                      />
-                      <StatCard
-                        label="Athletes"
-                        value={totalAthletes}
-                        delay={160}
-                      />
-                      <StatCard
-                        label="Roles"
-                        value={totalRoles}
-                        delay={240}
+                      <SummaryCard
+                        title="Dashboard Summary"
+                        iconName="stats-chart-outline"
+                        metrics={[
+                          { label: 'Total Users', value: totalUsers },
+                          { label: 'Coaches', value: totalCoaches },
+                          { label: 'Athletes', value: totalAthletes },
+                          { label: 'Roles', value: totalRoles },
+                        ]}
                       />
                     </View>
 
@@ -1370,7 +1360,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
 const getStyles = (colors: any, isLargeScreen: boolean) => StyleSheet.create({
   wrapper: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: 'transparent',
   },
   mainContainer: {
     flex: 1,
@@ -1527,7 +1517,7 @@ const getStyles = (colors: any, isLargeScreen: boolean) => StyleSheet.create({
   },
   content: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: 'transparent',
   },
   contentInner: {
     maxWidth: 1400,
@@ -1705,6 +1695,13 @@ const getStyles = (colors: any, isLargeScreen: boolean) => StyleSheet.create({
   currentUserRoleText: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  smallLabel: {
+    color: colors.textSub,
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   dropdownContainer: {
     position: 'relative',

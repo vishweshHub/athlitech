@@ -12,6 +12,7 @@ import {
 import AthleteDashboard from '@/features/athletes/pages/AthleteDashboardScreen';
 import CoachDashboard from '@/features/coaches/pages/CoachDashboardScreen';
 import AdminDashboard from '@/features/admin/components/AdminDashboard';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 import type { AuthUser } from '@/api/auth';
 import {
   clearStoredToken,
@@ -128,11 +129,14 @@ export default function DashboardScreen() {
             <Text style={styles.title}>Dashboard</Text>
           </View>
 
-          <Pressable
-            onPress={handleSignOut}
-            style={({ pressed }) => [styles.secondaryButton, pressed ? styles.buttonPressed : null]}>
-            <Text style={styles.secondaryButtonText}>Sign out</Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <ThemeToggle />
+            <Pressable
+              onPress={handleSignOut}
+              style={({ pressed }) => [styles.secondaryButton, pressed ? styles.buttonPressed : null]}>
+              <Text style={styles.secondaryButtonText}>Sign out</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.panel}>
@@ -151,7 +155,7 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#f4f7fb',
+    backgroundColor: 'transparent',
   },
   centeredStatus: {
     flex: 1,

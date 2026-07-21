@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { StyleProp, StyleSheet, Text, View, ViewStyle, useWindowDimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import Card from './Card';
@@ -28,12 +28,22 @@ export default function StatCard({
   style,
 }: StatCardProps) {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+
+  // Desktop (4 cols), Tablet (2 cols), Mobile (1 col)
+  // Percentages account for the 16px gap in the flexWrap container
+  let cardWidth: string | number = '100%';
+  if (width >= 1024) {
+    cardWidth = Platform.OS === 'web' ? 'calc(25% - 12px)' : '23.5%';
+  } else if (width >= 768) {
+    cardWidth = Platform.OS === 'web' ? 'calc(50% - 8px)' : '48%';
+  }
 
   const trendColor = trendDirection === 'up' ? colors.success : colors.error;
   const trendIcon = trendDirection === 'up' ? 'arrow-up' : 'arrow-down';
 
   return (
-    <Card delay={delay} animated style={[styles.card, style]}>
+    <Card delay={delay} animated style={[styles.card, { width: cardWidth as any }, style]}>
       <View style={styles.content}>
         <Text style={[styles.label, { color: colors.textSub }]}>{label}</Text>
         
@@ -62,8 +72,7 @@ export default function StatCard({
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
-    minWidth: 200,
+    // Width handled dynamically by useWindowDimensions
   },
   content: {
     flexDirection: 'column',
