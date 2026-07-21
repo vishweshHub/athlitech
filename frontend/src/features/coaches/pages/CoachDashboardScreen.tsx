@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Platform,
   Pressable,
@@ -33,6 +34,7 @@ import {
   ThemeToggle,
   EmptyState,
   SkeletonLoader,
+  OnboardingBanner,
 } from '@/components/ui';
 import { useThemeColors } from '@/styles/tokens';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -565,6 +567,16 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                 {/* ── DASHBOARD TAB ── */}
                 {activeTab === 'dashboard' && (
                   <>
+                    <OnboardingBanner
+                      isVisible={true}
+                      title="Welcome to AthliTech! 👋"
+                      description="Your account has been created successfully. Complete your profile to unlock your full coaching experience."
+                      buttonLabel="Complete Profile"
+                      onAction={() => {
+                        Alert.alert("Coming Soon", "The Complete Profile module is currently under construction.");
+                      }}
+                    />
+
                     {/* Stat Cards Row */}
                     <View style={styles.metricsContainer}>
                       <SummaryCard

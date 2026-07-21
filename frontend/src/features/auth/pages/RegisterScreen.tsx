@@ -34,6 +34,7 @@ import GridMotion from '@/components/animations/GridMotion';
 import SplitText from '@/components/animations/SplitText';
 import GlassInput from '@/components/ui/GlassInput';
 import PressButton from '@/components/ui/PressButton';
+import SearchableDropdown from '@/components/ui/SearchableDropdown';
 import { RADIUS, SHADOW, useThemeColors } from '@/styles/tokens';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -334,16 +335,22 @@ export default function RegisterScreen() {
 
   // Form state
   const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [selectedRole, setSelectedRole] = useState<Role>('athlete');
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Touch tracking — only show errors after field has been interacted with
   const [touchedName, setTouchedName] = useState(false);
+  const [touchedFirstName, setTouchedFirstName] = useState(false);
+  const [touchedLastName, setTouchedLastName] = useState(false);
   const [touchedEmail, setTouchedEmail] = useState(false);
   const [touchedPassword, setTouchedPassword] = useState(false);
   const [touchedConfirm, setTouchedConfirm] = useState(false);
+  const [touchedTerms, setTouchedTerms] = useState(false);
 
   const [serverError, setServerError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -374,6 +381,8 @@ export default function RegisterScreen() {
   // ── Derived validation ──────────────────────────────────────────────────────
 
   const nameError = touchedName && !name.trim() ? 'Full name is required.' : '';
+  const firstNameError = touchedFirstName && !firstName.trim() ? 'First name is required.' : '';
+  const lastNameError = touchedLastName && !lastName.trim() ? 'Last name is required.' : '';
   const emailError =
     touchedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
       ? 'Enter a valid email address.'
@@ -383,21 +392,30 @@ export default function RegisterScreen() {
   const confirmError =
     touchedConfirm && password !== confirmPassword ? 'Passwords do not match.' : '';
 
-  const isFormValid =
-    name.trim() !== '' &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) &&
-    validatePassword(password) === null &&
-    password === confirmPassword &&
-    selectedRole !== undefined;
+  const isFormValid = selectedRole === 'coach'
+    ? firstName.trim() !== '' &&
+      lastName.trim() !== '' &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) &&
+      validatePassword(password) === null &&
+      password === confirmPassword &&
+      termsAccepted
+    : name.trim() !== '' &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) &&
+      validatePassword(password) === null &&
+      password === confirmPassword &&
+      termsAccepted;
 
   // ── Submit ──────────────────────────────────────────────────────────────────
 
   async function handleRegister() {
     // Touch all fields to show any remaining errors
     setTouchedName(true);
+    setTouchedFirstName(true);
+    setTouchedLastName(true);
     setTouchedEmail(true);
     setTouchedPassword(true);
     setTouchedConfirm(true);
+    setTouchedTerms(true);
     setServerError('');
 
     if (!isFormValid) return;
@@ -405,7 +423,7 @@ export default function RegisterScreen() {
     setIsLoading(true);
     try {
       await registerUser({
-        name: name.trim(),
+        name: selectedRole === 'coach' ? `${firstName.trim()} ${lastName.trim()}` : name.trim(),
         email: email.trim().toLowerCase(),
         password,
         role: selectedRole, // strictly 'athlete' | 'coach'
@@ -545,59 +563,151 @@ export default function RegisterScreen() {
 
             {/* ── Form fields ──────────────────────────────────────────────── */}
             <View style={styles.form}>
-              <GlassInput
-                label="Full Name"
-                value={name}
-                onChangeText={setName}
-                placeholder="Jane Smith"
-                autoCapitalize="words"
-                autoComplete="name"
-                error={nameError || undefined}
-                onBlur={() => setTouchedName(true)}
-              />
+              {selectedRole === 'coach' ? (
+                <>
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <GlassInput
+                        label="First Name *"
+                        value={firstName}
+                        onChangeText={setFirstName}
+                        placeholder="Jane"
+                        autoCapitalize="words"
+                        error={firstNameError || undefined}
+                        onBlur={() => setTouchedFirstName(true)}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <GlassInput
+                        label="Last Name *"
+                        value={lastName}
+                        onChangeText={setLastName}
+                        placeholder="Smith"
+                        autoCapitalize="words"
+                        error={lastNameError || undefined}
+                        onBlur={() => setTouchedLastName(true)}
+                      />
+                    </View>
+                  </View>
+                  
+                  <GlassInput
+                    label="Email Address *"
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="you@example.com"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    keyboardType="email-address"
+                    error={emailError || undefined}
+                    onBlur={() => setTouchedEmail(true)}
+                  />
+                  
+                  <View style={{ marginBottom: 18 }}>
+                    <GlassInput
+                      label="Password *"
+                      value={password}
+                      onChangeText={(v) => {
+                        setPassword(v);
+                        if (!touchedPassword) setTouchedPassword(true);
+                      }}
+                      placeholder="8–20 chars, A-Z, 0-9, !@#$"
+                      password
+                      error={passwordError || undefined}
+                      onBlur={() => setTouchedPassword(true)}
+                      containerStyle={{ marginBottom: 0 }}
+                    />
+                    <StrengthBar strength={passwordStrength} />
+                  </View>
 
-              <GlassInput
-                label="Email Address"
-                value={email}
-                onChangeText={setEmail}
-                placeholder="you@example.com"
-                autoCapitalize="none"
-                autoComplete="email"
-                keyboardType="email-address"
-                error={emailError || undefined}
-                onBlur={() => setTouchedEmail(true)}
-              />
+                  <GlassInput
+                    label="Confirm Password *"
+                    value={confirmPassword}
+                    onChangeText={(v) => {
+                      setConfirmPassword(v);
+                      if (!touchedConfirm) setTouchedConfirm(true);
+                    }}
+                    placeholder="Repeat your password"
+                    password
+                    error={confirmError || undefined}
+                    onBlur={() => setTouchedConfirm(true)}
+                  />
+                </>
+              ) : (
+                <>
+                  <GlassInput
+                    label="Full Name"
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="Jane Smith"
+                    autoCapitalize="words"
+                    autoComplete="name"
+                    error={nameError || undefined}
+                    onBlur={() => setTouchedName(true)}
+                  />
 
-              {/* Password with strength bar */}
-              <View style={{ marginBottom: 18 }}>
-                <GlassInput
-                  label="Password"
-                  value={password}
-                  onChangeText={(v) => {
-                    setPassword(v);
-                    if (!touchedPassword) setTouchedPassword(true);
-                  }}
-                  placeholder="8–20 chars, A-Z, 0-9, !@#$"
-                  password
-                  error={passwordError || undefined}
-                  onBlur={() => setTouchedPassword(true)}
-                  containerStyle={{ marginBottom: 0 }}
-                />
-                <StrengthBar strength={passwordStrength} />
-              </View>
+                  <GlassInput
+                    label="Email Address"
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="you@example.com"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    keyboardType="email-address"
+                    error={emailError || undefined}
+                    onBlur={() => setTouchedEmail(true)}
+                  />
 
-              <GlassInput
-                label="Confirm Password"
-                value={confirmPassword}
-                onChangeText={(v) => {
-                  setConfirmPassword(v);
-                  if (!touchedConfirm) setTouchedConfirm(true);
+                  {/* Password with strength bar */}
+                  <View style={{ marginBottom: 18 }}>
+                    <GlassInput
+                      label="Password"
+                      value={password}
+                      onChangeText={(v) => {
+                        setPassword(v);
+                        if (!touchedPassword) setTouchedPassword(true);
+                      }}
+                      placeholder="8–20 chars, A-Z, 0-9, !@#$"
+                      password
+                      error={passwordError || undefined}
+                      onBlur={() => setTouchedPassword(true)}
+                      containerStyle={{ marginBottom: 0 }}
+                    />
+                    <StrengthBar strength={passwordStrength} />
+                  </View>
+
+                  <GlassInput
+                    label="Confirm Password"
+                    value={confirmPassword}
+                    onChangeText={(v) => {
+                      setConfirmPassword(v);
+                      if (!touchedConfirm) setTouchedConfirm(true);
+                    }}
+                    placeholder="Repeat your password"
+                    password
+                    error={confirmError || undefined}
+                    onBlur={() => setTouchedConfirm(true)}
+                  />
+                </>
+              )}
+
+              {/* Terms Checkbox */}
+              <Pressable
+                style={styles.checkboxRow}
+                onPress={() => {
+                  setTermsAccepted(!termsAccepted);
+                  setTouchedTerms(true);
                 }}
-                placeholder="Repeat your password"
-                password
-                error={confirmError || undefined}
-                onBlur={() => setTouchedConfirm(true)}
-              />
+              >
+                <View style={[styles.checkbox, termsAccepted && styles.checkboxActive]}>
+                  {termsAccepted && <Ionicons name="checkmark" size={14} color="#fff" />}
+                </View>
+                <Text style={styles.checkboxLabel}>
+                  I agree to the Terms & Conditions and Privacy Policy.
+                </Text>
+              </Pressable>
+              {!termsAccepted && touchedTerms && (
+                <Text style={styles.errorTextSmall}>You must accept the terms.</Text>
+              )}
 
               {/* Server-side error */}
               {serverError ? (
@@ -614,7 +724,7 @@ export default function RegisterScreen() {
 
               <PressButton
                 id="register-submit"
-                label="Create account"
+                label={selectedRole === 'coach' ? "Create Coach Account" : "Create account"}
                 onPress={handleRegister}
                 loading={isLoading}
                 disabled={!isFormValid}
@@ -803,5 +913,38 @@ const getStyles = (colors: ReturnType<typeof useThemeColors>) => StyleSheet.crea
   footerLink: {
     color: colors.emerald,
     fontWeight: '700',
+  },
+  
+  // Checkbox
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxActive: {
+    backgroundColor: colors.emerald,
+    borderColor: colors.emerald,
+  },
+  checkboxLabel: {
+    color: colors.textSub,
+    fontSize: 13,
+    flex: 1,
+  },
+  errorTextSmall: {
+    color: colors.error,
+    fontSize: 12,
+    marginTop: -10,
+    marginBottom: 16,
   },
 });
