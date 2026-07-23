@@ -572,13 +572,11 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                 {activeTab === 'dashboard' && (
                   <>
                     <OnboardingBanner
-                      isVisible={true}
+                      isVisible={!user?.profile_completed}
                       title="Welcome to AthliTech! 👋"
                       description="Your account has been created successfully. Complete your profile to unlock your full coaching experience."
                       buttonLabel="Complete Profile"
-                      onAction={() => {
-                        Alert.alert("Coming Soon", "The Complete Profile module is currently under construction.");
-                      }}
+                      onAction={() => router.push('/complete-profile')}
                     />
 
                     {/* Stat Cards Row */}

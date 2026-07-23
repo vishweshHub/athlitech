@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useThemeColors, RADIUS } from '@/styles/tokens';
 
-interface InputProps extends Omit<TextInputProps, 'style'> {
+interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
   /** If true, adds a password visibility toggle */
@@ -85,7 +85,7 @@ export default function Input({
         ]}
       >
         <TextInput
-          style={[styles.input, { color: colors.textPrimary }]}
+          style={[styles.input, { color: colors.textPrimary }, rest.style]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}

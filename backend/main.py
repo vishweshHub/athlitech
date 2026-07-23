@@ -11,6 +11,7 @@ from services.role_service import seed_default_roles
 from services.user_seed_service import seed_demo_users
 from routes.performance_routes import router as performance_router
 from routes.dashboard_routes import router as dashboard_router
+from routes.profile_routes import router as profile_router
 
 app = FastAPI(
     title="AthliTech API",
@@ -23,6 +24,7 @@ app = FastAPI(
         {"name": "Performance"},
         {"name": "Workouts"},
         {"name": "Dashboard"},
+        {"name": "Profile"},
     ]
 )
 
@@ -41,6 +43,7 @@ app.include_router(role_router)
 app.include_router(workout_router)
 app.include_router(performance_router)
 app.include_router(dashboard_router)
+app.include_router(profile_router)
 
 
 @app.on_event("startup")

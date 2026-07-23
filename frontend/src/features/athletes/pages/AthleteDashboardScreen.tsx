@@ -33,7 +33,10 @@ import {
   EmptyState,
   StatsGrid,
   StatsGridItem,
+  OnboardingBanner,
 } from '@/components/ui';
+import RecommendedWorkoutsCard from '../components/RecommendedWorkoutsCard';
+import { fetchWorkoutRecommendations, WorkoutRecommendation } from '@/api/profile';
 import { useThemeColors } from '@/styles/tokens';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -78,6 +81,9 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
   const [performances, setPerformances] = useState<PerformanceRecord[]>([]);
   const [isPerfLoading, setIsPerfLoading] = useState(false);
   const [perfError, setPerfError] = useState<string | null>(null);
+
+  // Workout Recommendations
+  const [recommendations, setRecommendations] = useState<WorkoutRecommendation[]>([]);
 
   // Completion modal
   const [selectedWorkoutForCompletion, setSelectedWorkoutForCompletion] = useState<Workout | null>(null);
@@ -126,6 +132,15 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
 
       const workoutsData = await fetchAthleteWorkouts(token, athleteId);
       setWorkouts(workoutsData);
+
+      if (user?.profile_completed) {
+        try {
+          const recs = await fetchWorkoutRecommendations(token);
+          setRecommendations(recs);
+        } catch (recErr) {
+          console.warn('Failed to fetch workout recommendations:', recErr);
+        }
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to load dashboard data';
       console.warn('Error loading athlete dashboard data:', e);
@@ -400,6 +415,13 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                 {/* ── DASHBOARD TAB ── */}
                 {activeTab === 'dashboard' && (
                   <>
+                    <OnboardingBanner
+                      isVisible={!user?.profile_completed}
+                      title="Welcome to AthliTech! 👋"
+                      description="Your account has been created successfully. Complete your profile to unlock personalized workout recommendations & tracking."
+                      buttonLabel="Complete Profile"
+                      onAction={() => router.push('/complete-profile')}
+                    />
                     {/* Welcome Banner */}
                     <Card style={[styles.section, { marginBottom: 24 }]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
@@ -441,6 +463,11 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                         />
                       </StatsGridItem>
                     </StatsGrid>
+
+                    {/* Unlocked Workout Recommendations Card */}
+                    {user?.profile_completed && (
+                      <RecommendedWorkoutsCard recommendations={recommendations} />
+                    )}
 
                     {/* Workout Breakdown Card */}
                     <StatsGrid gap={16} style={{ marginBottom: 24 }}>

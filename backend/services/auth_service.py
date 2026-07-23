@@ -153,7 +153,8 @@ async def get_current_user(credentials=Depends(bearer_scheme)):
         "id": str(user["_id"]),
         "name": user["name"],
         "email": user["email"],
-        "role": normalize_role(user.get("role", "athlete"))
+        "role": normalize_role(user.get("role", "athlete")),
+        "profile_completed": user.get("profile_completed", False),
     }
 
 

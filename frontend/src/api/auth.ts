@@ -9,6 +9,7 @@ export type AuthUser = {
   email: string;
   role: string;
   coach_id?: string;
+  profile_completed?: boolean;
 };
 
 export type LoginResult = {
