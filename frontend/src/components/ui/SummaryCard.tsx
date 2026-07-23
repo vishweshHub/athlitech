@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import Card from './Card';
 import CounterNumber from '@/components/animations/CounterNumber';
+import { StatsGrid, StatsGridItem } from './ResponsiveGrid';
 import { useThemeColors } from '@/styles/tokens';
 
 export interface SummaryMetric {
@@ -38,9 +39,9 @@ export default function SummaryCard({
         </View>
       </View>
       
-      <View style={styles.derivedStatsContainer}>
+      <StatsGrid gap={12}>
         {metrics.map((metric, index) => (
-          <View key={index} style={[styles.derivedStatBox, { backgroundColor: colors.bgMid }]}>
+          <StatsGridItem key={index} minWidth={120} style={[styles.derivedStatBox, { backgroundColor: colors.bgMid }]}>
             <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
               <CounterNumber
                 target={metric.value}
@@ -52,9 +53,9 @@ export default function SummaryCard({
               />
             </View>
             <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>{metric.label}</Text>
-          </View>
+          </StatsGridItem>
         ))}
-      </View>
+      </StatsGrid>
     </Card>
   );
 }

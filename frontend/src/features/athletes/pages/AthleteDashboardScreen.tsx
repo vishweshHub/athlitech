@@ -31,6 +31,8 @@ import {
   Table,
   ThemeToggle,
   EmptyState,
+  StatsGrid,
+  StatsGridItem,
 } from '@/components/ui';
 import { useThemeColors } from '@/styles/tokens';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -425,73 +427,79 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                     </Card>
 
                     {/* Stat Cards */}
-                    <View style={styles.metricsContainer}>
-                      <SummaryCard
-                        title="Dashboard Summary"
-                        iconName="stats-chart-outline"
-                        metrics={[
-                          { label: 'Total Workouts', value: totalWorkouts },
-                          { label: 'Completed', value: completedWorkouts },
-                          { label: 'Pending', value: pendingWorkouts },
-                          { label: 'Completion Rate', value: completionRate, suffix: '%' },
-                        ]}
-                      />
-                    </View>
+                    <StatsGrid gap={16} style={{ marginBottom: 24 }}>
+                      <StatsGridItem minWidth={300}>
+                        <SummaryCard
+                          title="Dashboard Summary"
+                          iconName="stats-chart-outline"
+                          metrics={[
+                            { label: 'Total Workouts', value: totalWorkouts },
+                            { label: 'Completed', value: completedWorkouts },
+                            { label: 'Pending', value: pendingWorkouts },
+                            { label: 'Completion Rate', value: completionRate, suffix: '%' },
+                          ]}
+                        />
+                      </StatsGridItem>
+                    </StatsGrid>
 
                     {/* Workout Breakdown Card */}
-                    <View style={styles.metricsContainer}>
-                      <Card style={{ flex: 1 }}>
-                        <View style={styles.metricHeader}>
-                          <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>Workout Status</Text>
-                          <View style={[styles.iconWrapper, { backgroundColor: colors.infoDim }]}>
-                            <Ionicons name="barbell-outline" size={20} color={colors.info} />
+                    <StatsGrid gap={16} style={{ marginBottom: 24 }}>
+                      <StatsGridItem minWidth={300}>
+                        <Card style={{ flex: 1, height: '100%' }}>
+                          <View style={styles.metricHeader}>
+                            <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>Workout Status</Text>
+                            <View style={[styles.iconWrapper, { backgroundColor: colors.infoDim }]}>
+                              <Ionicons name="barbell-outline" size={20} color={colors.info} />
+                            </View>
                           </View>
-                        </View>
-                        <View style={styles.derivedStatsContainer}>
-                          <View style={styles.derivedStatBox}>
-                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{pendingWorkouts}</Text>
-                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Pending</Text>
+                          <View style={styles.derivedStatsContainer}>
+                            <View style={styles.derivedStatBox}>
+                              <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{pendingWorkouts}</Text>
+                              <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Pending</Text>
+                            </View>
+                            <View style={styles.derivedStatBox}>
+                              <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{completedWorkouts}</Text>
+                              <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Completed</Text>
+                            </View>
+                            <View style={styles.derivedStatBox}>
+                              <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{skippedWorkouts}</Text>
+                              <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Skipped</Text>
+                            </View>
                           </View>
-                          <View style={styles.derivedStatBox}>
-                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{completedWorkouts}</Text>
-                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Completed</Text>
-                          </View>
-                          <View style={styles.derivedStatBox}>
-                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{skippedWorkouts}</Text>
-                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Skipped</Text>
-                          </View>
-                        </View>
-                      </Card>
+                        </Card>
+                      </StatsGridItem>
 
                       {/* Coach Card */}
-                      <Card style={{ flex: 1 }}>
-                        <View style={styles.metricHeader}>
-                          <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>My Coach</Text>
-                          <View style={[styles.iconWrapper, { backgroundColor: colors.emeraldDim }]}>
-                            <Ionicons name="person-circle-outline" size={20} color={colors.emerald} />
-                          </View>
-                        </View>
-                        {coach ? (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 }}>
-                            <View style={[styles.coachAvatar, { backgroundColor: colors.emeraldDim, borderColor: colors.borderEmerald }]}>
-                              <Text style={[styles.avatarText, { color: colors.emerald }]}>
-                                {coach.name.charAt(0).toUpperCase()}
-                              </Text>
-                            </View>
-                            <View style={{ flex: 1 }}>
-                              <Text style={[styles.coachName, { color: colors.textPrimary }]}>{coach.name}</Text>
-                              <Text style={[styles.coachEmail, { color: colors.textSub }]}>{coach.email}</Text>
-                              <Badge label="Coach" variant="success" />
+                      <StatsGridItem minWidth={300}>
+                        <Card style={{ flex: 1, height: '100%' }}>
+                          <View style={styles.metricHeader}>
+                            <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>My Coach</Text>
+                            <View style={[styles.iconWrapper, { backgroundColor: colors.emeraldDim }]}>
+                              <Ionicons name="person-circle-outline" size={20} color={colors.emerald} />
                             </View>
                           </View>
-                        ) : (
-                          <View style={{ alignItems: 'center', paddingVertical: 16 }}>
-                            <Ionicons name="person-outline" size={32} color={colors.textMuted} />
-                            <Text style={[{ fontSize: 13, color: colors.textMuted, marginTop: 8 }]}>No coach assigned yet</Text>
-                          </View>
-                        )}
-                      </Card>
-                    </View>
+                          {coach ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 }}>
+                              <View style={[styles.coachAvatar, { backgroundColor: colors.emeraldDim, borderColor: colors.borderEmerald }]}>
+                                <Text style={[styles.avatarText, { color: colors.emerald }]}>
+                                  {coach.name.charAt(0).toUpperCase()}
+                                </Text>
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={[styles.coachName, { color: colors.textPrimary }]}>{coach.name}</Text>
+                                <Text style={[styles.coachEmail, { color: colors.textSub }]}>{coach.email}</Text>
+                                <Badge label="Coach" variant="success" />
+                              </View>
+                            </View>
+                          ) : (
+                            <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+                              <Ionicons name="person-outline" size={32} color={colors.textMuted} />
+                              <Text style={[{ fontSize: 13, color: colors.textMuted, marginTop: 8 }]}>No coach assigned yet</Text>
+                            </View>
+                          )}
+                        </Card>
+                      </StatsGridItem>
+                    </StatsGrid>
 
                     {/* Recent workouts preview */}
                     {workouts.length > 0 && (
@@ -532,28 +540,32 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                     {/* Quick Actions */}
                     <View style={styles.section}>
                       <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Quick Actions</Text>
-                      <View style={styles.actionGrid}>
-                        <Pressable
-                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
-                          onPress={() => setActiveTab('workouts')}
-                        >
-                          <Ionicons name="barbell-outline" size={32} color={colors.info} />
-                          <Text style={styles.actionCardTitle}>My Workouts</Text>
-                          <Text style={styles.actionCardDesc}>
-                            View and update the status of your assigned workout plans.
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
-                          onPress={() => setActiveTab('performance')}
-                        >
-                          <Ionicons name="speedometer" size={32} color={colors.warning} />
-                          <Text style={styles.actionCardTitle}>Performance History</Text>
-                          <Text style={styles.actionCardDesc}>
-                            Track your progress and review coach feedback.
-                          </Text>
-                        </Pressable>
-                      </View>
+                      <StatsGrid gap={16} style={{ marginTop: 12 }}>
+                        <StatsGridItem minWidth={260}>
+                          <Pressable
+                            style={styles.actionCard}
+                            onPress={() => setActiveTab('workouts')}
+                          >
+                            <Ionicons name="barbell-outline" size={32} color={colors.info} />
+                            <Text style={styles.actionCardTitle}>My Workouts</Text>
+                            <Text style={styles.actionCardDesc}>
+                              View and update the status of your assigned workout plans.
+                            </Text>
+                          </Pressable>
+                        </StatsGridItem>
+                        <StatsGridItem minWidth={260}>
+                          <Pressable
+                            style={styles.actionCard}
+                            onPress={() => setActiveTab('performance')}
+                          >
+                            <Ionicons name="speedometer" size={32} color={colors.warning} />
+                            <Text style={styles.actionCardTitle}>Performance History</Text>
+                            <Text style={styles.actionCardDesc}>
+                              Track your progress and review coach feedback.
+                            </Text>
+                          </Pressable>
+                        </StatsGridItem>
+                      </StatsGrid>
                     </View>
                   </>
                 )}

@@ -11,3 +11,4 @@ export { default as SkeletonLoader } from './SkeletonLoader';
 export { default as ThemeToggle } from './ThemeToggle';
 export { default as UserDetails } from './UserDetails';
 export { default as OnboardingBanner } from './OnboardingBanner';
+export * from './ResponsiveGrid';

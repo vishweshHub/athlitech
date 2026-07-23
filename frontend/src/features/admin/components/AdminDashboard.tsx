@@ -43,6 +43,10 @@ import {
   SearchBar,
   Table,
   ThemeToggle,
+  StatsGrid,
+  StatsGridItem,
+  CollectionGrid,
+  CollectionGridItem,
 } from '@/components/ui';
 import { useThemeColors } from '@/styles/tokens';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -653,66 +657,72 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                 {/* Dashboard Tab */}
                 {activeTab === 'dashboard' && (
                   <>
-                    {/* Summary Cards */}
-                    <View style={styles.metricsContainer}>
-                      <SummaryCard
-                        title="Dashboard Summary"
-                        iconName="stats-chart-outline"
-                        metrics={[
-                          { label: 'Total Users', value: totalUsers },
-                          { label: 'Coaches', value: totalCoaches },
-                          { label: 'Athletes', value: totalAthletes },
-                          { label: 'Roles', value: totalRoles },
-                        ]}
-                      />
-                    </View>
+                    {/* Stat Cards Row */}
+                    <StatsGrid gap={16} style={{ marginBottom: 24 }}>
+                      <StatsGridItem minWidth={300}>
+                        <SummaryCard
+                          title="Dashboard Summary"
+                          iconName="stats-chart-outline"
+                          metrics={[
+                            { label: 'Total Users', value: totalUsers },
+                            { label: 'Coaches', value: totalCoaches },
+                            { label: 'Athletes', value: totalAthletes },
+                            { label: 'Roles', value: totalRoles },
+                          ]}
+                        />
+                      </StatsGridItem>
+                    </StatsGrid>
 
                     {/* Additional Summary Cards */}
-                    <View style={styles.metricsContainer}>
+                    <StatsGrid gap={16} style={{ marginBottom: 24 }}>
                       {/* Workouts Overview Card */}
-                      <Card style={{ flex: 1 }}>
-                        <View style={styles.metricHeader}>
-                          <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>Workouts Overview</Text>
-                          <View style={[styles.iconWrapper, { backgroundColor: colors.infoDim }]}>
-                            <Ionicons name="barbell-outline" size={20} color={colors.info} />
+                      <StatsGridItem minWidth={300}>
+                        <Card style={{ flex: 1, height: '100%' }}>
+                          <View style={styles.metricHeader}>
+                            <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>Workouts Overview</Text>
+                            <View style={[styles.iconWrapper, { backgroundColor: colors.infoDim }]}>
+                              <Ionicons name="barbell-outline" size={20} color={colors.info} />
+                            </View>
                           </View>
-                        </View>
-                        <View style={styles.derivedStatsContainer}>
-                          <View style={styles.derivedStatBox}>
-                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{workouts.length}</Text>
-                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Total</Text>
+                          <View style={styles.derivedStatsContainer}>
+                            <View style={styles.derivedStatBox}>
+                              <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{workouts.length}</Text>
+                              <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Total</Text>
+                            </View>
+                            <View style={styles.derivedStatBox}>
+                              <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{workouts.filter(w => w.status === 'pending').length}</Text>
+                              <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Pending</Text>
+                            </View>
+                            <View style={styles.derivedStatBox}>
+                              <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{workouts.filter(w => w.status === 'completed').length}</Text>
+                              <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Completed</Text>
+                            </View>
                           </View>
-                          <View style={styles.derivedStatBox}>
-                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{workouts.filter(w => w.status === 'pending').length}</Text>
-                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Pending</Text>
-                          </View>
-                          <View style={styles.derivedStatBox}>
-                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{workouts.filter(w => w.status === 'completed').length}</Text>
-                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Completed</Text>
-                          </View>
-                        </View>
-                      </Card>
+                        </Card>
+                      </StatsGridItem>
 
-                      {/* Performance Overview Card */}
-                      <Card style={{ flex: 1 }}>
-                        <View style={styles.metricHeader}>
-                          <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>Performance & Assignments</Text>
-                          <View style={[styles.iconWrapper, { backgroundColor: colors.emeraldDim }]}>
-                            <Ionicons name="speedometer-outline" size={20} color={colors.emerald} />
+                      {/* Roles & System Status */}
+                      <StatsGridItem minWidth={300}>
+                        <Card style={{ flex: 1, height: '100%' }}>
+                          <View style={styles.metricHeader}>
+                            <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>Performance & Assignments</Text>
+                            <View style={[styles.iconWrapper, { backgroundColor: colors.emeraldDim }]}>
+                              <Ionicons name="speedometer-outline" size={20} color={colors.emerald} />
+                            </View>
                           </View>
-                        </View>
-                        <View style={styles.derivedStatsContainer}>
-                          <View style={styles.derivedStatBox}>
-                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{performances.length}</Text>
-                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Perf. Records</Text>
+                          <View style={styles.derivedStatsContainer}>
+                            <View style={styles.derivedStatBox}>
+                              <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{performances.length}</Text>
+                              <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Perf. Records</Text>
+                            </View>
+                            <View style={styles.derivedStatBox}>
+                              <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{athletesData.filter(a => !!a.coach_id).length}</Text>
+                              <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Active Assignments</Text>
+                            </View>
                           </View>
-                          <View style={styles.derivedStatBox}>
-                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{athletesData.filter(a => !!a.coach_id).length}</Text>
-                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Active Assignments</Text>
-                          </View>
-                        </View>
-                      </Card>
-                    </View>
+                        </Card>
+                      </StatsGridItem>
+                    </StatsGrid>
 
                     {/* Recent Activity Section */}
                     <Card style={styles.section}>
@@ -782,29 +792,33 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                     {/* Quick Actions */}
                     <View style={styles.section}>
                       <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Quick Actions</Text>
-                      <View style={styles.actionGrid}>
-                        <Pressable
-                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
-                          onPress={() => setActiveTab('users')}
-                        >
-                          <Ionicons name="people-circle" size={32} color={colors.info} />
-                          <Text style={styles.actionCardTitle}>Manage Users</Text>
-                          <Text style={styles.actionCardDesc}>
-                            Review and manage user accounts and roles.
-                          </Text>
-                        </Pressable>
+                      <StatsGrid gap={16} style={{ marginTop: 12 }}>
+                        <StatsGridItem minWidth={260}>
+                          <Pressable
+                            style={styles.actionCard}
+                            onPress={() => setActiveTab('users')}
+                          >
+                            <Ionicons name="people-circle" size={32} color={colors.info} />
+                            <Text style={styles.actionCardTitle}>Manage Users</Text>
+                            <Text style={styles.actionCardDesc}>
+                              Review and manage user accounts and roles.
+                            </Text>
+                          </Pressable>
+                        </StatsGridItem>
 
-                        <Pressable
-                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
-                          onPress={() => setActiveTab('roles')}
-                        >
-                          <Ionicons name="shield-checkmark" size={32} color={colors.emerald} />
-                          <Text style={styles.actionCardTitle}>Manage Roles</Text>
-                          <Text style={styles.actionCardDesc}>
-                            Create and configure system roles.
-                          </Text>
-                        </Pressable>
-                      </View>
+                        <StatsGridItem minWidth={260}>
+                          <Pressable
+                            style={styles.actionCard}
+                            onPress={() => setActiveTab('roles')}
+                          >
+                            <Ionicons name="shield-checkmark" size={32} color={colors.emerald} />
+                            <Text style={styles.actionCardTitle}>Manage Roles</Text>
+                            <Text style={styles.actionCardDesc}>
+                              Create and configure system roles.
+                            </Text>
+                          </Pressable>
+                        </StatsGridItem>
+                      </StatsGrid>
                     </View>
                   </>
                 )}
@@ -1135,7 +1149,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                 {activeTab === 'coaches' && (
                   <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 16 }]}>Coaches ({coachesList.length})</Text>
-                    <View style={styles.coachesGrid}>
+                    <CollectionGrid gap={16}>
                       {coachesList.length === 0 ? (
                         <View style={styles.emptyContainer}>
                           <Ionicons name="fitness-outline" size={48} color={colors.textMuted} />
@@ -1143,31 +1157,33 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                         </View>
                       ) : (
                         coachesList.map((coach) => (
-                          <Card key={coach.id} style={styles.coachCard}>
-                            <View style={styles.coachHeader}>
-                              <View style={styles.coachAvatar}>
-                                <Text style={styles.avatarText}>
-                                  {coach.name.charAt(0).toUpperCase()}
-                                </Text>
+                          <CollectionGridItem itemWidth={320} key={coach.id}>
+                            <Card style={styles.coachCard}>
+                              <View style={styles.coachHeader}>
+                                <View style={styles.coachAvatar}>
+                                  <Text style={styles.avatarText}>
+                                    {coach.name.charAt(0).toUpperCase()}
+                                  </Text>
+                                </View>
+                                <View style={styles.coachInfo}>
+                                  <Text style={styles.coachName}>{coach.name}</Text>
+                                  <Text style={styles.coachEmail}>{coach.email}</Text>
+                                </View>
                               </View>
-                              <View style={styles.coachInfo}>
-                                <Text style={styles.coachName}>{coach.name}</Text>
-                                <Text style={styles.coachEmail}>{coach.email}</Text>
+                              <View style={styles.coachFooter}>
+                                <Badge label="Coach" variant="success" />
+                                <Button
+                                  label="View"
+                                  onPress={() => router.push(`/coach-details?coachId=${coach.id}`)}
+                                  variant="secondary"
+                                  size="sm"
+                                />
                               </View>
-                            </View>
-                            <View style={styles.coachFooter}>
-                              <Badge label="Coach" variant="success" />
-                              <Button
-                                label="View"
-                                onPress={() => router.push(`/coach-details?coachId=${coach.id}`)}
-                                variant="secondary"
-                                size="sm"
-                              />
-                            </View>
-                          </Card>
+                            </Card>
+                          </CollectionGridItem>
                         ))
                       )}
-                    </View>
+                    </CollectionGrid>
                   </View>
                 )}
 
@@ -1175,7 +1191,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                 {activeTab === 'athletes' && (
                   <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 16 }]}>Athletes ({athletesList.length})</Text>
-                    <View style={styles.athletesGrid}>
+                    <CollectionGrid gap={16}>
                       {athletesList.length === 0 ? (
                         <View style={styles.emptyContainer}>
                           <Ionicons name="walk-outline" size={48} color={colors.textMuted} />
@@ -1197,13 +1213,16 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                           const message = athleteCoachMessage[athlete.id];
 
                           return (
-                            <Card
-                              key={athlete.id}
-                              style={[
-                                styles.athleteCard,
-                                openCoachDropdownAthleteId === athlete.id ? { zIndex: 10 } : { zIndex: 1 },
-                              ]}
+                            <CollectionGridItem 
+                              key={athlete.id} 
+                              itemWidth={320} 
+                              style={openCoachDropdownAthleteId === athlete.id ? { zIndex: 10 } : { zIndex: 1 }}
                             >
+                              <Card
+                                style={[
+                                  styles.athleteCard,
+                                ]}
+                              >
                               <View style={styles.athleteHeader}>
                                 <View style={styles.athleteAvatar}>
                                   <Text style={styles.avatarText}>
@@ -1244,7 +1263,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                                     }
                                   >
                                     <Text style={[styles.dropdownButtonText, { color: colors.textPrimary }]}>
-                                      {selectedCoach ? selectedCoach.name : 'Select Coach...'}
+                                      {selectedCoach ? selectedCoach.name : 'Select a coach...'}
                                     </Text>
                                     <Ionicons
                                       name={openCoachDropdownAthleteId === athlete.id ? 'chevron-up' : 'chevron-down'}
@@ -1254,45 +1273,73 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                                   </Pressable>
 
                                   {openCoachDropdownAthleteId === athlete.id && (
-                                    <View style={[styles.dropdownMenu, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-                                      {coachesList.length === 0 ? (
-                                        <View style={{ padding: 10 }}>
-                                          <Text style={{ fontSize: 12, color: colors.textMuted }}>No coaches registered</Text>
-                                        </View>
-                                      ) : (
-                                        coachesList.map((coach) => {
-                                          const coachKey = coach.coach_id || coach.id;
-                                          return (
-                                            <Pressable
-                                              key={coach.id}
-                                              style={[
-                                                styles.dropdownItem,
-                                                selectedCoachId === coachKey && { backgroundColor: colors.bgMid },
-                                              ]}
-                                              onPress={() => {
-                                                setUpdatingAthleteCoachMap((prev) => ({
-                                                  ...prev,
-                                                  [athlete.id]: coachKey,
-                                                }));
-                                                setOpenCoachDropdownAthleteId(null);
-                                              }}
-                                            >
-                                              <Text
+                                    <Modal
+                                      transparent
+                                      visible={true}
+                                      animationType="fade"
+                                      onRequestClose={() => setOpenCoachDropdownAthleteId(null)}
+                                    >
+                                      <Pressable
+                                        style={styles.modalOverlay}
+                                        onPress={() => setOpenCoachDropdownAthleteId(null)}
+                                      >
+                                        <View
+                                          style={[
+                                            styles.modalMenu,
+                                            { backgroundColor: colors.bgCard, borderColor: colors.border }
+                                          ]}
+                                        >
+                                          <Text style={[styles.modalHeader, { color: colors.textSub, borderBottomColor: colors.border }]}>
+                                            Select Coach for {athlete.name}
+                                          </Text>
+                                          <Pressable
+                                            style={[
+                                              styles.modalItem,
+                                              selectedCoachId === '' && { backgroundColor: colors.bgMid },
+                                            ]}
+                                            onPress={() => {
+                                              setUpdatingAthleteCoachMap((prev) => ({
+                                                ...prev,
+                                                [athlete.id]: '',
+                                              }));
+                                              setOpenCoachDropdownAthleteId(null);
+                                            }}
+                                          >
+                                            <Text style={[styles.modalItemText, { color: colors.textSub }]}>
+                                              No Coach (Unassign)
+                                            </Text>
+                                          </Pressable>
+                                          {coachesList.map((c) => {
+                                            const coachKey = c.coach_id || c.id;
+                                            return (
+                                              <Pressable
+                                                key={coachKey}
                                                 style={[
-                                                  styles.dropdownItemText,
-                                                  { color: selectedCoachId === coachKey ? colors.emerald : colors.textPrimary },
+                                                  styles.modalItem,
+                                                  selectedCoachId === coachKey && { backgroundColor: colors.bgMid },
                                                 ]}
+                                                onPress={() => {
+                                                  setUpdatingAthleteCoachMap((prev) => ({
+                                                    ...prev,
+                                                    [athlete.id]: coachKey,
+                                                  }));
+                                                  setOpenCoachDropdownAthleteId(null);
+                                                }}
                                               >
-                                                {coach.name}
-                                              </Text>
-                                              {selectedCoachId === coachKey && (
-                                                <Ionicons name="checkmark" size={16} color={colors.emerald} />
-                                              )}
-                                            </Pressable>
-                                          );
-                                        })
-                                      )}
-                                    </View>
+                                                <Text
+                                                  style={[
+                                                    styles.modalItemText,
+                                                    { color: colors.textPrimary, fontWeight: selectedCoachId === coachKey ? '700' : '400' },
+                                                  ]}
+                                                >
+                                                  {c.name}
+                                                </Text>
+                                              </Pressable>
+                                            );
+                                          })}
+                                        </View>
+                                      </Pressable>
+                                    </Modal>
                                   )}
                                 </View>
 
@@ -1336,11 +1383,12 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                                   size="sm"
                                 />
                               </View>
-                            </Card>
+                              </Card>
+                            </CollectionGridItem>
                           );
                         })
                       )}
-                    </View>
+                    </CollectionGrid>
                   </View>
                 )}
               </>

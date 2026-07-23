@@ -35,6 +35,10 @@ import {
   EmptyState,
   SkeletonLoader,
   OnboardingBanner,
+  StatsGrid,
+  StatsGridItem,
+  CollectionGrid,
+  CollectionGridItem,
 } from '@/components/ui';
 import { useThemeColors } from '@/styles/tokens';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -578,69 +582,75 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                     />
 
                     {/* Stat Cards Row */}
-                    <View style={styles.metricsContainer}>
-                      <SummaryCard
-                        title="Dashboard Summary"
-                        iconName="stats-chart-outline"
-                        metrics={[
-                          { label: 'My Athletes', value: totalAthletes },
-                          { label: 'Total Workouts', value: totalWorkouts },
-                          { label: 'Completed', value: completedWorkouts },
-                          { label: 'Completion Rate', value: completionRate, suffix: '%' },
-                        ]}
-                      />
-                    </View>
+                    <StatsGrid gap={16} style={{ marginBottom: 24 }}>
+                      <StatsGridItem minWidth={300}>
+                        <SummaryCard
+                          title="Dashboard Summary"
+                          iconName="stats-chart-outline"
+                          metrics={[
+                            { label: 'My Athletes', value: totalAthletes },
+                            { label: 'Total Workouts', value: totalWorkouts },
+                            { label: 'Completed', value: completedWorkouts },
+                            { label: 'Completion Rate', value: completionRate, suffix: '%' },
+                          ]}
+                        />
+                      </StatsGridItem>
+                    </StatsGrid>
 
                     {/* Workout Overview + Quick Summary */}
-                    <View style={styles.metricsContainer}>
-                      <Card style={{ flex: 1 }}>
-                        <View style={styles.metricHeader}>
-                          <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>Workout Breakdown</Text>
-                          <View style={[styles.iconWrapper, { backgroundColor: colors.infoDim }]}>
-                            <Ionicons name="barbell-outline" size={20} color={colors.info} />
+                    <StatsGrid gap={16} style={{ marginBottom: 24 }}>
+                      <StatsGridItem minWidth={300}>
+                        <Card style={{ flex: 1, height: '100%' }}>
+                          <View style={styles.metricHeader}>
+                            <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>Workout Breakdown</Text>
+                            <View style={[styles.iconWrapper, { backgroundColor: colors.infoDim }]}>
+                              <Ionicons name="barbell-outline" size={20} color={colors.info} />
+                            </View>
                           </View>
-                        </View>
-                        <View style={styles.derivedStatsContainer}>
-                          <View style={styles.derivedStatBox}>
-                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{totalWorkouts}</Text>
-                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Total</Text>
+                          <View style={styles.derivedStatsContainer}>
+                            <View style={styles.derivedStatBox}>
+                              <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{totalWorkouts}</Text>
+                              <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Total</Text>
+                            </View>
+                            <View style={styles.derivedStatBox}>
+                              <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{pendingWorkouts}</Text>
+                              <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Pending</Text>
+                            </View>
+                            <View style={styles.derivedStatBox}>
+                              <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{completedWorkouts}</Text>
+                              <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Done</Text>
+                            </View>
+                            <View style={styles.derivedStatBox}>
+                              <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{workouts.filter((w) => w.status === 'skipped').length}</Text>
+                              <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Skipped</Text>
+                            </View>
                           </View>
-                          <View style={styles.derivedStatBox}>
-                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{pendingWorkouts}</Text>
-                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Pending</Text>
-                          </View>
-                          <View style={styles.derivedStatBox}>
-                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{completedWorkouts}</Text>
-                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Done</Text>
-                          </View>
-                          <View style={styles.derivedStatBox}>
-                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{workouts.filter((w) => w.status === 'skipped').length}</Text>
-                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Skipped</Text>
-                          </View>
-                        </View>
-                      </Card>
+                        </Card>
+                      </StatsGridItem>
 
-                      <Card style={{ flex: 1 }}>
-                        <View style={styles.metricHeader}>
-                          <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>Athletes Overview</Text>
-                          <View style={[styles.iconWrapper, { backgroundColor: colors.emeraldDim }]}>
-                            <Ionicons name="people-outline" size={20} color={colors.emerald} />
+                      <StatsGridItem minWidth={300}>
+                        <Card style={{ flex: 1, height: '100%' }}>
+                          <View style={styles.metricHeader}>
+                            <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>Athletes Overview</Text>
+                            <View style={[styles.iconWrapper, { backgroundColor: colors.emeraldDim }]}>
+                              <Ionicons name="people-outline" size={20} color={colors.emerald} />
+                            </View>
                           </View>
-                        </View>
-                        <View style={styles.derivedStatsContainer}>
-                          <View style={styles.derivedStatBox}>
-                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{totalAthletes}</Text>
-                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Assigned</Text>
+                          <View style={styles.derivedStatsContainer}>
+                            <View style={styles.derivedStatBox}>
+                              <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>{totalAthletes}</Text>
+                              <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>Assigned</Text>
+                            </View>
+                            <View style={styles.derivedStatBox}>
+                              <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>
+                                {athletes.filter((a) => a.sport).length}
+                              </Text>
+                              <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>With Sport</Text>
+                            </View>
                           </View>
-                          <View style={styles.derivedStatBox}>
-                            <Text style={[styles.derivedStatVal, { color: colors.textPrimary }]}>
-                              {athletes.filter((a) => a.sport).length}
-                            </Text>
-                            <Text style={[styles.derivedStatLabel, { color: colors.textSub }]}>With Sport</Text>
-                          </View>
-                        </View>
-                      </Card>
-                    </View>
+                        </Card>
+                      </StatsGridItem>
+                    </StatsGrid>
 
                     {/* Recent Activity */}
                     <Card style={styles.section}>
@@ -692,43 +702,49 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                     {/* Quick Actions */}
                     <View style={styles.section}>
                       <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Quick Actions</Text>
-                      <View style={styles.actionGrid}>
-                        <Pressable
-                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
-                          onPress={() => setActiveTab('athletes')}
-                        >
-                          <Ionicons name="people-circle" size={32} color={colors.info} />
-                          <Text style={styles.actionCardTitle}>View Athletes</Text>
-                          <Text style={styles.actionCardDesc}>
-                            See all your assigned athletes and their profiles.
-                          </Text>
-                        </Pressable>
+                      <StatsGrid gap={16} style={{ marginTop: 12 }}>
+                        <StatsGridItem minWidth={240}>
+                          <Pressable
+                            style={styles.actionCard}
+                            onPress={() => setActiveTab('athletes')}
+                          >
+                            <Ionicons name="people-circle" size={32} color={colors.info} />
+                            <Text style={styles.actionCardTitle}>View Athletes</Text>
+                            <Text style={styles.actionCardDesc}>
+                              See all your assigned athletes and their profiles.
+                            </Text>
+                          </Pressable>
+                        </StatsGridItem>
 
-                        <Pressable
-                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
-                          onPress={() => {
-                            setActiveTab('workouts');
-                            setShowCreateWorkoutModal(true);
-                          }}
-                        >
-                          <Ionicons name="add-circle" size={32} color={colors.emerald} />
-                          <Text style={styles.actionCardTitle}>Assign Workout</Text>
-                          <Text style={styles.actionCardDesc}>
-                            Create and assign a new workout plan to an athlete.
-                          </Text>
-                        </Pressable>
+                        <StatsGridItem minWidth={240}>
+                          <Pressable
+                            style={styles.actionCard}
+                            onPress={() => {
+                              setActiveTab('workouts');
+                              setShowCreateWorkoutModal(true);
+                            }}
+                          >
+                            <Ionicons name="add-circle" size={32} color={colors.emerald} />
+                            <Text style={styles.actionCardTitle}>Assign Workout</Text>
+                            <Text style={styles.actionCardDesc}>
+                              Create and assign a new workout plan to an athlete.
+                            </Text>
+                          </Pressable>
+                        </StatsGridItem>
 
-                        <Pressable
-                          style={[styles.actionCard, { width: isLargeScreen ? '48%' : '100%' }]}
-                          onPress={() => setActiveTab('performance')}
-                        >
-                          <Ionicons name="speedometer" size={32} color={colors.warning} />
-                          <Text style={styles.actionCardTitle}>Track Performance</Text>
-                          <Text style={styles.actionCardDesc}>
-                            Record and review athlete performance metrics.
-                          </Text>
-                        </Pressable>
-                      </View>
+                        <StatsGridItem minWidth={240}>
+                          <Pressable
+                            style={styles.actionCard}
+                            onPress={() => setActiveTab('performance')}
+                          >
+                            <Ionicons name="speedometer" size={32} color={colors.warning} />
+                            <Text style={styles.actionCardTitle}>Track Performance</Text>
+                            <Text style={styles.actionCardDesc}>
+                              Record and review athlete performance metrics.
+                            </Text>
+                          </Pressable>
+                        </StatsGridItem>
+                      </StatsGrid>
                     </View>
                   </>
                 )}
@@ -766,49 +782,50 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                         description={searchQuery ? 'Try a different search term.' : 'Contact your admin to get athletes assigned.'}
                       />
                     ) : (
-                      <View style={styles.athletesGrid}>
+                      <CollectionGrid gap={16}>
                         {filteredAthletes.map((athlete) => (
-                          <Card
-                            key={athlete.athlete_id}
-                            style={styles.athleteCard}
-                          >
-                            <View style={styles.athleteHeader}>
-                              <View style={[styles.athleteAvatar, { backgroundColor: colors.infoDim, borderColor: 'rgba(14,165,233,0.2)' }]}>
-                                <Text style={[styles.avatarText, { color: colors.info }]}>
-                                  {athlete.name?.charAt(0).toUpperCase() || 'A'}
-                                </Text>
-                              </View>
-                              <View style={styles.athleteInfo}>
-                                <Text style={[styles.athleteName, { color: colors.textPrimary }]}>
-                                  {athlete.name}
-                                </Text>
-                                <Text style={[styles.athleteShortId, { color: colors.textMuted }]}>
-                                  ID: {athlete.athlete_id.slice(-8)}
-                                </Text>
-                                <Text style={[styles.athleteEmail, { color: colors.textSub }]}>
-                                  {athlete.sport || 'No sport specified'}
-                                </Text>
-                              </View>
-                            </View>
-                            <View style={[styles.athleteFooter, { borderTopColor: colors.borderSubtle }]}>
-                              <View style={{ gap: 4 }}>
-                                <Badge label="Athlete" variant="info" />
-                                {athlete.weight ? (
-                                  <Text style={[{ fontSize: 12, color: colors.textSub, marginTop: 4 }]}>
-                                    Weight: {athlete.weight} kg
+                          <CollectionGridItem itemWidth={320} key={athlete.athlete_id}>
+                            <Card
+                              style={styles.athleteCard}
+                            >
+                              <View style={styles.athleteHeader}>
+                                <View style={[styles.athleteAvatar, { backgroundColor: colors.infoDim, borderColor: 'rgba(14,165,233,0.2)' }]}>
+                                  <Text style={[styles.avatarText, { color: colors.info }]}>
+                                    {athlete.name?.charAt(0).toUpperCase() || 'A'}
                                   </Text>
-                                ) : null}
+                                </View>
+                                <View style={styles.athleteInfo}>
+                                  <Text style={[styles.athleteName, { color: colors.textPrimary }]}>
+                                    {athlete.name}
+                                  </Text>
+                                  <Text style={[styles.athleteShortId, { color: colors.textMuted }]}>
+                                    ID: {athlete.athlete_id.slice(-8)}
+                                  </Text>
+                                  <Text style={[styles.athleteEmail, { color: colors.textSub }]}>
+                                    {athlete.sport || 'No sport specified'}
+                                  </Text>
+                                </View>
                               </View>
-                              <Button
-                                label="View Profile"
-                                onPress={() => router.push(`/athlete-details?athleteId=${athlete.athlete_id}`)}
-                                variant="secondary"
-                                size="sm"
-                              />
-                            </View>
-                          </Card>
+                              <View style={[styles.athleteFooter, { borderTopColor: colors.borderSubtle }]}>
+                                <View style={{ gap: 4 }}>
+                                  <Badge label="Athlete" variant="info" />
+                                  {athlete.weight ? (
+                                    <Text style={[{ fontSize: 12, color: colors.textSub, marginTop: 4 }]}>
+                                      Weight: {athlete.weight} kg
+                                    </Text>
+                                  ) : null}
+                                </View>
+                                <Button
+                                  label="View Profile"
+                                  onPress={() => router.push(`/athlete-details?athleteId=${athlete.athlete_id}`)}
+                                  variant="secondary"
+                                  size="sm"
+                                />
+                              </View>
+                            </Card>
+                          </CollectionGridItem>
                         ))}
-                      </View>
+                      </CollectionGrid>
                     )}
                   </Card>
                 )}
@@ -1006,44 +1023,45 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                           description="You need athletes assigned before you can track performance."
                         />
                       ) : (
-                        <View style={styles.athletesGrid}>
+                        <CollectionGrid gap={16}>
                           {athletes.map((athlete) => {
                             const isSelected = selectedAthleteForPerf?.athlete_id === athlete.athlete_id;
                             return (
-                              <Pressable
-                                key={athlete.athlete_id}
-                                onPress={() => {
-                                  setSelectedAthleteForPerf(athlete);
-                                  setShowCreatePerfModal(false);
-                                }}
-                                style={[
-                                  styles.athleteSelectorCard,
-                                  {
-                                    backgroundColor: isSelected ? colors.emeraldDim : colors.bgCard,
-                                    borderColor: isSelected ? colors.emerald : colors.border,
-                                  },
-                                ]}
-                              >
-                                <View style={[styles.athleteAvatar, { backgroundColor: isSelected ? colors.emerald : colors.infoDim, borderColor: isSelected ? colors.emerald : 'rgba(14,165,233,0.2)' }]}>
-                                  <Text style={[styles.avatarText, { color: isSelected ? '#fff' : colors.info }]}>
-                                    {athlete.name?.charAt(0).toUpperCase() || 'A'}
-                                  </Text>
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                  <Text style={[styles.athleteName, { color: colors.textPrimary }]}>
-                                    {athlete.name}
-                                  </Text>
-                                  <Text style={[styles.athleteEmail, { color: colors.textSub }]}>
-                                    {athlete.sport || 'General'}
-                                  </Text>
-                                </View>
-                                {isSelected && (
-                                  <Ionicons name="checkmark-circle" size={20} color={colors.emerald} />
-                                )}
-                              </Pressable>
+                              <CollectionGridItem itemWidth={300} key={athlete.athlete_id}>
+                                <Pressable
+                                  onPress={() => {
+                                    setSelectedAthleteForPerf(athlete);
+                                    setShowCreatePerfModal(false);
+                                  }}
+                                  style={[
+                                    styles.athleteSelectorCard,
+                                    {
+                                      backgroundColor: isSelected ? colors.emeraldDim : colors.bgCard,
+                                      borderColor: isSelected ? colors.emerald : colors.border,
+                                    },
+                                  ]}
+                                >
+                                  <View style={[styles.athleteAvatar, { backgroundColor: isSelected ? colors.emerald : colors.infoDim, borderColor: isSelected ? colors.emerald : 'rgba(14,165,233,0.2)' }]}>
+                                    <Text style={[styles.avatarText, { color: isSelected ? '#fff' : colors.info }]}>
+                                      {athlete.name?.charAt(0).toUpperCase() || 'A'}
+                                    </Text>
+                                  </View>
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={[styles.athleteName, { color: colors.textPrimary }]}>
+                                      {athlete.name}
+                                    </Text>
+                                    <Text style={[styles.athleteEmail, { color: colors.textSub }]}>
+                                      {athlete.sport || 'General'}
+                                    </Text>
+                                  </View>
+                                  {isSelected && (
+                                    <Ionicons name="checkmark-circle" size={20} color={colors.emerald} />
+                                  )}
+                                </Pressable>
+                              </CollectionGridItem>
                             );
                           })}
-                        </View>
+                        </CollectionGrid>
                       )}
                     </Card>
 

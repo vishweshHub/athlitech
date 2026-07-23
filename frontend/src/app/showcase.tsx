@@ -13,6 +13,8 @@ import {
   EmptyState,
   SkeletonLoader,
   ThemeToggle,
+  ResponsiveGrid,
+  ResponsiveGridItem,
 } from '@/components/ui';
 
 export default function ShowcaseScreen() {
@@ -134,30 +136,36 @@ export default function ShowcaseScreen() {
         </Card>
 
         {/* 4. StatCards */}
-        <View style={styles.statsContainer}>
-          <StatCard
-            label="Total Athletes"
-            value={10500}
-            suffix="+"
-            trend="+12%"
-            trendDirection="up"
-            delay={0}
-          />
-          <StatCard
-            label="Active Coaches"
-            value={480}
-            trend="+8%"
-            trendDirection="up"
-            delay={100}
-          />
-          <StatCard
-            label="Injury Incidents"
-            value={3}
-            trend="-15%"
-            trendDirection="down"
-            delay={200}
-          />
-        </View>
+        <ResponsiveGrid gap={16}>
+          <ResponsiveGridItem minWidth={220}>
+            <StatCard
+              label="Total Athletes"
+              value={10500}
+              suffix="+"
+              trend="+12%"
+              trendDirection="up"
+              delay={0}
+            />
+          </ResponsiveGridItem>
+          <ResponsiveGridItem minWidth={220}>
+            <StatCard
+              label="Active Coaches"
+              value={480}
+              trend="+8%"
+              trendDirection="up"
+              delay={100}
+            />
+          </ResponsiveGridItem>
+          <ResponsiveGridItem minWidth={220}>
+            <StatCard
+              label="Injury Incidents"
+              value={3}
+              trend="-15%"
+              trendDirection="down"
+              delay={200}
+            />
+          </ResponsiveGridItem>
+        </ResponsiveGrid>
 
         {/* 5. Responsive Data Table */}
         <Card style={styles.sectionCard}>

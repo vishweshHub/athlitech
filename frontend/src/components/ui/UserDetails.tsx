@@ -8,6 +8,7 @@ import Badge from './Badge';
 import StatCard from './StatCard';
 import Table from './Table';
 import EmptyState from './EmptyState';
+import { StatsGrid, StatsGridItem, ResponsiveGrid, ResponsiveGridItem } from './ResponsiveGrid';
 import { useThemeColors, RADIUS } from '@/styles/tokens';
 
 export interface UserDetailsProps {
@@ -202,52 +203,52 @@ export default function UserDetails({
 
       {/* Role-Specific Metric Summary Cards */}
       {role === 'athlete' && (
-        <View style={styles.metricsGrid}>
-          <View style={styles.metricCol}>
+        <StatsGrid gap={16} style={{ marginBottom: 24 }}>
+          <StatsGridItem minWidth={220}>
             <StatCard label="Assigned Workouts" value={athleteTotalWorkouts} suffix="total" trend="+12%" trendDirection="up" />
-          </View>
-          <View style={styles.metricCol}>
+          </StatsGridItem>
+          <StatsGridItem minWidth={220}>
             <StatCard label="Completed Workouts" value={athleteCompletedWorkouts} suffix="completed" trend="+8%" trendDirection="up" />
-          </View>
-          <View style={styles.metricCol}>
+          </StatsGridItem>
+          <StatsGridItem minWidth={220}>
             <StatCard label="Completion Rate" value={athleteCompletionRate} suffix="%" trend="+5%" trendDirection="up" />
-          </View>
-        </View>
+          </StatsGridItem>
+        </StatsGrid>
       )}
 
       {role === 'coach' && (
-        <View style={styles.metricsGrid}>
-          <View style={styles.metricCol}>
+        <StatsGrid gap={16} style={{ marginBottom: 24 }}>
+          <StatsGridItem minWidth={220}>
             <StatCard label="Assigned Athletes" value={coachTotalAthletes} suffix="athletes" />
-          </View>
-          <View style={styles.metricCol}>
+          </StatsGridItem>
+          <StatsGridItem minWidth={220}>
             <StatCard label="Workouts Assigned" value={coachTotalWorkouts} suffix="workouts" />
-          </View>
-          <View style={styles.metricCol}>
+          </StatsGridItem>
+          <StatsGridItem minWidth={220}>
             <StatCard label="Workouts Completed" value={coachCompletedWorkouts} suffix="completed" />
-          </View>
-        </View>
+          </StatsGridItem>
+        </StatsGrid>
       )}
 
       {role === 'admin' && (
-        <View style={styles.metricsGrid}>
-          <View style={styles.metricCol}>
+        <StatsGrid gap={16} style={{ marginBottom: 24 }}>
+          <StatsGridItem minWidth={220}>
             <StatCard label="System Users" value={systemStats?.totalUsers ?? 12} suffix="total" />
-          </View>
-          <View style={styles.metricCol}>
+          </StatsGridItem>
+          <StatsGridItem minWidth={220}>
             <StatCard label="Coaches Registered" value={systemStats?.totalCoaches ?? 4} suffix="coaches" />
-          </View>
-          <View style={styles.metricCol}>
+          </StatsGridItem>
+          <StatsGridItem minWidth={220}>
             <StatCard label="Athletes Registered" value={systemStats?.totalAthletes ?? 8} suffix="athletes" />
-          </View>
-        </View>
+          </StatsGridItem>
+        </StatsGrid>
       )}
 
       {/* Main Content Layout Grid */}
-      <View style={styles.contentGrid}>
+      <ResponsiveGrid gap={24}>
         
         {/* Left Column - Personal and Relational Details */}
-        <View style={styles.leftCol}>
+        <ResponsiveGridItem minWidth={300} flex={1}>
           
           {/* Profile Card */}
           <Pressable
@@ -356,10 +357,10 @@ export default function UserDetails({
             </Pressable>
           )}
 
-        </View>
+        </ResponsiveGridItem>
 
         {/* Right Column - Workouts, Athletes, Logs Table Sections */}
-        <View style={styles.rightCol}>
+        <ResponsiveGridItem minWidth={340} flex={2}>
           
           {/* Athlete view content: Workouts & Performance tables */}
           {role === 'athlete' && (
@@ -602,9 +603,9 @@ export default function UserDetails({
             </>
           )}
 
-        </View>
+        </ResponsiveGridItem>
 
-      </View>
+      </ResponsiveGrid>
     </ScrollView>
   );
 }
