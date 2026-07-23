@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -10,18 +10,31 @@ interface CoachProfileFormProps {
   onSubmit: (payload: CoachProfilePayload) => Promise<void>;
   isLoading: boolean;
   error: string | null;
+  initialData?: CoachProfilePayload | null;
 }
 
-export default function CoachProfileForm({ onSubmit, isLoading, error }: CoachProfileFormProps) {
+export default function CoachProfileForm({ onSubmit, isLoading, error, initialData }: CoachProfileFormProps) {
   const colors = useThemeColors();
 
   // Required
-  const [primarySport, setPrimarySport] = useState('');
-  const [specialization, setSpecialization] = useState('');
-  const [yearsExperience, setYearsExperience] = useState('');
+  const [primarySport, setPrimarySport] = useState(initialData?.primary_sport || '');
+  const [specialization, setSpecialization] = useState(initialData?.specialization || '');
+  const [yearsExperience, setYearsExperience] = useState(
+    initialData?.years_experience !== undefined ? String(initialData.years_experience) : ''
+  );
 
   // Optional
-  const [bio, setBio] = useState('');
+  const [bio, setBio] = useState(initialData?.bio || '');
+
+  // Synchronize when initialData is loaded asynchronously
+  useEffect(() => {
+    if (initialData) {
+      if (initialData.primary_sport) setPrimarySport(initialData.primary_sport);
+      if (initialData.specialization) setSpecialization(initialData.specialization);
+      if (initialData.years_experience !== undefined) setYearsExperience(String(initialData.years_experience));
+      if (initialData.bio) setBio(initialData.bio);
+    }
+  }, [initialData]);
 
   // Validation
   const [validationErrors, setValidationErrors] = useState<{
@@ -66,7 +79,7 @@ export default function CoachProfileForm({ onSubmit, isLoading, error }: CoachPr
         <View style={styles.titleContainer}>
           <Text style={[styles.formTitle, { color: colors.textPrimary }]}>Coach Profile</Text>
           <Text style={[styles.formSubtitle, { color: colors.textSub }]}>
-            Complete your coaching credentials to personalize your roster & workout builder tools.
+            {initialData ? 'Manage and update your coaching credentials and philosophy.' : 'Complete your coaching credentials to personalize your roster & workout builder tools.'}
           </Text>
         </View>
       </View>
@@ -123,23 +136,23 @@ export default function CoachProfileForm({ onSubmit, isLoading, error }: CoachPr
       {/* OPTIONAL BIO SECTION */}
       <View style={styles.section}>
         <View style={styles.sectionHeaderRow}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Coaching Bio & Philosophy</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Tell Athletes About You</Text>
           <Badge label="Optional" variant="neutral" />
         </View>
 
         <Input
-          label="Coaching Bio"
-          placeholder="Describe your coaching philosophy, experience, and specialties..."
+          label="Tell Athletes About You"
+          placeholder="Share your coaching philosophy, experience, achievements, and what athletes can expect from training with you."
           value={bio}
           onChangeText={setBio}
           multiline
-          numberOfLines={4}
-          style={{ height: 100, textAlignVertical: 'top' }}
+          numberOfLines={6}
+          style={{ height: 130, textAlignVertical: 'top' }}
         />
       </View>
 
       <Button
-        label={isLoading ? 'Saving Profile...' : 'Save & Unlock Coach Suite'}
+        label={isLoading ? 'Saving Profile...' : (initialData ? 'Update Profile' : 'Save & Unlock Coach Suite')}
         onPress={handleSubmit}
         variant="primary"
         loading={isLoading}

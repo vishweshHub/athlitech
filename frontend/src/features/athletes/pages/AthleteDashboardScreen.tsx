@@ -311,9 +311,14 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                     activeTab === item.id && styles.sidebarItemActive,
                   ]}
                   onPress={() => {
-                    setActiveTab(item.id as TabType);
+                    if (item.id === 'profile') {
+                      router.push('/complete-profile');
+                    } else {
+                      setActiveTab(item.id as TabType);
+                    }
                     if (!isLargeScreen) setSidebarOpen(false);
                   }}
+
                 >
                   <Ionicons
                     name={item.icon as any}

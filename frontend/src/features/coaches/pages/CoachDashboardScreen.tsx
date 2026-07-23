@@ -40,8 +40,11 @@ import {
   CollectionGrid,
   CollectionGridItem,
 } from '@/components/ui';
+import { fetchWorkoutRecommendations, WorkoutRecommendation, fetchMyProfile } from '@/api/profile';
+import CoachProfileSummaryCard from '../components/CoachProfileSummaryCard';
 import { useThemeColors } from '@/styles/tokens';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+
 
 interface CoachDashboardScreenProps {
   user: AuthUser | null;
@@ -79,6 +82,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actualCoachId, setActualCoachId] = useState<string | null>(null);
+  const [coachProfile, setCoachProfile] = useState<any>(null);
 
   // Performance state
   const [selectedAthleteForPerf, setSelectedAthleteForPerf] = useState<Athlete | null>(null);
@@ -150,14 +154,19 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
 
       setActualCoachId(coachId);
 
-      const [athletesData, workoutsData] = await Promise.all([
+      const [athletesData, workoutsData, myProfileData] = await Promise.all([
         fetchCoachAthletes(token, coachId),
         fetchCoachWorkouts(token, coachId),
+        fetchMyProfile(token).catch(() => null),
       ]);
 
       setAthletes(athletesData);
       setFilteredAthletes(athletesData);
       setWorkouts(workoutsData);
+      if (myProfileData) {
+        setCoachProfile(myProfileData);
+      }
+
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to load dashboard data';
       console.warn('Error loading coach dashboard data:', e);
@@ -459,6 +468,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                 { id: 'athletes', label: 'My Athletes', icon: 'people', count: totalAthletes },
                 { id: 'workouts', label: 'Workouts', icon: 'fitness', count: totalWorkouts },
                 { id: 'performance', label: 'Performance', icon: 'speedometer', count: null },
+                { id: 'profile', label: 'My Profile', icon: 'person-circle-outline', count: null },
               ].map((item) => (
                 <Pressable
                   key={item.id}
@@ -467,7 +477,11 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                     activeTab === item.id && styles.sidebarItemActive,
                   ]}
                   onPress={() => {
-                    setActiveTab(item.id as TabType);
+                    if (item.id === 'profile') {
+                      router.push('/complete-profile');
+                    } else {
+                      setActiveTab(item.id as TabType);
+                    }
                     if (!isLargeScreen) setSidebarOpen(false);
                   }}
                 >
@@ -578,6 +592,19 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                       buttonLabel="Complete Profile"
                       onAction={() => router.push('/complete-profile')}
                     />
+
+                    {/* Coach Profile Summary card when profile is completed */}
+                    {(user?.profile_completed || coachProfile?.coach_data) && (
+                      <CoachProfileSummaryCard
+                        primarySport={coachProfile?.coach_data?.primary_sport || 'Not specified'}
+                        specialization={coachProfile?.coach_data?.specialization || 'Not specified'}
+                        yearsExperience={coachProfile?.coach_data?.years_experience || 0}
+                        profileCompleted={user?.profile_completed || coachProfile?.profile_completed || false}
+                        bio={coachProfile?.coach_data?.bio}
+                        onEdit={() => router.push('/complete-profile')}
+                      />
+                    )}
+
 
                     {/* Stat Cards Row */}
                     <StatsGrid gap={16} style={{ marginBottom: 24 }}>

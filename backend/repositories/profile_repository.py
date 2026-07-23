@@ -8,8 +8,16 @@ class ProfileRepository:
     def collection(self):
         return profiles_collection
 
+    def _format_doc(self, doc: dict | None) -> dict | None:
+        if not doc:
+            return None
+        if "_id" in doc:
+            doc["id"] = str(doc.pop("_id"))
+        return doc
+
     async def get_profile_by_user_id(self, user_id: str) -> dict | None:
-        return await self.collection.find_one({"user_id": user_id})
+        doc = await self.collection.find_one({"user_id": user_id})
+        return self._format_doc(doc)
 
     async def save_profile(self, user_id: str, role: str, profile_data: dict) -> dict:
         now = datetime.utcnow()
@@ -41,7 +49,8 @@ class ProfileRepository:
                 "updated_at": now,
             }
             await self.collection.insert_one(new_doc)
-            return new_doc
+            return self._format_doc(new_doc)
 
 
 profile_repository = ProfileRepository()
+

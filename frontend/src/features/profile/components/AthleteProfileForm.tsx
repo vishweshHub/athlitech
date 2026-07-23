@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Card, Input, Button, Badge } from '@/components/ui';
@@ -10,26 +10,41 @@ interface AthleteProfileFormProps {
   onSubmit: (payload: AthleteProfilePayload) => Promise<void>;
   isLoading: boolean;
   error: string | null;
+  initialData?: AthleteProfilePayload | null;
 }
 
 const GOAL_TIMELINES = ['3 Months', '6 Months', '1 Year', 'Custom'];
 
-export default function AthleteProfileForm({ onSubmit, isLoading, error }: AthleteProfileFormProps) {
+export default function AthleteProfileForm({ onSubmit, isLoading, error, initialData }: AthleteProfileFormProps) {
   const colors = useThemeColors();
 
   // Required
-  const [sport, setSport] = useState('');
-  const [event, setEvent] = useState('');
+  const [sport, setSport] = useState(initialData?.sport || '');
+  const [event, setEvent] = useState(initialData?.event || '');
 
   // Recommended
-  const [height, setHeight] = useState('');
-  const [weight, setWeight] = useState('');
-  const [dob, setDob] = useState('');
+  const [height, setHeight] = useState(initialData?.height !== undefined && initialData?.height !== null ? String(initialData.height) : '');
+  const [weight, setWeight] = useState(initialData?.weight !== undefined && initialData?.weight !== null ? String(initialData.weight) : '');
+  const [dob, setDob] = useState(initialData?.dob || '');
 
   // Optional
-  const [personalBest, setPersonalBest] = useState('');
-  const [primaryGoal, setPrimaryGoal] = useState('');
-  const [goalTimeline, setGoalTimeline] = useState('6 Months');
+  const [personalBest, setPersonalBest] = useState(initialData?.personal_best || '');
+  const [primaryGoal, setPrimaryGoal] = useState(initialData?.primary_goal || '');
+  const [goalTimeline, setGoalTimeline] = useState(initialData?.goal_timeline || '6 Months');
+
+  // Synchronize when initialData is loaded asynchronously
+  useEffect(() => {
+    if (initialData) {
+      if (initialData.sport) setSport(initialData.sport);
+      if (initialData.event) setEvent(initialData.event);
+      if (initialData.height !== undefined && initialData.height !== null) setHeight(String(initialData.height));
+      if (initialData.weight !== undefined && initialData.weight !== null) setWeight(String(initialData.weight));
+      if (initialData.dob) setDob(initialData.dob);
+      if (initialData.personal_best) setPersonalBest(initialData.personal_best);
+      if (initialData.primary_goal) setPrimaryGoal(initialData.primary_goal);
+      if (initialData.goal_timeline) setGoalTimeline(initialData.goal_timeline);
+    }
+  }, [initialData]);
 
   // Validation
   const [validationErrors, setValidationErrors] = useState<{ sport?: string; event?: string }>({});
@@ -68,7 +83,7 @@ export default function AthleteProfileForm({ onSubmit, isLoading, error }: Athle
         <View style={styles.titleContainer}>
           <Text style={[styles.formTitle, { color: colors.textPrimary }]}>Athlete Profile</Text>
           <Text style={[styles.formSubtitle, { color: colors.textSub }]}>
-            Complete your sports details to unlock personalized workout recommendations & tracking.
+            {initialData ? 'Manage and update your athletic profile and goals.' : 'Complete your sports details to unlock personalized workout recommendations & tracking.'}
           </Text>
         </View>
       </View>
@@ -198,7 +213,7 @@ export default function AthleteProfileForm({ onSubmit, isLoading, error }: Athle
       </View>
 
       <Button
-        label={isLoading ? 'Saving Profile...' : 'Save & Unlock Experience'}
+        label={isLoading ? 'Saving Profile...' : (initialData ? 'Update Profile' : 'Save & Unlock Experience')}
         onPress={handleSubmit}
         variant="primary"
         loading={isLoading}

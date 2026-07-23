@@ -25,10 +25,8 @@ export default function RecommendedWorkoutsCard({ recommendations }: Recommended
           <Text style={[styles.title, { color: colors.textPrimary }]}>
             Personalized Workout Recommendations
           </Text>
-          <Text style={[styles.subtitle, { color: colors.textSub }]}>
-            Rule-based workout suggestions matched to your completed sport & event profile.
-          </Text>
         </View>
+
       </View>
 
       <StatsGrid gap={12}>
