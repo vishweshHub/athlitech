@@ -25,6 +25,7 @@ import {
   Text,
   View,
   useWindowDimensions,
+  Alert,
 } from 'react-native';
 import Reanimated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -422,12 +423,32 @@ export default function RegisterScreen() {
 
     setIsLoading(true);
     try {
+      let fName = firstName.trim();
+      let lName = lastName.trim();
+
+      if (selectedRole === 'athlete') {
+        const parts = name.trim().split(' ');
+        fName = parts[0] || 'Athlete';
+        lName = parts.slice(1).join(' ') || 'User';
+      }
+
       await registerUser({
-        name: selectedRole === 'coach' ? `${firstName.trim()} ${lastName.trim()}` : name.trim(),
+        first_name: fName,
+        last_name: lName,
         email: email.trim().toLowerCase(),
         password,
-        role: selectedRole, // strictly 'athlete' | 'coach'
+        confirm_password: confirmPassword,
+        role: selectedRole,
       });
+
+      // Show success message and auto-authenticate
+      if (Platform.OS === 'web') {
+        window.alert('Success: Account created successfully!');
+      } else {
+        // Need Alert from react-native, will make sure it's imported
+        Alert.alert('Success', 'Account created successfully!');
+      }
+
       const result = await login(email.trim().toLowerCase(), password);
       await storeToken(result.access_token);
       if (selectedRole === 'coach') {

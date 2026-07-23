@@ -17,9 +17,11 @@ export type LoginResult = {
 };
 
 export type RegisterInput = {
-  name: string;
+  first_name: string;
+  last_name: string;
   email: string;
   password: string;
+  confirm_password: string;
   role?: string;
 };
 
@@ -129,9 +131,11 @@ export async function registerUser(user: RegisterInput) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: user.name,
+        first_name: user.first_name,
+        last_name: user.last_name,
         email: user.email,
         password: user.password,
+        confirm_password: user.confirm_password,
         role: user.role ?? 'athlete',
       }),
     });
