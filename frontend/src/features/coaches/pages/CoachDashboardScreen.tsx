@@ -42,6 +42,7 @@ import {
 } from '@/components/ui';
 import { fetchWorkoutRecommendations, WorkoutRecommendation, fetchMyProfile } from '@/api/profile';
 import CoachProfileSummaryCard from '../components/CoachProfileSummaryCard';
+import WorkoutLibraryScreen from '@/features/workouts/pages/WorkoutLibraryScreen';
 import { useThemeColors } from '@/styles/tokens';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -52,7 +53,8 @@ interface CoachDashboardScreenProps {
   onSignOut: () => void;
 }
 
-type TabType = 'dashboard' | 'athletes' | 'workouts' | 'performance';
+type TabType = 'dashboard' | 'athletes' | 'workouts' | 'performance' | 'library';
+
 
 const isWeb = Platform.OS === 'web';
 
@@ -465,6 +467,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
             <View style={styles.sidebarNav}>
               {[
                 { id: 'dashboard', label: 'Dashboard', icon: 'grid', count: null },
+                { id: 'library', label: 'Workout Library', icon: 'book', count: null },
                 { id: 'athletes', label: 'My Athletes', icon: 'people', count: totalAthletes },
                 { id: 'workouts', label: 'Workouts', icon: 'fitness', count: totalWorkouts },
                 { id: 'performance', label: 'Performance', icon: 'speedometer', count: null },
@@ -545,6 +548,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
             <View style={styles.headerInfo}>
               <Text style={styles.headerTitle}>
                 {activeTab === 'dashboard' && 'Coach Dashboard'}
+                {activeTab === 'library' && 'Workout Library'}
                 {activeTab === 'athletes' && 'My Athletes'}
                 {activeTab === 'workouts' && 'Workout Plans'}
                 {activeTab === 'performance' && 'Performance'}
@@ -582,8 +586,14 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
               </Card>
             ) : (
               <>
+                {/* ── WORKOUT LIBRARY TAB ── */}
+                {activeTab === 'library' && (
+                  <WorkoutLibraryScreen token={token} userRole="coach" />
+                )}
+
                 {/* ── DASHBOARD TAB ── */}
                 {activeTab === 'dashboard' && (
+
                   <>
                     <OnboardingBanner
                       isVisible={!user?.profile_completed}

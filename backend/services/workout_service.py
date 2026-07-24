@@ -3,6 +3,7 @@ from bson.objectid import ObjectId
 from typing import List, Optional
 from datetime import datetime
 
+from core.permissions import normalize_role
 from repositories.workout_repository import workout_repository
 from repositories.coach_repository import coach_repository
 from repositories.athlete_repository import athlete_repository
@@ -40,9 +41,10 @@ def _format_workout_response(w: dict) -> WorkoutResponse:
 # Workout Library Template Service Functions
 
 async def create_workout_template(workout_data: WorkoutCreate, current_user: dict) -> WorkoutResponse:
-    role = current_user.get("role")
+    role = normalize_role(current_user.get("role"))
     if role not in ["admin", "coach"]:
         raise HTTPException(status_code=403, detail="Athletes do not have permission to create workouts")
+
 
     new_workout = Workout(
         title=workout_data.title,
@@ -92,7 +94,7 @@ async def get_workout_template_by_id(workout_id: str, current_user: Optional[dic
 
 
 async def update_workout_template(workout_id: str, update_data: WorkoutUpdate, current_user: dict) -> WorkoutResponse:
-    role = current_user.get("role")
+    role = normalize_role(current_user.get("role"))
     if role not in ["admin", "coach"]:
         raise HTTPException(status_code=403, detail="Athletes do not have permission to update workouts")
 
@@ -122,7 +124,7 @@ async def update_workout_template(workout_id: str, update_data: WorkoutUpdate, c
 
 
 async def delete_workout_template(workout_id: str, current_user: dict) -> dict:
-    role = current_user.get("role")
+    role = normalize_role(current_user.get("role"))
     if role not in ["admin", "coach"]:
         raise HTTPException(status_code=403, detail="Athletes do not have permission to delete workouts")
 

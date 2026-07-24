@@ -1,6 +1,5 @@
 import { API_URL } from './auth';
 
-
 export type Exercise = {
   name: string;
   sets: number;
@@ -22,6 +21,61 @@ export type Workout = {
   athlete_notes?: string;
   created_at: string;
 };
+
+export type WorkoutTemplate = {
+  id: string;
+  title: string;
+  description?: string;
+  sport: string;
+  category: string;
+  difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
+  duration_minutes: number;
+  equipment: string[];
+  instructions?: string;
+  created_by: string;
+  created_by_role: string;
+  is_public: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export async function fetchWorkoutTemplates(
+  token: string,
+  params?: { sport?: string; category?: string; difficulty?: string; search?: string }
+): Promise<WorkoutTemplate[]> {
+  const query = new URLSearchParams();
+  if (params?.sport) query.append('sport', params.sport);
+  if (params?.category) query.append('category', params.category);
+  if (params?.difficulty) query.append('difficulty', params.difficulty);
+  if (params?.search) query.append('search', params.search);
+
+  const queryString = query.toString() ? `?${query.toString()}` : '';
+  const response = await fetch(`${API_URL}/workouts${queryString}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.detail ?? 'Failed to fetch workout templates');
+  }
+  return response.json();
+}
+
+export async function fetchWorkoutTemplateById(token: string, id: string): Promise<WorkoutTemplate> {
+  const response = await fetch(`${API_URL}/workouts/${id}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.detail ?? 'Failed to fetch workout template details');
+  }
+  return response.json();
+}
 
 export async function createWorkout(
   token: string,

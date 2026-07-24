@@ -1,9 +1,13 @@
 import { useTheme } from '@/theme/useTheme';
+import { SPACING, LAYOUT } from '@/theme/spacing';
+import { TYPOGRAPHY } from '@/theme/typography';
 
 /**
  * Design tokens shared across the entire AthliTech UI.
  * Import from here — never hardcode brand values in components.
  */
+
+export { SPACING, LAYOUT, TYPOGRAPHY };
 
 export const COLORS = {
   // Backgrounds
@@ -106,6 +110,8 @@ export const RADIUS = {
   full: 999,
 } as const;
 
+export const BORDER_RADIUS = RADIUS;
+
 export const SHADOW = {
   emerald: {
     shadowColor: '#10b981',
@@ -122,6 +128,8 @@ export const SHADOW = {
     elevation: 6,
   },
 } as const;
+
+export const SHADOWS = SHADOW;
 
 export const FONT = {
   heading: { fontWeight: '800' as const, letterSpacing: -1 },

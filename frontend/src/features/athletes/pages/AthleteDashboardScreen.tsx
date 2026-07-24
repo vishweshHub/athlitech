@@ -36,6 +36,7 @@ import {
   OnboardingBanner,
 } from '@/components/ui';
 import RecommendedWorkoutsCard from '../components/RecommendedWorkoutsCard';
+import WorkoutLibraryScreen from '@/features/workouts/pages/WorkoutLibraryScreen';
 import { fetchWorkoutRecommendations, WorkoutRecommendation } from '@/api/profile';
 import { useThemeColors } from '@/styles/tokens';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -46,7 +47,8 @@ interface AthleteDashboardScreenProps {
   onSignOut: () => void;
 }
 
-type TabType = 'dashboard' | 'workouts' | 'performance' | 'profile';
+type TabType = 'dashboard' | 'workouts' | 'performance' | 'profile' | 'library';
+
 
 const isWeb = Platform.OS === 'web';
 
@@ -300,6 +302,7 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
             <View style={styles.sidebarNav}>
               {[
                 { id: 'dashboard', label: 'Dashboard', icon: 'grid', count: null },
+                { id: 'library', label: 'Workout Library', icon: 'book', count: null },
                 { id: 'workouts', label: 'My Workouts', icon: 'fitness', count: totalWorkouts },
                 { id: 'performance', label: 'Performance', icon: 'speedometer', count: null },
                 { id: 'profile', label: 'My Profile', icon: 'person', count: null },
@@ -370,12 +373,14 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
             <View style={styles.headerInfo}>
               <Text style={styles.headerTitle}>
                 {activeTab === 'dashboard' && 'My Dashboard'}
+                {activeTab === 'library' && 'Workout Library'}
                 {activeTab === 'workouts' && 'My Workouts'}
                 {activeTab === 'performance' && 'My Performance'}
                 {activeTab === 'profile' && 'My Profile'}
               </Text>
               <Text style={styles.headerSubtitle}>{user?.email || 'Athlete'}</Text>
             </View>
+
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <ThemeToggle />
               <Pressable onPress={loadDashboardData} style={styles.refreshBtn}>
@@ -417,8 +422,14 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
               </Card>
             ) : (
               <>
+                {/* ── WORKOUT LIBRARY TAB ── */}
+                {activeTab === 'library' && (
+                  <WorkoutLibraryScreen token={token} userRole="athlete" />
+                )}
+
                 {/* ── DASHBOARD TAB ── */}
                 {activeTab === 'dashboard' && (
+
                   <>
                     <OnboardingBanner
                       isVisible={!user?.profile_completed}

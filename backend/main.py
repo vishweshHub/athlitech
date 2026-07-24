@@ -9,6 +9,7 @@ from routes.role_routes import router as role_router
 from routes.workout_routes import router as workout_router
 from services.role_service import seed_default_roles
 from services.user_seed_service import seed_demo_users
+from services.workout_seed_service import seed_demo_workouts
 from routes.performance_routes import router as performance_router
 from routes.dashboard_routes import router as dashboard_router
 from routes.profile_routes import router as profile_router
@@ -50,6 +51,8 @@ app.include_router(profile_router)
 async def startup_event():
     await seed_default_roles()
     await seed_demo_users()
+    await seed_demo_workouts()
+
 
 
 @app.get("/")

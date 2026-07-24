@@ -35,6 +35,7 @@ function LayoutContent() {
           <Stack.Screen name="coach-dashboard" options={{ headerShown: false }} />
           <Stack.Screen name="athlete-dashboard" options={{ headerShown: false }} />
           <Stack.Screen name="complete-profile" options={{ headerShown: false }} />
+          <Stack.Screen name="workout-library" options={{ headerShown: false }} />
           <Stack.Screen name="coach-details" options={{ title: 'Coach Details' }} />
           <Stack.Screen name="athlete-details" options={{ title: 'Athlete Details' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
