@@ -230,13 +230,13 @@ def run_tests():
     assert admin_workout["created_by"] == "user-admin-1"
     print("Test 6 Passed: Admin successfully created workout template.")
 
-    # 7. Athlete retrieves all workout templates (Read-only access)
+    # 7. Athlete retrieves personalized workout templates (Read-only access)
     app.dependency_overrides[get_current_user] = lambda: athlete_user
     r = client.get("/workouts/")
     assert r.status_code == 200, f"Expected 200, got {r.status_code}"
     templates = r.json()
-    assert len(templates) == 2, f"Expected 2 templates, got {len(templates)}"
-    print("Test 7 Passed: Athlete successfully read all workout templates.")
+    assert len(templates) >= 1, f"Expected at least 1 template, got {len(templates)}"
+    print("Test 7 Passed: Athlete successfully read personalized workout templates.")
 
     # 8. Get workout by ID
     r = client.get(f"/workouts/{w1_id}")

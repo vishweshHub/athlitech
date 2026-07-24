@@ -7,6 +7,7 @@ from core.permissions import normalize_role
 from repositories.workout_repository import workout_repository
 from repositories.coach_repository import coach_repository
 from repositories.athlete_repository import athlete_repository
+from repositories.profile_repository import profile_repository
 from models.workout_model import Workout
 from schemas.workout_schema import (
     WorkoutCreate,
@@ -75,6 +76,23 @@ async def get_workout_templates(
     search: Optional[str] = None,
     current_user: Optional[dict] = None,
 ) -> List[WorkoutResponse]:
+    user_role = normalize_role(current_user.get("role")) if current_user else "athlete"
+
+    athlete_primary_sport = None
+    if user_role == "athlete" and current_user and not sport:
+        user_id = current_user.get("id")
+        if user_id:
+            profile = await profile_repository.get_profile_by_user_id(user_id)
+            if profile and profile.get("athlete_data"):
+                athlete_primary_sport = profile["athlete_data"].get("sport")
+            if not athlete_primary_sport:
+                ath_doc = await athlete_repository.find_by_id(user_id)
+                if ath_doc:
+                    athlete_primary_sport = ath_doc.get("sport")
+
+        if not athlete_primary_sport:
+            athlete_primary_sport = "Track & Field"
+
     templates = await workout_repository.get_templates(
         skip=skip,
         limit=limit,
@@ -83,6 +101,21 @@ async def get_workout_templates(
         difficulty=difficulty,
         search=search,
     )
+
+    if athlete_primary_sport:
+        def is_allowed(t_sport: str) -> bool:
+            t_s = (t_sport or "").lower().strip()
+            p_s = (athlete_primary_sport or "").lower().strip()
+            if "general" in t_s:
+                return True
+            if t_s == p_s:
+                return True
+            if ("track" in p_s or "athletics" in p_s) and ("track" in t_s or "running" in t_s or "athletics" in t_s):
+                return True
+            return False
+
+        templates = [t for t in templates if is_allowed(t.get("sport", ""))]
+
     return [_format_workout_response(w) for w in templates]
 
 
