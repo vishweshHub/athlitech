@@ -210,5 +210,10 @@ def run_tests():
     print("All Workout Management tests passed successfully!")
 
 
+def test_workout_legacy_suite():
+    run_tests()
+
+
 if __name__ == '__main__':
     run_tests()
+

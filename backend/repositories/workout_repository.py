@@ -1,4 +1,5 @@
 from database import mongodb
+from bson.objectid import ObjectId
 
 class WorkoutRepository:
     @property
@@ -17,6 +18,71 @@ class WorkoutRepository:
             pass
         return mongodb.workouts_collection
 
+    async def create_template(self, workout_data: dict) -> dict:
+        await self.collection.insert_one(workout_data)
+        return workout_data
+
+    async def get_templates(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        sport: str | None = None,
+        category: str | None = None,
+        difficulty: str | None = None,
+        search: str | None = None
+    ) -> list:
+        query = {}
+        if sport:
+            query["sport"] = {"$regex": f"^{sport}$", "$options": "i"}
+        if category:
+            query["category"] = {"$regex": f"^{category}$", "$options": "i"}
+        if difficulty:
+            query["difficulty"] = {"$regex": f"^{difficulty}$", "$options": "i"}
+        if search:
+            query["$or"] = [
+                {"title": {"$regex": search, "$options": "i"}},
+                {"description": {"$regex": search, "$options": "i"}},
+                {"sport": {"$regex": search, "$options": "i"}},
+                {"category": {"$regex": search, "$options": "i"}},
+                {"instructions": {"$regex": search, "$options": "i"}}
+            ]
+        
+        cursor = self.collection.find(query)
+        if hasattr(cursor, "skip"):
+            cursor = cursor.skip(skip)
+        if hasattr(cursor, "limit"):
+            cursor = cursor.limit(limit)
+
+        workouts = []
+        async for w in cursor:
+            workouts.append(w)
+        return workouts
+
+    async def find_template_by_id(self, workout_id: str) -> dict | None:
+        query = {"$or": [{"id": workout_id}, {"workout_id": workout_id}]}
+        if ObjectId.is_valid(workout_id):
+            query["$or"].append({"_id": ObjectId(workout_id)})
+        return await self.collection.find_one(query)
+
+    async def update_template(self, workout_id: str, update_data: dict) -> dict | None:
+        query = {"$or": [{"id": workout_id}, {"workout_id": workout_id}]}
+        if ObjectId.is_valid(workout_id):
+            query["$or"].append({"_id": ObjectId(workout_id)})
+        
+        result = await self.collection.update_one(query, {"$set": update_data})
+        if result.matched_count == 0:
+            return None
+        return await self.collection.find_one(query)
+
+    async def delete_template(self, workout_id: str) -> bool:
+        query = {"$or": [{"id": workout_id}, {"workout_id": workout_id}]}
+        if ObjectId.is_valid(workout_id):
+            query["$or"].append({"_id": ObjectId(workout_id)})
+        
+        result = await self.collection.delete_one(query)
+        return result.deleted_count > 0
+
+    # Legacy Repository Methods
     async def create(self, workout_data: dict) -> dict:
         await self.collection.insert_one(workout_data)
         return workout_data
@@ -25,8 +91,14 @@ class WorkoutRepository:
         query = {"coach_id": coach_id}
         if status:
             query["status"] = status
+        cursor = self.collection.find(query)
+        if hasattr(cursor, "skip"):
+            cursor = cursor.skip(skip)
+        if hasattr(cursor, "limit"):
+            cursor = cursor.limit(limit)
+
         workouts = []
-        async for w in self.collection.find(query).skip(skip).limit(limit):
+        async for w in cursor:
             workouts.append(w)
         return workouts
 
@@ -34,8 +106,14 @@ class WorkoutRepository:
         query = {"athlete_id": athlete_id}
         if status:
             query["status"] = status
+        cursor = self.collection.find(query)
+        if hasattr(cursor, "skip"):
+            cursor = cursor.skip(skip)
+        if hasattr(cursor, "limit"):
+            cursor = cursor.limit(limit)
+
         workouts = []
-        async for w in self.collection.find(query).skip(skip).limit(limit):
+        async for w in cursor:
             workouts.append(w)
         return workouts
 
