@@ -199,7 +199,7 @@ async def get_coach_workouts(
     users_coll = getattr(mongodb, "users_collection", None)
 
     valid_workouts = []
-    if users_coll:
+    if users_coll is not None:
         ath_ids = list({w.get("athlete_id") for w in workouts if w.get("athlete_id")})
         user_map = {}
         for ath_id in ath_ids:
