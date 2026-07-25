@@ -29,15 +29,34 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
+Thumbs.db
 
 # local env files
+.env
+.env.*
 .env*.local
+
+# Python virtual environments and caches
+.venv/
+venv/
+backend/venv/
+__pycache__/
+*.pyc
+*.pyo
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
 
 # typescript
 *.tsbuildinfo
+
+# IDE files
+.vscode/
+.idea/
 
 app-example
 
 # generated native folders
 /ios
 /android
+build/
