@@ -1,33 +1,32 @@
-from enum import Enum
 from typing import Dict, List
 
-
-class Role(str, Enum):
-    Admin = "Admin"
-    Coach = "Coach"
-    Athlete = "Athlete"
-
-
-ROLE_PERMISSIONS: Dict[Role, List[str]] = {
-    Role.Admin: [
+DEFAULT_ROLE_PERMISSIONS: Dict[str, List[str]] = {
+    "admin": [
         "manage_users",
         "manage_roles",
         "manage_athletes",
         "view_self",
     ],
-    Role.Coach: [
+    "coach": [
         "manage_athletes",
         "view_self",
     ],
-    Role.Athlete: [
+    "athlete": [
         "view_self",
     ],
 }
 
 
+def normalize_role(role: str | None) -> str:
+    if role is None:
+        return "athlete"
+
+    normalized = str(role).strip().lower()
+    return normalized or "athlete"
+
+
 def is_valid_role(role: str) -> bool:
-    try:
-        Role(role)
-        return True
-    except ValueError:
+    if role is None:
         return False
+
+    return bool(normalize_role(role))

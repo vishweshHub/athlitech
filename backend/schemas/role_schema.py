@@ -1,15 +1,14 @@
-from pydantic import BaseModel
 from typing import List
 
-from core.permissions import Role
+from pydantic import BaseModel, Field
 
 
 class RoleCreate(BaseModel):
-    name: Role
-    permissions: List[str] = []
+    name: str = Field(..., min_length=2, max_length=50)
+    permissions: List[str] = Field(default_factory=list)
 
 
 class RoleRead(BaseModel):
     id: str
-    name: Role
-    permissions: List[str] = []
+    name: str
+    permissions: List[str] = Field(default_factory=list)
