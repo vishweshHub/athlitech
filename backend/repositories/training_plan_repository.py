@@ -132,8 +132,10 @@ class TrainingPlanRepository:
         return await self.find_week_by_id(week_id)
 
     async def delete_week(self, week_id: str) -> bool:
-        # Cascade delete days belonging to this week
-        await self.days_collection.delete_many({"training_week_id": week_id})
+        # Cascade delete days belonging to this week and their sessions
+        days = await self.get_days_by_week(week_id)
+        for d in days:
+            await self.delete_day(d["id"])
         res = await self.weeks_collection.delete_one(
             {"$or": [{"id": week_id}, {"_id": ObjectId(week_id)}]} if ObjectId.is_valid(week_id) else {"id": week_id}
         )
@@ -171,10 +173,13 @@ class TrainingPlanRepository:
         return await self.find_day_by_id(day_id)
 
     async def delete_day(self, day_id: str) -> bool:
+        from repositories.session_repository import session_repository
+        await session_repository.delete_sessions_by_day(day_id)
         res = await self.days_collection.delete_one(
             {"$or": [{"id": day_id}, {"_id": ObjectId(day_id)}]} if ObjectId.is_valid(day_id) else {"id": day_id}
         )
         return res.deleted_count > 0
+
 
 
 training_plan_repository = TrainingPlanRepository()

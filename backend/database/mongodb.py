@@ -14,4 +14,6 @@ performance_collection = db["performances"]
 training_plans_collection = db["training_plans"]
 training_weeks_collection = db["training_weeks"]
 training_days_collection = db["training_days"]
+sessions_collection = db["sessions"]
+
 
