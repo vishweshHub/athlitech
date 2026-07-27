@@ -75,7 +75,7 @@ class FakeCollection:
     async def insert_one(self, document):
         if "_id" not in document:
             document["_id"] = str(ObjectId())
-        key = document.get("id") or str(document["_id"])
+        key = document.get("id") or document.get("workout_id") or str(document["_id"])
         self.data[key] = document
         return document
 
@@ -145,20 +145,22 @@ class FakeCollection:
 
 def setup_fakes():
     from database import mongodb
-    from routes import training_plan_routes, session_routes, workout_assignment_routes
-    from repositories import training_plan_repository, session_repository, workout_assignment_repository
+    from routes import training_plan_routes, session_routes, workout_assignment_routes, workout_routes
+    from repositories import training_plan_repository, session_repository, workout_assignment_repository, workout_repository
 
     plans_fake = FakeCollection()
     weeks_fake = FakeCollection()
     days_fake = FakeCollection()
     sessions_fake = FakeCollection()
     assignments_fake = FakeCollection()
+    workouts_fake = FakeCollection()
 
     mongodb.training_plans_collection = plans_fake
     mongodb.training_weeks_collection = weeks_fake
     mongodb.training_days_collection = days_fake
     mongodb.sessions_collection = sessions_fake
     mongodb.workout_assignments_collection = assignments_fake
+    mongodb.workouts_collection = workouts_fake
 
     training_plan_routes.training_plans_collection = plans_fake
     training_plan_routes.training_weeks_collection = weeks_fake
@@ -166,6 +168,7 @@ def setup_fakes():
 
     session_routes.sessions_collection = sessions_fake
     workout_assignment_routes.workout_assignments_collection = assignments_fake
+    workout_routes.workouts_collection = workouts_fake
 
     training_plan_repository.training_plan_repository.plans_collection = plans_fake
     training_plan_repository.training_plan_repository.weeks_collection = weeks_fake
@@ -173,7 +176,9 @@ def setup_fakes():
 
     session_repository.session_repository.sessions_collection = sessions_fake
     workout_assignment_repository.workout_assignment_repository.collection = assignments_fake
+    workout_repository.workout_repository.collection = workouts_fake
 
+    return workouts_fake
 
 
 # Test Users
@@ -184,40 +189,54 @@ admin_1 = {"id": "admin-111", "name": "Admin One", "email": "admin1@athlitech.co
 
 
 def run_tests():
-    setup_fakes()
+    workouts_fake = setup_fakes()
     client = TestClient(app)
 
-    print("Running Session Entity System Unit Test Suite...")
+    print("Running Workout Assignment System Unit Test Suite...")
 
-    # 1. Validation error: empty session_name
+    # Seed a Workout Template into workouts_fake
+    wt_id = "wt-100"
+    workouts_fake.data[wt_id] = {
+        "id": wt_id,
+        "title": "Flying 30m Sprint",
+        "sport": "Track & Field",
+        "category": "Sprint",
+        "difficulty": "Advanced",
+        "duration_minutes": 30
+    }
+
+    # 1. Validation error: invalid category enum
     app.dependency_overrides[get_current_user] = lambda: athlete_1
-    r1 = client.post("/training-plans/sessions/", json={
-        "training_day_id": "day-123",
-        "session_name": "   ",
+    r1 = client.post("/training-plans/assignments/", json={
+        "session_id": "session-123",
+        "workout_template_id": wt_id,
+        "category": "invalid_cat",
         "order": 1
     })
     assert r1.status_code == 422, f"Expected 422, got {r1.status_code}"
-    print("Test 1 Passed: Empty session_name rejected with 422.")
+    print("Test 1 Passed: Invalid category enum rejected with 422.")
 
-    # 2. Validation error: invalid order (< 1)
-    r2 = client.post("/training-plans/sessions/", json={
-        "training_day_id": "day-123",
-        "session_name": "Morning Track",
+    # 2. Validation error: order < 1
+    r2 = client.post("/training-plans/assignments/", json={
+        "session_id": "session-123",
+        "workout_template_id": wt_id,
+        "category": "main",
         "order": 0
     })
     assert r2.status_code == 422, f"Expected 422, got {r2.status_code}"
     print("Test 2 Passed: Invalid order (< 1) rejected with 422.")
 
-    # 3. Reject session creation for non-existent Training Day ID
-    r3 = client.post("/training-plans/sessions/", json={
-        "training_day_id": "non-existent-day",
-        "session_name": "Morning Track",
+    # 3. Reject creation for non-existent Session ID
+    r3 = client.post("/training-plans/assignments/", json={
+        "session_id": "non-existent-session",
+        "workout_template_id": wt_id,
+        "category": "main",
         "order": 1
     })
     assert r3.status_code == 404, f"Expected 404, got {r3.status_code}"
-    print("Test 3 Passed: Session creation for non-existent day rejected with 404.")
+    print("Test 3 Passed: Non-existent Session ID rejected with 404.")
 
-    # Create parent hierarchy: Plan -> Week -> Day
+    # Create parent hierarchy: Plan -> Week -> Day -> Session
     r_plan = client.post("/training-plans/", json={
         "title": "Speed Program",
         "goal": "100m Velocity",
@@ -243,102 +262,120 @@ def run_tests():
     })
     day_id = r_day.json()["id"]
 
-    # 4. Create valid Session 1
-    r4 = client.post("/training-plans/sessions/", json={
+    r_sess = client.post("/training-plans/sessions/", json={
         "training_day_id": day_id,
-        "session_name": "Morning Velocity Track Session",
-        "order": 1,
-        "start_time": "08:00",
-        "end_time": "09:30"
-    })
-    assert r4.status_code == 200, f"Expected 200, got {r4.status_code}: {r4.json()}"
-    s1_data = r4.json()
-    s1_id = s1_data["id"]
-    assert s1_data["session_name"] == "Morning Velocity Track Session"
-    assert s1_data["order"] == 1
-    print("Test 4 Passed: Athlete created valid Session 1.")
-
-    # 5. Duplicate order validation error
-    r5 = client.post("/training-plans/sessions/", json={
-        "training_day_id": day_id,
-        "session_name": "Duplicate Order Session",
+        "session_name": "Morning Track",
         "order": 1
     })
-    assert r5.status_code == 400, f"Expected 400, got {r5.status_code}"
-    print("Test 5 Passed: Duplicate order value within same Training Day rejected with 400.")
+    session_id = r_sess.json()["id"]
 
-    # 6. Create valid Session 2
-    r6 = client.post("/training-plans/sessions/", json={
-        "training_day_id": day_id,
-        "session_name": "Evening Hypertrophy Gym Session",
-        "order": 2,
-        "start_time": "17:00",
-        "end_time": "18:30"
+    # 4. Reject creation for non-existent Workout Template ID
+    r4 = client.post("/training-plans/assignments/", json={
+        "session_id": session_id,
+        "workout_template_id": "non-existent-template",
+        "category": "main",
+        "order": 1
     })
-    assert r6.status_code == 200, f"Expected 200, got {r6.status_code}: {r6.json()}"
-    s2_data = r6.json()
-    s2_id = s2_data["id"]
-    assert s2_data["order"] == 2
-    print("Test 6 Passed: Athlete created valid Session 2.")
+    assert r4.status_code == 404, f"Expected 404, got {r4.status_code}"
+    print("Test 4 Passed: Non-existent Workout Template ID rejected with 404.")
 
-    # 7. Get Sessions by Training Day (verify ordering by order asc)
-    r7 = client.get(f"/training-plans/days/{day_id}/sessions")
-    assert r7.status_code == 200
-    sessions_list = r7.json()
-    assert len(sessions_list) == 2
-    assert sessions_list[0]["id"] == s1_id
-    assert sessions_list[1]["id"] == s2_id
-    print("Test 7 Passed: Sessions retrieved by Training Day in correct order.")
+    # 5. Create valid Workout Assignment 1
+    r5 = client.post("/training-plans/assignments/", json={
+        "session_id": session_id,
+        "workout_template_id": wt_id,
+        "category": "main",
+        "order": 1,
+        "assignment_note": "Focus on maximal velocity phase",
+        "overrides": {"distance": "40m", "reps": 6, "rest": "3 min"}
+    })
+    assert r5.status_code == 200, f"Expected 200, got {r5.status_code}: {r5.json()}"
+    a1_data = r5.json()
+    a1_id = a1_data["id"]
+    assert a1_data["category"] == "main"
+    assert a1_data["overrides"]["reps"] == 6
+    print("Test 5 Passed: Athlete created valid Workout Assignment 1.")
 
-    # 8. Get Session by ID
-    r8 = client.get(f"/training-plans/sessions/{s1_id}")
+    # 6. Duplicate order validation error
+    r6 = client.post("/training-plans/assignments/", json={
+        "session_id": session_id,
+        "workout_template_id": wt_id,
+        "category": "recovery",
+        "order": 1
+    })
+    assert r6.status_code == 400, f"Expected 400, got {r6.status_code}"
+    print("Test 6 Passed: Duplicate order value within same Session rejected with 400.")
+
+    # 7. Create valid Workout Assignment 2
+    r7 = client.post("/training-plans/assignments/", json={
+        "session_id": session_id,
+        "workout_template_id": wt_id,
+        "category": "recovery",
+        "order": 2
+    })
+    assert r7.status_code == 200, f"Expected 200, got {r7.status_code}: {r7.json()}"
+    a2_data = r7.json()
+    a2_id = a2_data["id"]
+    assert a2_data["order"] == 2
+    print("Test 7 Passed: Athlete created valid Workout Assignment 2.")
+
+    # 8. Get Assignments for Session (sorted by order asc)
+    r8 = client.get(f"/training-plans/sessions/{session_id}/assignments")
     assert r8.status_code == 200
-    assert r8.json()["session_name"] == "Morning Velocity Track Session"
-    print("Test 8 Passed: Retrieved Session by ID.")
+    assignments_list = r8.json()
+    assert len(assignments_list) == 2
+    assert assignments_list[0]["id"] == a1_id
+    assert assignments_list[1]["id"] == a2_id
+    print("Test 8 Passed: Assignments retrieved by Session in correct order.")
 
-    # 9. Update Session
-    r9 = client.put(f"/training-plans/sessions/{s1_id}", json={
-        "session_name": "Updated Morning Track Session",
-        "start_time": "08:15"
-    })
+    # 9. Get Assignment by ID
+    r9 = client.get(f"/training-plans/assignments/{a1_id}")
     assert r9.status_code == 200
-    assert r9.json()["session_name"] == "Updated Morning Track Session"
-    assert r9.json()["start_time"] == "08:15"
-    print("Test 9 Passed: Updated Session successfully.")
+    assert r9.json()["category"] == "main"
+    print("Test 9 Passed: Retrieved Assignment by ID.")
 
-    # 10. Athlete 2 forbidden from accessing Athlete 1's Session
+    # 10. Update Assignment
+    r10 = client.put(f"/training-plans/assignments/{a1_id}", json={
+        "assignment_note": "Updated note: maintain low ground contact time",
+        "overrides": {"distance": "40m", "reps": 8}
+    })
+    assert r10.status_code == 200
+    assert r10.json()["assignment_note"] == "Updated note: maintain low ground contact time"
+    assert r10.json()["overrides"]["reps"] == 8
+    print("Test 10 Passed: Updated Assignment successfully.")
+
+    # 11. Athlete 2 forbidden from accessing Athlete 1's Assignment
     app.dependency_overrides[get_current_user] = lambda: athlete_2
-    r10 = client.get(f"/training-plans/sessions/{s1_id}")
-    assert r10.status_code == 403, f"Expected 403, got {r10.status_code}"
+    r11 = client.get(f"/training-plans/assignments/{a1_id}")
+    assert r11.status_code == 403, f"Expected 403, got {r11.status_code}"
 
-    r10_put = client.put(f"/training-plans/sessions/{s1_id}", json={"session_name": "Hacked Name"})
-    assert r10_put.status_code == 403
-    print("Test 10 Passed: Athlete 2 forbidden from accessing/modifying Athlete 1's session.")
+    r11_put = client.put(f"/training-plans/assignments/{a1_id}", json={"assignment_note": "Hacked"})
+    assert r11_put.status_code == 403
+    print("Test 11 Passed: Athlete 2 forbidden from accessing/modifying Athlete 1's assignment.")
 
-    # 11. Admin has full access
+    # 12. Admin has full access
     app.dependency_overrides[get_current_user] = lambda: admin_1
-    r11 = client.get(f"/training-plans/sessions/{s1_id}")
-    assert r11.status_code == 200
-    print("Test 11 Passed: Admin has full access to Session.")
-
-    # 12. Delete Session directly
-    app.dependency_overrides[get_current_user] = lambda: athlete_1
-    r12 = client.delete(f"/training-plans/sessions/{s2_id}")
+    r12 = client.get(f"/training-plans/assignments/{a1_id}")
     assert r12.status_code == 200
-    assert client.get(f"/training-plans/sessions/{s2_id}").status_code == 404
-    print("Test 12 Passed: Session 2 deleted successfully.")
+    print("Test 12 Passed: Admin has full access to Assignment.")
 
-    # 13. Cascade deletion: Deleting Day deletes child Session 1
-    r13 = client.delete(f"/training-plans/days/{day_id}")
+    # 13. Delete Assignment directly
+    app.dependency_overrides[get_current_user] = lambda: athlete_1
+    r13 = client.delete(f"/training-plans/assignments/{a2_id}")
     assert r13.status_code == 200
-    assert client.get(f"/training-plans/sessions/{s1_id}").status_code == 404
-    print("Test 13 Passed: Cascade deletion verified (Deleting Day removed child Session).")
+    assert client.get(f"/training-plans/assignments/{a2_id}").status_code == 404
+    print("Test 13 Passed: Workout Assignment 2 deleted successfully.")
+
+    # 14. Cascade deletion: Deleting Session deletes child Workout Assignment 1
+    r14 = client.delete(f"/training-plans/sessions/{session_id}")
+    assert r14.status_code == 200
+    assert client.get(f"/training-plans/assignments/{a1_id}").status_code == 404
+    print("Test 14 Passed: Cascade deletion verified (Deleting Session removed child Workout Assignment).")
 
     app.dependency_overrides.clear()
-    print("All Session Entity Unit Tests Passed Successfully!")
+    print("All Workout Assignment Entity Unit Tests Passed Successfully!")
 
 
-def test_session_suite():
+def test_workout_assignment_suite():
     run_tests()
 
 

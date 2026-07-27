@@ -15,6 +15,7 @@ from routes.dashboard_routes import router as dashboard_router
 from routes.profile_routes import router as profile_router
 from routes.training_plan_routes import router as training_plan_router
 from routes.session_routes import router as session_router
+from routes.workout_assignment_routes import router as workout_assignment_router
 
 app = FastAPI(
     title="AthliTech API",
@@ -30,6 +31,7 @@ app = FastAPI(
         {"name": "Profile"},
         {"name": "Training Plans"},
         {"name": "Sessions"},
+        {"name": "Workout Assignments"},
     ]
 )
 
@@ -51,6 +53,8 @@ app.include_router(dashboard_router)
 app.include_router(profile_router)
 app.include_router(training_plan_router)
 app.include_router(session_router)
+app.include_router(workout_assignment_router)
+
 
 
 

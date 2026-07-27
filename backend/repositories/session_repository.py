@@ -57,14 +57,22 @@ class SessionRepository:
         return await self.find_session_by_id(session_id)
 
     async def delete_session(self, session_id: str) -> bool:
+        from repositories.workout_assignment_repository import workout_assignment_repository
+        await workout_assignment_repository.delete_assignments_by_session(session_id)
         res = await self.sessions_collection.delete_one(
             {"$or": [{"id": session_id}, {"_id": ObjectId(session_id)}]} if ObjectId.is_valid(session_id) else {"id": session_id}
         )
         return res.deleted_count > 0
 
     async def delete_sessions_by_day(self, training_day_id: str) -> int:
+        from repositories.workout_assignment_repository import workout_assignment_repository
+        sessions = await self.get_sessions_by_day(training_day_id)
+        for s in sessions:
+            sid = s.get("id") or str(s.get("_id"))
+            await workout_assignment_repository.delete_assignments_by_session(sid)
         res = await self.sessions_collection.delete_many({"training_day_id": training_day_id})
         return res.deleted_count
+
 
 
 session_repository = SessionRepository()

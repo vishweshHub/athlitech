@@ -2,8 +2,13 @@ from database import mongodb
 from bson.objectid import ObjectId
 
 class WorkoutRepository:
+    def __init__(self):
+        self._collection = None
+
     @property
     def collection(self):
+        if self._collection is not None:
+            return self._collection
         try:
             from routes import workout_routes
             if hasattr(workout_routes, "workouts_collection"):
@@ -17,6 +22,11 @@ class WorkoutRepository:
         except ImportError:
             pass
         return mongodb.workouts_collection
+
+    @collection.setter
+    def collection(self, value):
+        self._collection = value
+
 
     async def create_template(self, workout_data: dict) -> dict:
         await self.collection.insert_one(workout_data)
