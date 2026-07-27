@@ -1,8 +1,13 @@
 from database import mongodb
 
 class AthleteRepository:
+    def __init__(self):
+        self._collection = None
+
     @property
     def collection(self):
+        if self._collection is not None:
+            return self._collection
         try:
             from routes import workout_routes
             if hasattr(workout_routes, "athletes_collection"):
@@ -22,6 +27,11 @@ class AthleteRepository:
         except ImportError:
             pass
         return mongodb.athletes_collection
+
+    @collection.setter
+    def collection(self, value):
+        self._collection = value
+
 
     async def register(self, athlete_data: dict) -> dict:
         await self.collection.insert_one(athlete_data)
