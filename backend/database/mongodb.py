@@ -17,6 +17,9 @@ training_days_collection = db["training_days"]
 sessions_collection = db["sessions"]
 workout_assignments_collection = db["workout_assignments"]
 workout_sessions_collection = db["workout_sessions"]
+metric_definitions_collection = db["metric_definitions"]
+performance_logs_collection = db["performance_logs"]
+
 
 
 
