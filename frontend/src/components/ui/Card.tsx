@@ -1,91 +1,59 @@
 import React from 'react';
-import { Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import Reanimated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
-
-import ScrollReveal from '@/components/animations/ScrollReveal';
-import { useThemeColors, RADIUS } from '@/styles/tokens';
+import { StyleSheet, View, ViewStyle, TouchableOpacity, StyleProp } from 'react-native';
+import { useThemeColors } from '@/styles/tokens';
 
 interface CardProps {
   children: React.ReactNode;
-  delay?: number;
   style?: StyleProp<ViewStyle>;
-  /** If true, renders with the premium themed card background. Default: true */
-  surface?: boolean;
-  /** If true, wraps the card in a ScrollReveal entrance animation. Default: false */
+  onPress?: () => void;
+  variant?: 'flat' | 'elevated' | 'bordered';
+  delay?: number;
   animated?: boolean;
 }
 
-export default function Card({
-  children,
-  delay = 0,
-  style,
-  surface = true,
-  animated = false,
-}: CardProps) {
+export const Card: React.FC<CardProps> = ({ children, style, onPress, variant = 'elevated' }) => {
   const colors = useThemeColors();
 
-  const animatedCardStyle = useAnimatedStyle(() => {
-    if (!surface) return {};
-    return {
-      backgroundColor: withTiming(colors.bgGlass, { duration: 400 }),
-      borderColor: withTiming(colors.border, { duration: 400 }),
-    };
-  }, [surface, colors]);
+  const variantStyles: Record<string, ViewStyle> = {
+    flat: {
+      backgroundColor: colors.bgCard,
+    },
+    elevated: {
+      backgroundColor: colors.bgCard,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: colors.cardShadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    bordered: {
+      backgroundColor: colors.bgCard,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+  };
 
-  const cardStyle: ViewStyle = surface
-    ? {
-        borderWidth: 1,
-        borderRadius: RADIUS.lg,
-        padding: 24,
-        position: 'relative',
-        overflow: 'hidden',
-        ...Platform.select({
-          web: {
-            boxShadow: `0 8px 32px ${colors.cardShadow}`,
-          } as any,
-          default: {
-            shadowColor: '#000000',
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 0.2,
-            shadowRadius: 12,
-            elevation: 4,
-          },
-        }),
-      }
-    : {};
+  const cardStyle = [styles.base, variantStyles[variant], style];
 
-  const content = (
-    <Reanimated.View style={[cardStyle, surface && animatedCardStyle, style]}>
-      {/* Premium glass blur overlay (Web only) */}
-      {surface && Platform.OS === 'web' && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: RADIUS.lg - 1,
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            pointerEvents: 'none',
-            zIndex: -1,
-          }}
-        />
-      )}
-      {children}
-    </Reanimated.View>
-  );
-
-  if (animated) {
+  if (onPress) {
     return (
-      <ScrollReveal
-        delay={delay}
-        duration={600}
-        slideDistance={24}
-        style={{ width: '100%' }}
-      >
-        {content}
-      </ScrollReveal>
+      <TouchableOpacity style={cardStyle} onPress={onPress} activeOpacity={0.85}>
+        {children}
+      </TouchableOpacity>
     );
   }
 
-  return content;
-}
+  return <View style={cardStyle}>{children}</View>;
+};
+
+export default Card;
+
+const styles = StyleSheet.create({
+  base: {
+    borderRadius: 14,
+    padding: 16,
+    marginVertical: 6,
+  },
+});

@@ -20,6 +20,8 @@ from routes.today_training_routes import router as today_training_router
 from routes.workout_session_routes import router as workout_session_router
 from routes.metric_definition_routes import router as metric_definition_router
 from routes.performance_log_routes import router as performance_log_router
+from routes.activity_feed_routes import router as activity_feed_router
+from routes.athlete_saved_workout_routes import router as athlete_saved_workout_router
 
 app = FastAPI(
     title="AthliTech API",
@@ -40,6 +42,8 @@ app = FastAPI(
         {"name": "Workout Sessions"},
         {"name": "Metric Definitions"},
         {"name": "Performance Logs"},
+        {"name": "Activity Feed"},
+        {"name": "Athlete Saved Workouts"},
     ]
 )
 
@@ -66,6 +70,10 @@ app.include_router(today_training_router)
 app.include_router(workout_session_router)
 app.include_router(metric_definition_router)
 app.include_router(performance_log_router)
+app.include_router(activity_feed_router)
+app.include_router(athlete_saved_workout_router)
+
+
 
 
 

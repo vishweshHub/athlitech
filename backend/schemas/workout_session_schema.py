@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 class WorkoutSessionStatusEnum(str, Enum):
@@ -12,16 +12,15 @@ class WorkoutSessionStatusEnum(str, Enum):
     CANCELLED = "cancelled"
 
 
-class WorkoutSessionStartRequest(BaseModel):
-    session_id: str = Field(..., min_length=1)
-    session_notes: Optional[str] = None
+class WorkoutSessionSourceTypeEnum(str, Enum):
+    PLANNED = "PLANNED"
+    SELF = "SELF"
 
-    @field_validator("session_id")
-    @classmethod
-    def validate_non_empty(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Field cannot be empty or whitespace")
-        return v.strip()
+
+class WorkoutSessionStartRequest(BaseModel):
+    session_id: Optional[str] = None
+    workout_template_id: Optional[str] = None
+    session_notes: Optional[str] = None
 
 
 class WorkoutSessionCompleteRequest(BaseModel):
@@ -35,8 +34,10 @@ class WorkoutSessionCancelRequest(BaseModel):
 
 class WorkoutSessionResponse(BaseModel):
     id: str
-    session_id: str
+    session_id: Optional[str] = None
+    workout_template_id: Optional[str] = None
     athlete_id: str
+    source_type: str = "PLANNED"
     status: str
     started_at: datetime
     paused_at: Optional[datetime] = None

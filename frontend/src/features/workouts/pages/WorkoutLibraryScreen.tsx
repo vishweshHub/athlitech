@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
+
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { WorkoutTemplate } from '@/api/workout';
@@ -15,7 +17,12 @@ import { fetchMyProfile } from '@/api/profile';
 import { Button, Card, EmptyState, SearchBar, CollectionGrid, CollectionGridItem, Badge } from '@/components/ui';
 import WorkoutCard from '../components/WorkoutCard';
 import WorkoutDetailsModal from '../components/WorkoutDetailsModal';
+import { useRouter, Href } from 'expo-router';
+import { useSavedWorkouts } from '@/hooks/useSavedWorkouts';
+
 import { useThemeColors, RADIUS, SPACING } from '@/styles/tokens';
+
+
 
 interface WorkoutLibraryScreenProps {
   token: string;
@@ -43,8 +50,37 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
   // Selected Workout Modal
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutTemplate | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const { savedWorkouts, saveWorkout } = useSavedWorkouts();
+  const router = useRouter();
+
+  const isSelectedWorkoutSaved = Boolean(
+    selectedWorkout &&
+      savedWorkouts.some(
+        (item) =>
+          item.workout_template_id === selectedWorkout.id ||
+          item.workout_template?.id === selectedWorkout.id
+      )
+  );
+
+
+  const handleAddToMyWorkouts = async (workout: WorkoutTemplate) => {
+    setSavingId(workout.id);
+    try {
+      await saveWorkout(workout.id);
+      Alert.alert('Success', 'Workout added to My Workouts.');
+    } catch (err: any) {
+      const message = err?.response?.data?.detail || err?.message || 'Failed to save workout.';
+      Alert.alert('Saved Workout', message);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
 
   const loadData = useCallback(async () => {
+
     if (!token) return;
     setIsLoading(true);
     setError(null);
@@ -231,7 +267,12 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
                 <CollectionGrid gap={16}>
                   {primarySportWorkouts.map((workout) => (
                     <CollectionGridItem key={workout.id} itemWidth={cardWidth}>
-                      <WorkoutCard workout={workout} onViewDetails={handleViewDetails} />
+                      <WorkoutCard
+                        workout={workout}
+                        onViewDetails={handleViewDetails}
+                        onAddToMyWorkouts={userRole === 'athlete' ? handleAddToMyWorkouts : undefined}
+                        isSaving={savingId === workout.id}
+                      />
                     </CollectionGridItem>
                   ))}
                 </CollectionGrid>
@@ -250,10 +291,16 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
                 <CollectionGrid gap={16}>
                   {generalWorkouts.map((workout) => (
                     <CollectionGridItem key={workout.id} itemWidth={cardWidth}>
-                      <WorkoutCard workout={workout} onViewDetails={handleViewDetails} />
+                      <WorkoutCard
+                        workout={workout}
+                        onViewDetails={handleViewDetails}
+                        onAddToMyWorkouts={userRole === 'athlete' ? handleAddToMyWorkouts : undefined}
+                        isSaving={savingId === workout.id}
+                      />
                     </CollectionGridItem>
                   ))}
                 </CollectionGrid>
+
               </View>
             )}
 
@@ -296,7 +343,12 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
         workout={selectedWorkout}
         userRole={userRole}
         onClose={handleCloseModal}
+        isSaved={isSelectedWorkoutSaved}
+        onAddToMyWorkouts={handleAddToMyWorkouts}
+        onOpenMyWorkouts={() => router.push('/my-workouts' as Href)}
+        isSaving={savingId === selectedWorkout?.id}
       />
+
     </View>
   );
 }
@@ -313,8 +365,9 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justify: 'space-between',
+    justifyContent: 'space-between',
     gap: 12,
+
   },
   screenTitle: {
     fontSize: 22,
@@ -370,7 +423,8 @@ const styles = StyleSheet.create({
   lockedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justify: 'space-between',
+    justifyContent: 'space-between',
+
   },
   lockIconBox: {
     width: 36,
@@ -378,8 +432,9 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.sm,
     borderWidth: 1,
     alignItems: 'center',
-    justify: 'center',
+    justifyContent: 'center',
   },
+
   lockedTitle: {
     fontSize: 18,
     fontWeight: '700',
@@ -390,8 +445,9 @@ const styles = StyleSheet.create({
   centeredState: {
     padding: 40,
     alignItems: 'center',
-    justify: 'center',
+    justifyContent: 'center',
   },
+
   loadingText: {
     marginTop: 12,
     fontSize: 14,

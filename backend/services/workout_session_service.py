@@ -1,13 +1,15 @@
 import uuid
 from datetime import datetime
 from typing import Optional
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 
 from core.permissions import normalize_role
 from repositories.workout_session_repository import workout_session_repository
 from repositories.session_repository import session_repository
 from repositories.training_plan_repository import training_plan_repository
 from repositories.athlete_repository import athlete_repository
+from repositories.workout_repository import workout_repository
+from repositories.athlete_saved_workout_repository import athlete_saved_workout_repository
 from services.training_plan_service import _verify_plan_access
 from schemas.workout_session_schema import (
     WorkoutSessionStartRequest,
@@ -19,10 +21,15 @@ from schemas.workout_session_schema import (
 
 def _format_workout_session_response(ws: dict) -> WorkoutSessionResponse:
     ws_id = str(ws.get("id") or ws.get("_id"))
+    session_id_val = str(ws.get("session_id")) if ws.get("session_id") else None
+    template_id_val = str(ws.get("workout_template_id")) if ws.get("workout_template_id") else None
+
     return WorkoutSessionResponse(
         id=ws_id,
-        session_id=str(ws.get("session_id", "")),
+        session_id=session_id_val,
+        workout_template_id=template_id_val,
         athlete_id=str(ws.get("athlete_id", "")),
+        source_type=str(ws.get("source_type", "PLANNED")),
         status=str(ws.get("status", "not_started")),
         started_at=ws.get("started_at") if isinstance(ws.get("started_at"), datetime) else datetime.utcnow(),
         paused_at=ws.get("paused_at") if isinstance(ws.get("paused_at"), datetime) else None,
@@ -65,31 +72,68 @@ async def start_workout_session(payload: WorkoutSessionStartRequest, current_use
     
     target_athlete_id = user_id
 
-    # 1. Validate Session exists
-    sess = await session_repository.find_session_by_id(payload.session_id)
-    if not sess:
-        raise HTTPException(status_code=404, detail=f"Session with ID '{payload.session_id}' does not exist")
+    session_id = payload.session_id
+    template_id = payload.workout_template_id
 
-    # 2. Validate athlete access to parent training plan
-    day = await training_plan_repository.find_day_by_id(sess.get("training_day_id"))
-    if day:
-        week = await training_plan_repository.find_week_by_id(day.get("training_week_id"))
-        if week:
-            plan = await training_plan_repository.find_plan_by_id(week.get("training_plan_id"))
-            if plan:
-                await _verify_plan_access(plan, current_user, require_write=True)
+    if (session_id and template_id) or (not session_id and not template_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Exactly one of 'session_id' or 'workout_template_id' must be provided.",
+        )
 
-    # 3. Check for existing active workout session
+    # Check for existing active workout session
     active_ws = await workout_session_repository.find_active_workout_session_by_athlete(target_athlete_id)
     if active_ws:
-        raise HTTPException(status_code=400, detail="Athlete already has an active workout session")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Athlete already has an active workout session")
 
-    # 4. Create new workout session
+    source_type = "PLANNED"
+    final_session_id = None
+    final_template_id = None
+
+    if session_id:
+        # Flow A: Planned Session
+        sess = await session_repository.find_session_by_id(session_id)
+        if not sess:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Session with ID '{session_id}' does not exist")
+
+        day = await training_plan_repository.find_day_by_id(sess.get("training_day_id"))
+        if day:
+            week = await training_plan_repository.find_week_by_id(day.get("training_week_id"))
+            if week:
+                plan = await training_plan_repository.find_plan_by_id(week.get("training_plan_id"))
+                if plan:
+                    await _verify_plan_access(plan, current_user, require_write=True)
+
+        final_session_id = session_id
+        source_type = "PLANNED"
+
+    else:
+        # Flow B: Self Workout
+        tmpl = await workout_repository.find_template_by_id(template_id)
+        if not tmpl:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Workout template with ID '{template_id}' does not exist")
+
+        saved_item = await athlete_saved_workout_repository.find_by_athlete_and_template(
+            athlete_id=target_athlete_id,
+            workout_template_id=template_id,
+        )
+        if not saved_item:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Athlete has not saved this workout template to their collection.",
+            )
+
+        final_template_id = template_id
+        source_type = "SELF"
+
+    # Create new workout session
     now = datetime.utcnow()
     ws_doc = {
         "id": str(uuid.uuid4()),
-        "session_id": payload.session_id,
+        "session_id": final_session_id,
+        "workout_template_id": final_template_id,
         "athlete_id": target_athlete_id,
+        "source_type": source_type,
         "status": "in_progress",
         "started_at": now,
         "paused_at": None,

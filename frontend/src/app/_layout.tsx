@@ -10,7 +10,20 @@ import { useTheme } from '@/theme/useTheme';
 import ThemeTransition from '@/components/animations/ThemeTransition';
 
 function LayoutContent() {
-  const { theme } = useTheme();
+  const { theme, colors } = useTheme();
+
+  // Dynamically synchronize web root document background with active theme
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const bgColor = theme === 'dark' ? '#02050a' : '#f8fafc';
+      document.documentElement.style.backgroundColor = bgColor;
+      document.body.style.backgroundColor = bgColor;
+      const rootEl = document.getElementById('root');
+      if (rootEl) {
+        rootEl.style.backgroundColor = bgColor;
+      }
+    }
+  }, [theme]);
 
   // Create transparent background for React Navigation so ThemeTransition shows through
   const navTheme = theme === 'dark' ? {
@@ -50,9 +63,23 @@ function LayoutContent() {
 export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      const style = document.createElement('style');
-      style.id = 'chrome-autofill-override';
+      let style = document.getElementById('global-web-root-styles') as HTMLStyleElement | null;
+      if (!style) {
+        style = document.createElement('style');
+        style.id = 'global-web-root-styles';
+        document.head.appendChild(style);
+      }
       style.innerHTML = `
+        /* Root layout reset to eliminate default browser margins and white borders */
+        html, body, #root, #root > div, [data-contents="true"] {
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          min-height: 100vh !important;
+          box-sizing: border-box !important;
+        }
+
         /* Override Chrome Autofill Styles for glass theme inputs */
         input:-webkit-autofill,
         input:-webkit-autofill:hover, 
@@ -74,11 +101,6 @@ export default function RootLayout() {
                       stroke 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
       `;
-      document.head.appendChild(style);
-      return () => {
-        const el = document.getElementById('chrome-autofill-override');
-        if (el) el.remove();
-      };
     }
   }, []);
 

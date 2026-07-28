@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { WorkoutTemplate } from '@/api/workout';
 import { Card, Badge, Button } from '@/components/ui';
@@ -8,9 +8,16 @@ import { useThemeColors, RADIUS, SPACING } from '@/styles/tokens';
 interface WorkoutCardProps {
   workout: WorkoutTemplate;
   onViewDetails: (workout: WorkoutTemplate) => void;
+  onAddToMyWorkouts?: (workout: WorkoutTemplate) => void;
+  isSaving?: boolean;
 }
 
-export default function WorkoutCard({ workout, onViewDetails }: WorkoutCardProps) {
+export default function WorkoutCard({
+  workout,
+  onViewDetails,
+  onAddToMyWorkouts,
+  isSaving,
+}: WorkoutCardProps) {
   const colors = useThemeColors();
 
   const getDifficultyVariant = (diff: string) => {
@@ -79,15 +86,25 @@ export default function WorkoutCard({ workout, onViewDetails }: WorkoutCardProps
         </View>
       )}
 
-      {/* View Details Button */}
+      {/* Action Buttons Row */}
       <View style={styles.actionRow}>
         <Button
           label="View Details"
           onPress={() => onViewDetails(workout)}
           variant="secondary"
           size="sm"
-          style={styles.detailsBtn}
+          style={onAddToMyWorkouts ? styles.halfBtn : styles.fullBtn}
         />
+        {onAddToMyWorkouts && (
+          <Button
+            label="➕ Add to My Workouts"
+            onPress={() => onAddToMyWorkouts(workout)}
+            variant="outline"
+            size="sm"
+            isLoading={isSaving}
+            style={styles.halfBtn}
+          />
+        )}
       </View>
     </Card>
   );
@@ -97,7 +114,7 @@ const styles = StyleSheet.create({
   card: {
     padding: SPACING.md,
     flexDirection: 'column',
-    justify: 'space-between',
+    justifyContent: 'space-between',
     height: '100%',
   },
   headerRow: {
@@ -155,8 +172,13 @@ const styles = StyleSheet.create({
   actionRow: {
     marginTop: 'auto',
     paddingTop: 8,
+    flexDirection: 'row',
+    gap: 8,
   },
-  detailsBtn: {
+  fullBtn: {
     width: '100%',
+  },
+  halfBtn: {
+    flex: 1,
   },
 });
