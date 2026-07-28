@@ -17,6 +17,7 @@ import { WorkoutExecutionActionBar } from '../components/WorkoutExecutionActionB
 import { WorkoutExecutionSkeleton } from '../components/WorkoutExecutionSkeleton';
 import { getStoredToken } from '@/api/auth';
 import { fetchWorkoutTemplateById, WorkoutTemplate } from '@/api/workout';
+import { useThemeColors, RADIUS } from '@/styles/tokens';
 
 interface WorkoutExecutionScreenProps {
   athleteId?: string;
@@ -30,6 +31,7 @@ export const WorkoutExecutionScreen: React.FC<WorkoutExecutionScreenProps> = ({
   onNavigateToPerformanceLog,
   onClose,
 }) => {
+  const colors = useThemeColors();
   const router = useRouter();
   const {
     activeSession,
@@ -169,7 +171,7 @@ export const WorkoutExecutionScreen: React.FC<WorkoutExecutionScreenProps> = ({
       });
 
       if (completed) {
-        setIsCompletedSuccess(true);
+        router.replace(`/performance-log?workout_session_id=${activeSession.id}` as Href);
       }
     } finally {
       setIsSubmittingAction(false);
@@ -246,11 +248,11 @@ export const WorkoutExecutionScreen: React.FC<WorkoutExecutionScreenProps> = ({
   // Temporary Success Screen after Completion
   if (isCompletedSuccess) {
     return (
-      <ScreenContainer scrollable={false} contentContainerStyle={styles.centeredContainer}>
+      <ScreenContainer scrollable={false} contentContainerStyle={{ ...styles.centeredContainer, backgroundColor: colors.bg }}>
         <Card style={styles.successCard}>
-          <Ionicons name="checkmark-circle-outline" size={64} color="#10B981" />
-          <Text style={styles.successTitle}>Workout Completed Successfully! 🎉</Text>
-          <Text style={styles.successSubtitle}>
+          <Ionicons name="checkmark-circle-outline" size={64} color={colors.emerald} />
+          <Text style={[styles.successTitle, { color: colors.textPrimary }]}>Workout Completed Successfully! 🎉</Text>
+          <Text style={[styles.successSubtitle, { color: colors.textSub }]}>
             Great job! Performance Log will open here in the next sprint.
           </Text>
           <Button
@@ -311,7 +313,7 @@ export const WorkoutExecutionScreen: React.FC<WorkoutExecutionScreenProps> = ({
   const isPaused = status === 'paused';
 
   return (
-    <View style={styles.screenWrapper}>
+    <View style={[styles.screenWrapper, { backgroundColor: colors.bg }]}>
       <ScreenContainer scrollable={true} contentContainerStyle={styles.scrollContent}>
         {/* Header & Live Duration Timer */}
         <WorkoutExecutionHeader
@@ -335,20 +337,20 @@ export const WorkoutExecutionScreen: React.FC<WorkoutExecutionScreenProps> = ({
             {/* Description */}
             {selfTemplate.description ? (
               <Card style={styles.detailCard}>
-                <Text style={styles.cardSectionTitle}>Description</Text>
-                <Text style={styles.cardBodyText}>{selfTemplate.description}</Text>
+                <Text style={[styles.cardSectionTitle, { color: colors.textPrimary }]}>Description</Text>
+                <Text style={[styles.cardBodyText, { color: colors.textSub }]}>{selfTemplate.description}</Text>
               </Card>
             ) : null}
 
             {/* Equipment Required */}
             {selfTemplate.equipment && selfTemplate.equipment.length > 0 ? (
               <Card style={styles.detailCard}>
-                <Text style={styles.cardSectionTitle}>Equipment Required</Text>
+                <Text style={[styles.cardSectionTitle, { color: colors.textPrimary }]}>Equipment Required</Text>
                 <View style={styles.equipmentRow}>
                   {selfTemplate.equipment.map((eq, idx) => (
-                    <View key={idx} style={styles.equipmentChip}>
-                      <Ionicons name="hardware-chip-outline" size={14} color="#38BDF8" />
-                      <Text style={styles.equipmentChipText}>{eq}</Text>
+                    <View key={idx} style={[styles.equipmentChip, { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle }]}>
+                      <Ionicons name="hardware-chip-outline" size={14} color={colors.info} />
+                      <Text style={[styles.equipmentChipText, { color: colors.textPrimary }]}>{eq}</Text>
                     </View>
                   ))}
                 </View>
@@ -358,8 +360,8 @@ export const WorkoutExecutionScreen: React.FC<WorkoutExecutionScreenProps> = ({
             {/* Instructions */}
             {selfTemplate.instructions ? (
               <Card style={styles.detailCard}>
-                <Text style={styles.cardSectionTitle}>Instructions</Text>
-                <Text style={styles.instructionsText}>{selfTemplate.instructions}</Text>
+                <Text style={[styles.cardSectionTitle, { color: colors.textPrimary }]}>Instructions</Text>
+                <Text style={[styles.instructionsText, { color: colors.textSub }]}>{selfTemplate.instructions}</Text>
               </Card>
             ) : null}
           </View>
@@ -372,8 +374,8 @@ export const WorkoutExecutionScreen: React.FC<WorkoutExecutionScreenProps> = ({
 
             {((plannedSession as any)?.description || plannedSession?.assignments?.[0]?.workout_template?.description) ? (
               <Card style={styles.detailCard}>
-                <Text style={styles.cardSectionTitle}>Description</Text>
-                <Text style={styles.cardBodyText}>
+                <Text style={[styles.cardSectionTitle, { color: colors.textPrimary }]}>Description</Text>
+                <Text style={[styles.cardBodyText, { color: colors.textSub }]}>
                   {(plannedSession as any)?.description || plannedSession?.assignments?.[0]?.workout_template?.description}
                 </Text>
               </Card>
@@ -407,30 +409,30 @@ export const WorkoutExecutionScreen: React.FC<WorkoutExecutionScreenProps> = ({
         animationType="fade"
         onRequestClose={() => setShowLeaveModal(false)}
       >
-        <View style={styles.leaveModalOverlay}>
-          <View style={styles.leaveModalCard}>
+        <View style={[styles.leaveModalOverlay, { backgroundColor: colors.cardShadow }]}>
+          <Card style={styles.leaveModalCard}>
             <View style={styles.leaveModalHeader}>
-              <Ionicons name="log-out-outline" size={26} color="#38BDF8" />
-              <Text style={styles.leaveModalTitle}>Leave Workout?</Text>
+              <Ionicons name="log-out-outline" size={26} color={colors.info} />
+              <Text style={[styles.leaveModalTitle, { color: colors.textPrimary }]}>Leave Workout?</Text>
             </View>
-            <Text style={styles.leaveModalMessage}>
+            <Text style={[styles.leaveModalMessage, { color: colors.textSub }]}>
               Your workout will continue running in the background.{"\n\n"}You can resume it anytime from your active session.
             </Text>
             <View style={styles.leaveModalActions}>
               <Button
-                title="Continue Workout"
+                label="Continue Workout"
                 onPress={() => setShowLeaveModal(false)}
-                variant="outline"
+                variant="secondary"
                 style={styles.leaveModalBtn}
               />
               <Button
-                title="Leave Session"
+                label="Leave Session"
                 onPress={handleConfirmLeave}
                 variant="primary"
                 style={styles.leaveModalBtn}
               />
             </View>
-          </View>
+          </Card>
         </View>
       </Modal>
     </View>
@@ -440,7 +442,6 @@ export const WorkoutExecutionScreen: React.FC<WorkoutExecutionScreenProps> = ({
 const styles = StyleSheet.create({
   screenWrapper: {
     flex: 1,
-    backgroundColor: '#0F172A',
   },
   scrollContent: {
     paddingBottom: 24,
@@ -456,19 +457,14 @@ const styles = StyleSheet.create({
   },
   detailCard: {
     padding: 16,
-    backgroundColor: '#1E293B',
-    borderColor: '#334155',
-    borderWidth: 1,
     gap: 8,
   },
   cardSectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#F8FAFC',
   },
   cardBodyText: {
     fontSize: 14,
-    color: '#94A3B8',
     lineHeight: 22,
   },
   equipmentRow: {
@@ -481,21 +477,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#0F172A',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: RADIUS.xs,
     borderWidth: 1,
-    borderColor: '#334155',
   },
   equipmentChipText: {
     fontSize: 13,
-    color: '#F8FAFC',
     fontWeight: '500',
   },
   instructionsText: {
     fontSize: 14,
-    color: '#CBD5E1',
     lineHeight: 22,
   },
   centeredContainer: {
@@ -503,33 +495,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-    backgroundColor: '#0F172A',
   },
   successCard: {
     width: '100%',
     padding: 24,
-    backgroundColor: '#1E293B',
-    borderColor: '#334155',
-    borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
     gap: 12,
   },
   successTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#F8FAFC',
     textAlign: 'center',
   },
   successSubtitle: {
     fontSize: 14,
-    color: '#94A3B8',
     textAlign: 'center',
     lineHeight: 20,
   },
   leaveModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -537,17 +522,9 @@ const styles = StyleSheet.create({
   leaveModalCard: {
     width: '100%',
     maxWidth: 440,
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
+    borderRadius: RADIUS.lg,
     padding: 24,
     gap: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 8,
   },
   leaveModalHeader: {
     flexDirection: 'row',
@@ -557,11 +534,9 @@ const styles = StyleSheet.create({
   leaveModalTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#F8FAFC',
   },
   leaveModalMessage: {
     fontSize: 14,
-    color: '#94A3B8',
     lineHeight: 22,
   },
   leaveModalActions: {

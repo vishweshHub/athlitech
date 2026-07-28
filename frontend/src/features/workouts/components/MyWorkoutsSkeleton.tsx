@@ -1,8 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { StyleSheet, View, Animated } from 'react-native';
 import { Card } from '../../../components/ui/Card';
+import { useThemeColors, RADIUS } from '@/styles/tokens';
 
 export const MyWorkoutsSkeleton: React.FC = () => {
+  const colors = useThemeColors();
   const fadeAnim = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -28,11 +30,11 @@ export const MyWorkoutsSkeleton: React.FC = () => {
     <View style={styles.container}>
       {[1, 2, 3].map((key) => (
         <Card key={key} style={styles.card}>
-          <Animated.View style={[styles.headerBadge, { opacity: fadeAnim }]} />
-          <Animated.View style={[styles.titleLine, { opacity: fadeAnim }]} />
-          <Animated.View style={[styles.metaLine, { opacity: fadeAnim }]} />
-          <Animated.View style={[styles.descLine, { opacity: fadeAnim }]} />
-          <Animated.View style={[styles.buttonLine, { opacity: fadeAnim }]} />
+          <Animated.View style={[styles.headerBadge, { backgroundColor: colors.skeletonBg, opacity: fadeAnim }]} />
+          <Animated.View style={[styles.titleLine, { backgroundColor: colors.skeletonBg, opacity: fadeAnim }]} />
+          <Animated.View style={[styles.metaLine, { backgroundColor: colors.skeletonBg, opacity: fadeAnim }]} />
+          <Animated.View style={[styles.descLine, { backgroundColor: colors.skeletonBg, opacity: fadeAnim }]} />
+          <Animated.View style={[styles.buttonLine, { backgroundColor: colors.skeletonBg, opacity: fadeAnim }]} />
         </Card>
       ))}
     </View>
@@ -46,41 +48,33 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: 16,
-    borderRadius: 14,
-    backgroundColor: '#1E293B',
-    borderColor: '#334155',
-    borderWidth: 1,
+    borderRadius: RADIUS.md,
     gap: 12,
   },
   headerBadge: {
     width: 90,
     height: 22,
-    borderRadius: 6,
-    backgroundColor: '#334155',
+    borderRadius: RADIUS.xs,
   },
   titleLine: {
     width: '65%',
     height: 20,
-    borderRadius: 4,
-    backgroundColor: '#334155',
+    borderRadius: RADIUS.xs,
   },
   metaLine: {
     width: '40%',
     height: 14,
-    borderRadius: 4,
-    backgroundColor: '#334155',
+    borderRadius: RADIUS.xs,
   },
   descLine: {
     width: '90%',
     height: 14,
-    borderRadius: 4,
-    backgroundColor: '#334155',
+    borderRadius: RADIUS.xs,
   },
   buttonLine: {
     width: '100%',
     height: 38,
-    borderRadius: 8,
-    backgroundColor: '#334155',
+    borderRadius: RADIUS.xs,
     marginTop: 8,
   },
 });

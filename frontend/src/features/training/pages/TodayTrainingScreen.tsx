@@ -10,6 +10,7 @@ import { TrainingMetadata } from '../components/TrainingMetadata';
 import { WorkoutAssignmentItem } from '../components/WorkoutAssignmentItem';
 import { PinnedActionBar } from '../components/PinnedActionBar';
 import { TodayTrainingSkeleton } from '../components/TodayTrainingSkeleton';
+import { useThemeColors, RADIUS } from '@/styles/tokens';
 
 interface TodayTrainingScreenProps {
   athleteId?: string;
@@ -28,6 +29,7 @@ export const TodayTrainingScreen: React.FC<TodayTrainingScreenProps> = ({
   onNavigateToLogWorkout,
   onNavigateToContactCoach,
 }) => {
+  const colors = useThemeColors();
   const { todayTraining, isLoading, isRefreshing, isUsingCache, error, refetch } =
     useTodayTraining(athleteId, targetDate);
 
@@ -75,20 +77,19 @@ export const TodayTrainingScreen: React.FC<TodayTrainingScreenProps> = ({
   const activeSession = todayTraining?.sessions[0];
   const weekNumber = todayTraining?.training_week?.week_number;
   const dayName = todayTraining?.training_day?.day_name || 'Today';
-  const planTitle = todayTraining?.training_plan?.title || 'Training Program';
   const sessionTitle = activeSession?.session_name || 'Workout Session';
   const goalSubtitle = todayTraining?.training_plan?.goal || activeSession?.session_name;
 
   return (
-    <View style={styles.screenWrapper}>
+    <View style={[styles.screenWrapper, { backgroundColor: colors.bg }]}>
       <ScreenContainer
         scrollable={true}
         contentContainerStyle={styles.scrollContent}
       >
         {/* Warning Banner for State 5 (Error with Cache) */}
         {isUsingCache && error && (
-          <View style={styles.cacheWarningBanner}>
-            <Text style={styles.cacheWarningText}>{error}</Text>
+          <View style={[styles.cacheWarningBanner, { backgroundColor: colors.warning + '20', borderColor: colors.warning + '60' }]}>
+            <Text style={[styles.cacheWarningText, { color: colors.warning }]}>{error}</Text>
           </View>
         )}
 
@@ -109,7 +110,7 @@ export const TodayTrainingScreen: React.FC<TodayTrainingScreenProps> = ({
             />
 
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Workout Assignments</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Workout Assignments</Text>
             </View>
 
             <View style={styles.assignmentsList}>
@@ -121,7 +122,7 @@ export const TodayTrainingScreen: React.FC<TodayTrainingScreenProps> = ({
                   />
                 ))
               ) : (
-                <Text style={styles.noAssignmentsText}>No assignments scheduled for this session.</Text>
+                <Text style={[styles.noAssignmentsText, { color: colors.textMuted }]}>No assignments scheduled for this session.</Text>
               )}
             </View>
           </View>
@@ -137,9 +138,9 @@ export const TodayTrainingScreen: React.FC<TodayTrainingScreenProps> = ({
               subtitle="Recovery is part of your training."
             />
 
-            <View style={styles.restCard}>
-              <Text style={styles.restCardTitle}>Rest & Regeneration</Text>
-              <Text style={styles.restCardMessage}>
+            <View style={[styles.restCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+              <Text style={[styles.restCardTitle, { color: colors.info }]}>Rest & Regeneration</Text>
+              <Text style={[styles.restCardMessage, { color: colors.textSub }]}>
                 {todayTraining?.message || 'Focus on hydration, mobility, and adequate sleep to maximize adaptations for upcoming sessions.'}
               </Text>
             </View>
@@ -187,22 +188,18 @@ export const TodayTrainingScreen: React.FC<TodayTrainingScreenProps> = ({
 const styles = StyleSheet.create({
   screenWrapper: {
     flex: 1,
-    backgroundColor: '#0F172A',
   },
   scrollContent: {
     paddingBottom: 24,
   },
   cacheWarningBanner: {
-    backgroundColor: 'rgba(234, 179, 8, 0.15)',
-    borderColor: 'rgba(234, 179, 8, 0.4)',
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: RADIUS.xs,
     padding: 10,
     marginBottom: 14,
   },
   cacheWarningText: {
     fontSize: 13,
-    color: '#FACC15',
     textAlign: 'center',
     fontWeight: '600',
   },
@@ -216,34 +213,28 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#F8FAFC',
   },
   assignmentsList: {
     gap: 8,
   },
   noAssignmentsText: {
     fontSize: 14,
-    color: '#94A3B8',
     fontStyle: 'italic',
     marginTop: 8,
   },
   restCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 14,
+    borderRadius: RADIUS.md,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#334155',
     marginTop: 12,
   },
   restCardTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#38BDF8',
     marginBottom: 8,
   },
   restCardMessage: {
     fontSize: 14,
-    color: '#CBD5E1',
     lineHeight: 22,
   },
 });

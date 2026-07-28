@@ -9,6 +9,7 @@ from repositories.session_repository import session_repository
 from repositories.training_plan_repository import training_plan_repository
 from repositories.athlete_repository import athlete_repository
 from repositories.workout_repository import workout_repository
+from repositories.workout_assignment_repository import workout_assignment_repository
 from repositories.athlete_saved_workout_repository import athlete_saved_workout_repository
 from services.training_plan_service import _verify_plan_access
 from schemas.workout_session_schema import (
@@ -23,11 +24,13 @@ def _format_workout_session_response(ws: dict) -> WorkoutSessionResponse:
     ws_id = str(ws.get("id") or ws.get("_id"))
     session_id_val = str(ws.get("session_id")) if ws.get("session_id") else None
     template_id_val = str(ws.get("workout_template_id")) if ws.get("workout_template_id") else None
+    assignment_id_val = str(ws.get("assignment_id")) if ws.get("assignment_id") else None
 
     return WorkoutSessionResponse(
         id=ws_id,
         session_id=session_id_val,
         workout_template_id=template_id_val,
+        assignment_id=assignment_id_val,
         athlete_id=str(ws.get("athlete_id", "")),
         source_type=str(ws.get("source_type", "PLANNED")),
         status=str(ws.get("status", "not_started")),
@@ -74,6 +77,7 @@ async def start_workout_session(payload: WorkoutSessionStartRequest, current_use
 
     session_id = payload.session_id
     template_id = payload.workout_template_id
+    explicit_assignment_id = payload.assignment_id
 
     if (session_id and template_id) or (not session_id and not template_id):
         raise HTTPException(
@@ -89,6 +93,7 @@ async def start_workout_session(payload: WorkoutSessionStartRequest, current_use
     source_type = "PLANNED"
     final_session_id = None
     final_template_id = None
+    final_assignment_id = explicit_assignment_id
 
     if session_id:
         # Flow A: Planned Session
@@ -106,6 +111,11 @@ async def start_workout_session(payload: WorkoutSessionStartRequest, current_use
 
         final_session_id = session_id
         source_type = "PLANNED"
+
+        if not final_assignment_id:
+            assigns = await workout_assignment_repository.get_assignments_by_session(session_id)
+            if assigns and len(assigns) > 0:
+                final_assignment_id = str(assigns[0].get("id") or assigns[0].get("_id"))
 
     else:
         # Flow B: Self Workout
@@ -132,6 +142,7 @@ async def start_workout_session(payload: WorkoutSessionStartRequest, current_use
         "id": str(uuid.uuid4()),
         "session_id": final_session_id,
         "workout_template_id": final_template_id,
+        "assignment_id": final_assignment_id,
         "athlete_id": target_athlete_id,
         "source_type": source_type,
         "status": "in_progress",

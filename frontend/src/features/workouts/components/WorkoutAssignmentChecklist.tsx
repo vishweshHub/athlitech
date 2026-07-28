@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, ViewStyle } from 'react-nativ
 import { Card } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { TodayAssignment } from '../../../types';
+import { useThemeColors, RADIUS } from '@/styles/tokens';
 
 interface WorkoutAssignmentChecklistProps {
   assignments: TodayAssignment[];
@@ -17,10 +18,12 @@ export const WorkoutAssignmentChecklist: React.FC<WorkoutAssignmentChecklistProp
   onToggleAssignment,
   style,
 }) => {
+  const colors = useThemeColors();
+
   if (!assignments || assignments.length === 0) {
     return (
       <View style={[styles.emptyContainer, style]}>
-        <Text style={styles.emptyText}>No workout assignments scheduled for this session.</Text>
+        <Text style={[styles.emptyText, { color: colors.textSub }]}>No workout assignments scheduled for this session.</Text>
       </View>
     );
   }
@@ -39,28 +42,60 @@ export const WorkoutAssignmentChecklist: React.FC<WorkoutAssignmentChecklistProp
             onPress={() => onToggleAssignment(assignmentId)}
             activeOpacity={0.8}
           >
-            <Card style={[styles.card, isDone && styles.completedCard]} variant="elevated">
+            <Card
+              style={[
+                styles.card,
+                isDone && { borderColor: colors.borderEmerald, backgroundColor: colors.emeraldDim },
+              ]}
+              variant="elevated"
+            >
               <View style={styles.row}>
-                <View style={[styles.checkbox, isDone && styles.checkboxDone]}>
-                  <Text style={[styles.checkboxText, isDone && styles.checkboxTextDone]}>
+                <View
+                  style={[
+                    styles.checkbox,
+                    { borderColor: colors.info },
+                    isDone && { borderColor: colors.emerald, backgroundColor: colors.emeraldDim },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.checkboxText,
+                      { color: colors.info },
+                      isDone && { color: colors.emerald },
+                    ]}
+                  >
                     {isDone ? '✓' : '○'}
                   </Text>
                 </View>
 
                 <View style={styles.content}>
                   <View style={styles.headerRow}>
-                    <Text style={[styles.title, isDone && styles.titleDone]}>{title}</Text>
+                    <Text
+                      style={[
+                        styles.title,
+                        { color: colors.textPrimary },
+                        isDone && [styles.titleDone, { color: colors.textMuted }],
+                      ]}
+                    >
+                      {title}
+                    </Text>
                     <Badge label={categoryLabel} variant={isDone ? 'success' : 'info'} />
                   </View>
 
                   {assignment.assignment_note ? (
-                    <Text style={styles.notesText}>{assignment.assignment_note}</Text>
+                    <Text style={[styles.notesText, { color: colors.textSub }]}>{assignment.assignment_note}</Text>
                   ) : null}
 
                   {assignment.overrides && Object.keys(assignment.overrides).length > 0 ? (
                     <View style={styles.overridesRow}>
                       {Object.entries(assignment.overrides).map(([k, v]) => (
-                        <Text key={k} style={styles.overrideBadge}>
+                        <Text
+                          key={k}
+                          style={[
+                            styles.overrideBadge,
+                            { color: colors.info, backgroundColor: colors.infoDim },
+                          ]}
+                        >
                           {k}: {String(v)}
                         </Text>
                       ))}
@@ -84,10 +119,6 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     padding: 14,
   },
-  completedCard: {
-    borderColor: 'rgba(74, 222, 128, 0.3)',
-    backgroundColor: 'rgba(15, 23, 42, 0.8)',
-  },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -97,23 +128,14 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#38BDF8',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
     marginTop: 2,
   },
-  checkboxDone: {
-    borderColor: '#4ADE80',
-    backgroundColor: 'rgba(74, 222, 128, 0.15)',
-  },
   checkboxText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#38BDF8',
-  },
-  checkboxTextDone: {
-    color: '#4ADE80',
   },
   content: {
     flex: 1,
@@ -126,17 +148,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#F8FAFC',
     flex: 1,
     paddingRight: 8,
   },
   titleDone: {
     textDecorationLine: 'line-through',
-    color: '#94A3B8',
   },
   notesText: {
     fontSize: 13,
-    color: '#94A3B8',
     marginTop: 4,
     lineHeight: 18,
   },
@@ -148,11 +167,9 @@ const styles = StyleSheet.create({
   },
   overrideBadge: {
     fontSize: 11,
-    color: '#38BDF8',
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: RADIUS.xs,
   },
   emptyContainer: {
     padding: 20,
@@ -160,7 +177,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#94A3B8',
     fontStyle: 'italic',
   },
 });

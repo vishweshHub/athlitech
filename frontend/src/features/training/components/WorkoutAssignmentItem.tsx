@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Card } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { TodayAssignment } from '../../../types';
+import { useThemeColors, RADIUS } from '@/styles/tokens';
 
 interface WorkoutAssignmentItemProps {
   assignment: TodayAssignment;
@@ -15,6 +16,7 @@ export const WorkoutAssignmentItem: React.FC<WorkoutAssignmentItemProps> = ({
   isCompleted = false,
   style,
 }) => {
+  const colors = useThemeColors();
   const categoryLabel = assignment.category.replace('_', ' ').toUpperCase();
   const templateTitle = assignment.workout_template?.title || `Workout #${assignment.order}`;
   const notes = assignment.assignment_note;
@@ -23,20 +25,28 @@ export const WorkoutAssignmentItem: React.FC<WorkoutAssignmentItemProps> = ({
     <Card style={[styles.card, style]} variant="elevated">
       <View style={styles.headerRow}>
         <View style={styles.titleRow}>
-          <Text style={[styles.statusIcon, isCompleted && styles.completedIcon]}>
+          <Text style={[styles.statusIcon, { color: isCompleted ? colors.emerald : colors.info }]}>
             {isCompleted ? '✓' : '○'}
           </Text>
-          <Text style={[styles.title, isCompleted && styles.completedText]}>{templateTitle}</Text>
+          <Text
+            style={[
+              styles.title,
+              { color: colors.textPrimary },
+              isCompleted && [styles.completedText, { color: colors.textMuted }],
+            ]}
+          >
+            {templateTitle}
+          </Text>
         </View>
         <Badge label={categoryLabel} variant="info" />
       </View>
 
-      {notes ? <Text style={styles.notesText}>{notes}</Text> : null}
+      {notes ? <Text style={[styles.notesText, { color: colors.textSub }]}>{notes}</Text> : null}
 
       {assignment.overrides && Object.keys(assignment.overrides).length > 0 ? (
         <View style={styles.overridesRow}>
           {Object.entries(assignment.overrides).map(([k, v]) => (
-            <Text key={k} style={styles.overrideBadge}>
+            <Text key={k} style={[styles.overrideBadge, { color: colors.info, backgroundColor: colors.infoDim }]}>
               {k}: {String(v)}
             </Text>
           ))}
@@ -65,25 +75,18 @@ const styles = StyleSheet.create({
   statusIcon: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#38BDF8',
     marginRight: 10,
-  },
-  completedIcon: {
-    color: '#4ADE80',
   },
   title: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#F8FAFC',
     flex: 1,
   },
   completedText: {
     textDecorationLine: 'line-through',
-    color: '#94A3B8',
   },
   notesText: {
     fontSize: 13,
-    color: '#94A3B8',
     marginTop: 6,
     marginLeft: 26,
     lineHeight: 18,
@@ -97,11 +100,9 @@ const styles = StyleSheet.create({
   },
   overrideBadge: {
     fontSize: 11,
-    color: '#38BDF8',
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: RADIUS.xs,
   },
 });
 

@@ -7,6 +7,7 @@ class WorkoutSession(BaseModel):
     id: str
     session_id: Optional[str] = None
     workout_template_id: Optional[str] = None
+    assignment_id: Optional[str] = None
     athlete_id: str
     source_type: str = "PLANNED"  # "PLANNED" or "SELF"
     status: str = "not_started"

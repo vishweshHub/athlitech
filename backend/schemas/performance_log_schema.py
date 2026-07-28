@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class SourceTypeEnum(str, Enum):
+    SELF = "SELF"
+    PLANNED = "PLANNED"
     MANUAL = "manual"
     COACH = "coach"
     WEARABLE = "wearable"
@@ -13,15 +15,22 @@ class SourceTypeEnum(str, Enum):
 
 class PerformanceLogCreate(BaseModel):
     workout_session_id: str = Field(..., min_length=1)
-    assignment_id: str = Field(..., min_length=1)
-    activity_label: str = Field(..., min_length=1)
-    metrics: Dict[str, Any] = Field(..., min_length=1)
-    source_type: Optional[SourceTypeEnum] = SourceTypeEnum.MANUAL
+    workout_template_id: Optional[str] = None
+    assignment_id: Optional[str] = None
+    activity_label: Optional[str] = None
+    workout_name: Optional[str] = None
+    metrics: Optional[Dict[str, Any]] = None
+    source_type: Optional[str] = "manual"
+
+    duration_minutes: Optional[int] = 0
+    perceived_effort: Optional[int] = Field(5, ge=1, le=10)
+    completion_rating: Optional[int] = Field(5, ge=1, le=5)
 
     notes: Optional[str] = None
+    completed_at: Optional[datetime] = None
     recorded_at: Optional[datetime] = None
 
-    @field_validator("workout_session_id", "assignment_id", "activity_label")
+    @field_validator("workout_session_id")
     @classmethod
     def validate_non_empty(cls, v: str) -> str:
         if not v or not v.strip():
@@ -32,13 +41,20 @@ class PerformanceLogCreate(BaseModel):
 class PerformanceLogResponse(BaseModel):
     id: str
     workout_session_id: str
-    assignment_id: str
     athlete_id: str
-    activity_label: str
-    metrics: Dict[str, Any]
-    source_type: str
+    workout_template_id: Optional[str] = None
+    assignment_id: Optional[str] = None
+    source_type: str = "SELF"
+    workout_name: str = "Workout Session"
+    activity_label: Optional[str] = None
+    metrics: Optional[Dict[str, Any]] = None
+
+    completed_at: datetime
+    duration_minutes: int = 0
+    perceived_effort: int = 5
+    completion_rating: int = 5
     notes: Optional[str] = None
-    is_personal_record: bool
-    recorded_at: datetime
+    is_personal_record: bool = False
+
     created_at: datetime
     updated_at: datetime

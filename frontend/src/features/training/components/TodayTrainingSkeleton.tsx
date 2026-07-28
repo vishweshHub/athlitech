@@ -1,21 +1,24 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { LoadingCard } from '../../../components/ui/LoadingCard';
+import { useThemeColors, RADIUS } from '@/styles/tokens';
 
 export const TodayTrainingSkeleton: React.FC = () => {
+  const colors = useThemeColors();
+
   return (
     <View style={styles.container}>
       {/* Header Skeleton */}
       <View style={styles.headerSkeleton}>
-        <View style={styles.metaPlaceholder} />
-        <View style={styles.titlePlaceholder} />
-        <View style={styles.subtitlePlaceholder} />
+        <View style={[styles.metaPlaceholder, { backgroundColor: colors.skeletonBg }]} />
+        <View style={[styles.titlePlaceholder, { backgroundColor: colors.skeletonBg }]} />
+        <View style={[styles.subtitlePlaceholder, { backgroundColor: colors.skeletonBg }]} />
       </View>
 
       {/* Metadata Row Skeleton */}
       <View style={styles.badgeRowSkeleton}>
-        <View style={styles.badgePlaceholder} />
-        <View style={styles.badgePlaceholder} />
+        <View style={[styles.badgePlaceholder, { backgroundColor: colors.skeletonBg }]} />
+        <View style={[styles.badgePlaceholder, { backgroundColor: colors.skeletonBg }]} />
       </View>
 
       {/* Workout Items List Skeletons */}
@@ -38,22 +41,19 @@ const styles = StyleSheet.create({
   metaPlaceholder: {
     height: 14,
     width: '35%',
-    backgroundColor: '#1E293B',
-    borderRadius: 4,
+    borderRadius: RADIUS.xs,
     marginBottom: 8,
   },
   titlePlaceholder: {
     height: 28,
     width: '75%',
-    backgroundColor: '#1E293B',
-    borderRadius: 6,
+    borderRadius: RADIUS.xs,
     marginBottom: 8,
   },
   subtitlePlaceholder: {
     height: 16,
     width: '50%',
-    backgroundColor: '#1E293B',
-    borderRadius: 4,
+    borderRadius: RADIUS.xs,
   },
   badgeRowSkeleton: {
     flexDirection: 'row',
@@ -63,8 +63,7 @@ const styles = StyleSheet.create({
   badgePlaceholder: {
     height: 24,
     width: 90,
-    backgroundColor: '#1E293B',
-    borderRadius: 8,
+    borderRadius: RADIUS.xs,
   },
   listSkeleton: {
     gap: 8,

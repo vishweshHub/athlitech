@@ -13,16 +13,28 @@ from services.performance_log_service import (
     get_logs_for_athlete,
 )
 
+from fastapi import APIRouter, Depends, Query, status
+
 router = APIRouter(prefix="/performance-logs", tags=["Performance Logs"])
 
 
-@router.post("", response_model=PerformanceLogResponse, summary="Create Performance Log")
-@router.post("/", response_model=PerformanceLogResponse, summary="Create Performance Log")
+@router.post("", response_model=PerformanceLogResponse, status_code=status.HTTP_201_CREATED, summary="Create Performance Log")
+@router.post("/", response_model=PerformanceLogResponse, status_code=status.HTTP_201_CREATED, summary="Create Performance Log")
 async def create_performance_log_route(
     payload: PerformanceLogCreate,
     current_user: dict = Depends(get_current_user),
 ):
     return await create_performance_log(payload, current_user)
+
+
+@router.get("/me", response_model=List[PerformanceLogResponse], summary="Get Current Athlete's Performance Logs")
+async def get_my_performance_logs_route(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    current_user: dict = Depends(get_current_user),
+):
+    athlete_id = str(current_user.get("id"))
+    return await get_logs_for_athlete(athlete_id=athlete_id, skip=skip, limit=limit, current_user=current_user)
 
 
 @router.get("/workout-session/{workout_session_id}", response_model=List[PerformanceLogResponse], summary="Get Logs for Workout Session")

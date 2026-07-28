@@ -10,10 +10,15 @@ import { TrainingHeader } from './TrainingHeader';
 import { TrainingMetadata } from './TrainingMetadata';
 import { WorkoutAssignmentItem } from './WorkoutAssignmentItem';
 import { TodayTrainingSkeleton } from './TodayTrainingSkeleton';
+import { useThemeColors, RADIUS } from '@/styles/tokens';
 
 interface TodayTrainingSectionProps {
   athleteId?: string;
   targetDate?: string;
+  session?: any;
+  hasStartedSession?: boolean;
+  onStartSession?: () => void;
+  onResumeSession?: () => void;
   onNavigateToWorkoutSession?: (sessionId: string) => void;
   onNavigateToRecoveryPlan?: () => void;
   onNavigateToLogWorkout?: () => void;
@@ -24,34 +29,44 @@ interface TodayTrainingSectionProps {
 export const TodayTrainingSection: React.FC<TodayTrainingSectionProps> = ({
   athleteId,
   targetDate,
+  session: propSession,
+  hasStartedSession = false,
+  onStartSession,
+  onResumeSession,
   onNavigateToWorkoutSession,
   onNavigateToRecoveryPlan,
   onNavigateToLogWorkout,
   onNavigateToContactCoach,
   style,
 }) => {
+  const colors = useThemeColors();
   const { todayTraining, isLoading, error, isUsingCache, refetch } =
     useTodayTraining(athleteId, targetDate);
 
   const { startSession, isLoading: isStartingSession } = useWorkoutSession(athleteId);
 
-  const handleStartWorkout = async () => {
-    if (!todayTraining?.sessions || todayTraining.sessions.length === 0) return;
+  const activeSession = propSession || todayTraining?.sessions?.[0];
 
-    const plannedSession = todayTraining.sessions[0];
-    const session = await startSession({ session_id: plannedSession.id });
+  const handleStartWorkout = async () => {
+    if (onStartSession) {
+      onStartSession();
+      return;
+    }
+    if (!activeSession) return;
+
+    const session = await startSession({ session_id: activeSession.id });
 
     if (session) {
       if (onNavigateToWorkoutSession) {
         onNavigateToWorkoutSession(session.id);
       } else {
-        Alert.alert('Workout Started', `Session '${plannedSession.session_name}' is now active!`);
+        Alert.alert('Workout Started', `Session '${activeSession.session_name}' is now active!`);
       }
     }
   };
 
   // State 4: Loading
-  if (isLoading) {
+  if (isLoading && !propSession) {
     return (
       <Card style={[styles.sectionCard, style]} variant="elevated">
         <TodayTrainingSkeleton />
@@ -60,7 +75,7 @@ export const TodayTrainingSection: React.FC<TodayTrainingSectionProps> = ({
   }
 
   // State 5: Error with no cache
-  if (error && !todayTraining) {
+  if (error && !todayTraining && !propSession) {
     return (
       <Card style={[styles.sectionCard, style]} variant="elevated">
         <ErrorView message={error} onRetry={refetch} />
@@ -71,10 +86,9 @@ export const TodayTrainingSection: React.FC<TodayTrainingSectionProps> = ({
   const isRestDay =
     todayTraining?.status === 'REST_DAY' ||
     (!todayTraining?.has_training && todayTraining?.status === 'REST_DAY');
-  const hasNoPlan = !todayTraining?.has_training && !isRestDay;
-  const isTrainingAvailable = Boolean(todayTraining?.has_training && todayTraining?.sessions?.length);
+  const hasNoPlan = !todayTraining?.has_training && !isRestDay && !propSession;
+  const isTrainingAvailable = Boolean(propSession || (todayTraining?.has_training && todayTraining?.sessions?.length));
 
-  const activeSession = todayTraining?.sessions[0];
   const weekNumber = todayTraining?.training_week?.week_number;
   const dayName = todayTraining?.training_day?.day_name || 'Today';
   const sessionTitle = activeSession?.session_name || 'Workout Session';
@@ -83,13 +97,13 @@ export const TodayTrainingSection: React.FC<TodayTrainingSectionProps> = ({
   return (
     <Card style={[styles.sectionCard, style]} variant="elevated">
       <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionHeading}>Today's Training</Text>
+        <Text style={[styles.sectionHeading, { color: colors.textPrimary }]}>Today's Training</Text>
       </View>
 
       {/* Warning Banner for State 5 (Error with Cache) */}
       {isUsingCache && error && (
-        <View style={styles.cacheWarningBanner}>
-          <Text style={styles.cacheWarningText}>{error}</Text>
+        <View style={[styles.cacheWarningBanner, { backgroundColor: colors.warning + '20', borderColor: colors.warning + '60' }]}>
+          <Text style={[styles.cacheWarningText, { color: colors.warning }]}>{error}</Text>
         </View>
       )}
 
@@ -109,28 +123,38 @@ export const TodayTrainingSection: React.FC<TodayTrainingSectionProps> = ({
             intensity="High Intensity"
           />
 
-          <Text style={styles.subHeading}>Workout Assignments</Text>
+          <Text style={[styles.subHeading, { color: colors.textSub }]}>Workout Assignments</Text>
           <View style={styles.assignmentsList}>
             {activeSession?.assignments && activeSession.assignments.length > 0 ? (
-              activeSession.assignments.map((assignment, index) => (
+              activeSession.assignments.map((assignment: any, index: number) => (
                 <WorkoutAssignmentItem
                   key={assignment.id || index}
                   assignment={assignment}
                 />
               ))
             ) : (
-              <Text style={styles.noAssignmentsText}>No assignments scheduled for this session.</Text>
+              <Text style={[styles.noAssignmentsText, { color: colors.textMuted }]}>No assignments scheduled for this session.</Text>
             )}
           </View>
 
-          <Button
-            title="Start Workout"
-            onPress={handleStartWorkout}
-            variant="primary"
-            size="lg"
-            isLoading={isStartingSession}
-            style={styles.actionBtn}
-          />
+          {hasStartedSession ? (
+            <Button
+              label="Resume Workout Session"
+              onPress={onResumeSession || handleStartWorkout}
+              variant="primary"
+              size="lg"
+              style={styles.actionBtn}
+            />
+          ) : (
+            <Button
+              label="Start Workout Session"
+              onPress={handleStartWorkout}
+              variant="primary"
+              size="lg"
+              isLoading={isStartingSession}
+              style={styles.actionBtn}
+            />
+          )}
         </View>
       )}
 
@@ -144,16 +168,16 @@ export const TodayTrainingSection: React.FC<TodayTrainingSectionProps> = ({
             subtitle="Recovery is part of your training."
           />
 
-          <View style={styles.restCard}>
-            <Text style={styles.restCardTitle}>Rest & Regeneration</Text>
-            <Text style={styles.restCardMessage}>
+          <View style={[styles.restCard, { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle }]}>
+            <Text style={[styles.restCardTitle, { color: colors.info }]}>Rest & Regeneration</Text>
+            <Text style={[styles.restCardMessage, { color: colors.textSub }]}>
               {todayTraining?.message ||
                 'Focus on hydration, mobility, and adequate sleep to maximize adaptations for upcoming sessions.'}
             </Text>
           </View>
 
           <Button
-            title="View Recovery Plan"
+            label="View Recovery Plan"
             onPress={onNavigateToRecoveryPlan || (() => Alert.alert('Recovery Plan', 'Rest day recovery guidelines.'))}
             variant="secondary"
             size="md"
@@ -171,14 +195,14 @@ export const TodayTrainingSection: React.FC<TodayTrainingSectionProps> = ({
           />
           <View style={styles.dualBtnRow}>
             <Button
-              title="Log Workout"
+              label="Log Workout"
               onPress={onNavigateToLogWorkout || (() => Alert.alert('Log Workout', 'Manual workout log.'))}
-              variant="outline"
+              variant="secondary"
               size="md"
               style={styles.halfBtn}
             />
             <Button
-              title="Contact Coach"
+              label="Contact Coach"
               onPress={onNavigateToContactCoach || (() => Alert.alert('Contact Coach', 'Reaching out to coach.'))}
               variant="primary"
               size="md"
@@ -202,20 +226,16 @@ const styles = StyleSheet.create({
   sectionHeading: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#F8FAFC',
     letterSpacing: -0.3,
   },
   cacheWarningBanner: {
-    backgroundColor: 'rgba(234, 179, 8, 0.15)',
-    borderColor: 'rgba(234, 179, 8, 0.4)',
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: RADIUS.xs,
     padding: 10,
     marginBottom: 12,
   },
   cacheWarningText: {
     fontSize: 13,
-    color: '#FACC15',
     textAlign: 'center',
     fontWeight: '600',
   },
@@ -225,7 +245,6 @@ const styles = StyleSheet.create({
   subHeading: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#CBD5E1',
     marginTop: 10,
     marginBottom: 4,
   },
@@ -235,26 +254,21 @@ const styles = StyleSheet.create({
   },
   noAssignmentsText: {
     fontSize: 13,
-    color: '#94A3B8',
     fontStyle: 'italic',
   },
   restCard: {
-    backgroundColor: '#0F172A',
-    borderRadius: 12,
+    borderRadius: RADIUS.md,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#334155',
     marginVertical: 10,
   },
   restCardTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#38BDF8',
     marginBottom: 6,
   },
   restCardMessage: {
     fontSize: 14,
-    color: '#CBD5E1',
     lineHeight: 20,
   },
   actionBtn: {

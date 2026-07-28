@@ -91,6 +91,7 @@ export interface WorkoutSession {
   id: string;
   session_id?: string;
   workout_template_id?: string;
+  assignment_id?: string;
   athlete_id: string;
   source_type?: 'PLANNED' | 'SELF';
   status: WorkoutSessionStatus;
@@ -108,6 +109,7 @@ export interface WorkoutSession {
 export interface WorkoutSessionStartRequest {
   session_id?: string;
   workout_template_id?: string;
+  assignment_id?: string;
   session_notes?: string;
 }
 

@@ -1,9 +1,14 @@
 import React from 'react';
 import { StyleSheet, View, ViewStyle } from 'react-native';
 import { Button } from '../../../components/ui/Button';
+import { useThemeColors } from '@/styles/tokens';
 
 interface PinnedActionBarProps {
-  state: 'training_available' | 'rest_day' | 'no_plan';
+  state?: 'training_available' | 'rest_day' | 'no_plan';
+  hasStartedSession?: boolean;
+  onStartSession?: () => void;
+  onResumeSession?: () => void;
+  onViewWorkouts?: () => void;
   onStartWorkout?: () => void;
   onViewRecoveryPlan?: () => void;
   onLogWorkout?: () => void;
@@ -13,7 +18,11 @@ interface PinnedActionBarProps {
 }
 
 export const PinnedActionBar: React.FC<PinnedActionBarProps> = ({
-  state,
+  state = 'training_available',
+  hasStartedSession = false,
+  onStartSession,
+  onResumeSession,
+  onViewWorkouts,
   onStartWorkout,
   onViewRecoveryPlan,
   onLogWorkout,
@@ -21,51 +30,31 @@ export const PinnedActionBar: React.FC<PinnedActionBarProps> = ({
   isLoading = false,
   style,
 }) => {
+  const colors = useThemeColors();
+
+  const handlePrimary = hasStartedSession ? onResumeSession : (onStartSession || onStartWorkout);
+  const primaryLabel = hasStartedSession ? 'Resume Workout Session' : 'Start Workout Session';
+
   return (
-    <View style={[styles.container, style]}>
-      {state === 'training_available' && onStartWorkout && (
+    <View style={[styles.container, { backgroundColor: colors.bgCard, borderTopColor: colors.border }, style]}>
+      {handlePrimary ? (
         <Button
-          title="Start Workout"
-          onPress={onStartWorkout}
+          label={primaryLabel}
+          onPress={handlePrimary}
           variant="primary"
           size="lg"
           isLoading={isLoading}
           style={styles.fullButton}
         />
-      )}
-
-      {state === 'rest_day' && onViewRecoveryPlan && (
+      ) : onViewWorkouts ? (
         <Button
-          title="View Recovery Plan"
-          onPress={onViewRecoveryPlan}
+          label="View Workouts Library"
+          onPress={onViewWorkouts}
           variant="secondary"
           size="lg"
           style={styles.fullButton}
         />
-      )}
-
-      {state === 'no_plan' && (
-        <View style={styles.dualButtonRow}>
-          {onLogWorkout && (
-            <Button
-              title="Log Workout"
-              onPress={onLogWorkout}
-              variant="outline"
-              size="md"
-              style={styles.halfButton}
-            />
-          )}
-          {onContactCoach && (
-            <Button
-              title="Contact Coach"
-              onPress={onContactCoach}
-              variant="primary"
-              size="md"
-              style={styles.halfButton}
-            />
-          )}
-        </View>
-      )}
+      ) : null}
     </View>
   );
 };
@@ -74,9 +63,7 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#0F172A',
     borderTopWidth: 1,
-    borderTopColor: '#1E293B',
   },
   fullButton: {
     width: '100%',

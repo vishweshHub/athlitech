@@ -370,7 +370,7 @@ def run_tests():
         "source_type": "manual",
         "notes": "Felt explosive"
     })
-    assert r5.status_code == 200, f"Expected 200, got {r5.status_code}: {r5.json()}"
+    assert r5.status_code in [200, 201], f"Expected 200/201, got {r5.status_code}: {r5.json()}"
     log1 = r5.json()
     log1_id = log1["id"]
     assert log1["is_personal_record"] is True
@@ -400,7 +400,7 @@ def run_tests():
         "metrics": {"time": 3.80, "weight": 110.0},  # Faster time (3.80 < 3.90) and higher weight (110 > 100)
         "source_type": "wearable"
     })
-    assert r7.status_code == 200
+    assert r7.status_code in [200, 201]
     log2 = r7.json()
     assert log2["is_personal_record"] is True
     print("Test 7 Passed: Better performance correctly evaluated as new PR (is_personal_record=True).")
@@ -419,7 +419,7 @@ def run_tests():
         "metrics": {"time": 4.05, "weight": 95.0},  # Slower time (4.05 > 3.80) and lower weight (95 < 110)
         "source_type": "manual"
     })
-    assert r8.status_code == 200
+    assert r8.status_code in [200, 201]
     log3 = r8.json()
     assert log3["is_personal_record"] is False
     print("Test 8 Passed: Slower performance correctly evaluated as non-PR (is_personal_record=False).")

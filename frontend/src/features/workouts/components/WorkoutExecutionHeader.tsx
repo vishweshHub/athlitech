@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View, Pressable, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Badge } from '../../../components/ui/Badge';
+import { useThemeColors, RADIUS } from '@/styles/tokens';
 
 interface WorkoutExecutionHeaderProps {
   title: string;
@@ -33,21 +34,25 @@ export const WorkoutExecutionHeader: React.FC<WorkoutExecutionHeaderProps> = ({
   onBack,
   style,
 }) => {
+  const colors = useThemeColors();
   const isPaused = status === 'paused';
   const statusLabel = isPaused ? 'PAUSED' : status === 'completed' ? 'COMPLETED' : 'IN PROGRESS';
   const statusVariant = isPaused ? 'warning' : status === 'completed' ? 'success' : 'info';
 
   const sourceLabel = sourceType === 'SELF' ? 'SELF WORKOUT' : 'COACH ASSIGNED';
-  const sourceVariant = sourceType === 'SELF' ? 'primary' : 'info';
+  const sourceVariant = sourceType === 'SELF' ? 'info' : 'success';
 
   return (
     <View style={[styles.container, style]}>
       {/* Header Top Nav */}
       <View style={styles.topNavRow}>
         {onBack && (
-          <Pressable style={styles.backBtn} onPress={onBack}>
-            <Ionicons name="arrow-back" size={20} color="#F8FAFC" />
-            <Text style={styles.backBtnText}>Back</Text>
+          <Pressable
+            style={[styles.backBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+            onPress={onBack}
+          >
+            <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
+            <Text style={[styles.backBtnText, { color: colors.textPrimary }]}>Back</Text>
           </Pressable>
         )}
         <View style={styles.badgeHeaderRow}>
@@ -56,11 +61,11 @@ export const WorkoutExecutionHeader: React.FC<WorkoutExecutionHeaderProps> = ({
         </View>
       </View>
 
-      <Text style={styles.title}>{title}</Text>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
 
-      <View style={styles.timerBox}>
-        <Text style={styles.timerLabel}>ELAPSED TIME</Text>
-        <Text style={[styles.timerValue, isPaused && styles.timerPaused]}>
+      <View style={[styles.timerBox, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+        <Text style={[styles.timerLabel, { color: colors.textMuted }]}>ELAPSED TIME</Text>
+        <Text style={[styles.timerValue, { color: colors.info }, isPaused && { color: colors.warning }]}>
           {formatDuration(totalDurationSeconds)}
         </Text>
       </View>
@@ -82,15 +87,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#1E293B',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: RADIUS.xs,
     borderWidth: 1,
-    borderColor: '#334155',
   },
   backBtnText: {
-    color: '#F8FAFC',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -102,33 +104,25 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#F8FAFC',
     marginBottom: 14,
   },
   timerBox: {
-    backgroundColor: '#1E293B',
-    borderRadius: 14,
+    borderRadius: RADIUS.md,
     padding: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
   },
   timerLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#94A3B8',
     letterSpacing: 1.2,
     marginBottom: 4,
   },
   timerValue: {
     fontSize: 36,
     fontWeight: '800',
-    color: '#38BDF8',
     fontVariant: ['tabular-nums'],
     letterSpacing: 1,
-  },
-  timerPaused: {
-    color: '#FACC15',
   },
 });
 

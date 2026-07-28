@@ -6,9 +6,9 @@ from pydantic import BaseModel, Field
 class PerformanceLog(BaseModel):
     id: str
     workout_session_id: str
-    assignment_id: str
+    assignment_id: Optional[str] = None
     athlete_id: str
-    activity_label: str
+    activity_label: Optional[str] = None
     metrics: Dict[str, Any] = Field(default_factory=dict)
     source_type: str = "manual"
     notes: Optional[str] = None

@@ -20,7 +20,8 @@ import { fetchCoachWorkouts } from '@/api/workout';
 import type { PerformanceRecord } from '@/api/performance';
 import { fetchAllPerformances } from '@/api/performance';
 import { Ionicons } from '@expo/vector-icons';
-import { UserDetails } from '@/components/ui';
+import { UserDetails, ScreenContainer } from '@/components/ui';
+import { useThemeColors } from '@/styles/tokens';
 
 const isWeb = Platform.OS === 'web';
 
@@ -31,6 +32,7 @@ interface CoachDetailsScreenProps {
 }
 
 export default function CoachDetailsScreen({ user: propUser, token: propToken, onSignOut: propOnSignOut }: CoachDetailsScreenProps) {
+  const colors = useThemeColors();
   const router = useRouter();
   const params = useLocalSearchParams<{ coachId: string }>();
   
@@ -155,31 +157,30 @@ export default function CoachDetailsScreen({ user: propUser, token: propToken, o
 
   if (!user || !token) {
     return (
-      <SafeAreaView style={styles.screen}>
+      <ScreenContainer scrollable={false}>
         <View style={styles.centeredStatus}>
-          {/* Always show a Back button in the header so the user is never stuck */}
           <View style={[styles.header, { width: '100%', borderBottomWidth: 0, paddingHorizontal: 0 }]}>
-            <Pressable onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color="#0f172a" />
+            <Pressable onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.bgMid }]}>
+              <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
             </Pressable>
             <View style={styles.headerInfo}>
-              <Text style={styles.headerTitle}>Session Expired</Text>
+              <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Session Expired</Text>
             </View>
           </View>
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16 }}>
-            <Ionicons name="lock-closed-outline" size={48} color="#ef4444" />
-            <Text style={styles.errorText}>Session expired. Please log in again.</Text>
+            <Ionicons name="lock-closed-outline" size={48} color={colors.error} />
+            <Text style={[styles.errorText, { color: colors.error }]}>Session expired. Please log in again.</Text>
             <Pressable onPress={handleSignOut} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>Go to Login</Text>
             </Pressable>
           </View>
         </View>
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: '#060b14' }]}>
+    <ScreenContainer scrollable={false}>
       <UserDetails
         profile={{
           id: coach?.id || coachId || '',
@@ -195,7 +196,7 @@ export default function CoachDetailsScreen({ user: propUser, token: propToken, o
         performances={performances}
         onBack={() => router.back()}
       />
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }
 
@@ -211,7 +212,6 @@ const styles = StyleSheet.create({
   },
   loaderText: {
     marginTop: 12,
-    color: '#94a3b8',
     fontSize: 14,
   },
   header: {
@@ -224,7 +224,6 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
     borderRadius: 6,
-    backgroundColor: '#1e293b',
   },
   headerInfo: {
     flex: 1,

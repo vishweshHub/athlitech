@@ -20,6 +20,7 @@ class WorkoutSessionSourceTypeEnum(str, Enum):
 class WorkoutSessionStartRequest(BaseModel):
     session_id: Optional[str] = None
     workout_template_id: Optional[str] = None
+    assignment_id: Optional[str] = None
     session_notes: Optional[str] = None
 
 
@@ -36,6 +37,7 @@ class WorkoutSessionResponse(BaseModel):
     id: str
     session_id: Optional[str] = None
     workout_template_id: Optional[str] = None
+    assignment_id: Optional[str] = None
     athlete_id: str
     source_type: str = "PLANNED"
     status: str

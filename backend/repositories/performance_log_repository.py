@@ -36,6 +36,9 @@ class PerformanceLogRepository:
             log = await self.collection.find_one({"_id": ObjectId(log_id)})
         return log
 
+    async def find_log_by_session_id(self, workout_session_id: str) -> Optional[dict]:
+        return await self.collection.find_one({"workout_session_id": workout_session_id})
+
     async def find_log_by_session_and_assignment(self, workout_session_id: str, assignment_id: str) -> Optional[dict]:
         return await self.collection.find_one({
             "workout_session_id": workout_session_id,

@@ -1,33 +1,42 @@
 import React from 'react';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { useThemeColors } from '@/styles/tokens';
 
 interface TrainingHeaderProps {
   weekNumber?: number;
   dayName?: string;
-  title: string;
+  title?: string;
   subtitle?: string;
+  dateStr?: string;
   style?: ViewStyle;
 }
 
 export const TrainingHeader: React.FC<TrainingHeaderProps> = ({
   weekNumber,
   dayName,
-  title,
-  subtitle,
+  title = "Today's Training Schedule",
+  subtitle = "View and execute assigned workout sessions for today",
+  dateStr,
   style,
 }) => {
+  const colors = useThemeColors();
+
+  const formattedDate = dateStr
+    ? new Date(dateStr).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
+    : undefined;
+
   const metaText = [
     weekNumber ? `Week ${weekNumber}` : null,
-    dayName || null,
+    dayName || formattedDate || null,
   ]
     .filter(Boolean)
     .join(' • ');
 
   return (
     <View style={[styles.container, style]}>
-      {metaText ? <Text style={styles.metaText}>{metaText}</Text> : null}
-      <Text style={styles.title}>{title}</Text>
-      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+      {metaText ? <Text style={[styles.metaText, { color: colors.info }]}>{metaText}</Text> : null}
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+      {subtitle ? <Text style={[styles.subtitle, { color: colors.textSub }]}>{subtitle}</Text> : null}
     </View>
   );
 };
@@ -39,7 +48,6 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#38BDF8',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 4,
@@ -47,12 +55,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#F8FAFC',
     letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 15,
-    color: '#94A3B8',
     marginTop: 4,
     lineHeight: 22,
   },

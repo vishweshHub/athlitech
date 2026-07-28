@@ -1,10 +1,14 @@
 import React from 'react';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { useThemeColors, RADIUS } from '@/styles/tokens';
 
 interface TrainingMetadataProps {
-  duration?: string;
+  duration?: string | number;
   intensity?: string;
   dayType?: string;
+  estimatedDuration?: number;
+  assignmentCount?: number;
+  status?: string;
   style?: ViewStyle;
 }
 
@@ -12,11 +16,18 @@ export const TrainingMetadata: React.FC<TrainingMetadataProps> = ({
   duration,
   intensity,
   dayType,
+  estimatedDuration,
+  assignmentCount,
+  status,
   style,
 }) => {
+  const colors = useThemeColors();
+
+  const estDur = duration || (estimatedDuration ? `${estimatedDuration} mins` : null);
   const items = [
-    duration ? `• ${duration}` : null,
-    intensity ? `• ${intensity}` : dayType ? `• ${dayType}` : null,
+    estDur ? `⏱ ${estDur}` : null,
+    assignmentCount !== undefined ? `🏋️ ${assignmentCount} Exercises` : null,
+    intensity ? `⚡ ${intensity}` : dayType ? `🏷 ${dayType}` : null,
   ].filter(Boolean);
 
   if (items.length === 0) return null;
@@ -24,7 +35,17 @@ export const TrainingMetadata: React.FC<TrainingMetadataProps> = ({
   return (
     <View style={[styles.container, style]}>
       {items.map((item, index) => (
-        <Text key={index} style={styles.badgeText}>
+        <Text
+          key={index}
+          style={[
+            styles.badgeText,
+            {
+              color: colors.textPrimary,
+              backgroundColor: colors.bgMid,
+              borderColor: colors.borderSubtle,
+            },
+          ]}
+        >
           {item}
         </Text>
       ))}
@@ -37,19 +58,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 8,
     marginVertical: 8,
   },
   badgeText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#CBD5E1',
-    backgroundColor: '#1E293B',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: RADIUS.xs,
     borderWidth: 1,
-    borderColor: '#334155',
   },
 });
 
