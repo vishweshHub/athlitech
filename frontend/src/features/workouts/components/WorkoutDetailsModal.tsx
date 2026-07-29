@@ -22,6 +22,8 @@ interface WorkoutDetailsModalProps {
   isSaved?: boolean;
   onAddToMyWorkouts?: (workout: WorkoutTemplate) => void;
   onOpenMyWorkouts?: () => void;
+  onAssignToAthlete?: (workout: WorkoutTemplate) => void;
+  onCustomizeAndAssign?: (workout: WorkoutTemplate) => void;
   isSaving?: boolean;
 }
 
@@ -33,6 +35,8 @@ export default function WorkoutDetailsModal({
   isSaved = false,
   onAddToMyWorkouts,
   onOpenMyWorkouts,
+  onAssignToAthlete,
+  onCustomizeAndAssign,
   isSaving = false,
 }: WorkoutDetailsModalProps) {
   const colors = useThemeColors();
@@ -259,11 +263,16 @@ export default function WorkoutDetailsModal({
             ) : userRole === 'coach' ? (
               <View style={styles.actionWrapper}>
                 <Button
-                  label="Assign Workout (Coming Soon)"
-                  onPress={() => {}}
+                  label="Customize & Assign"
+                  onPress={() => {
+                    onClose();
+                    if (onCustomizeAndAssign) {
+                      onCustomizeAndAssign(workout);
+                    } else if (onAssignToAthlete) {
+                      onAssignToAthlete(workout);
+                    }
+                  }}
                   variant="primary"
-                  disabled
-                  style={{ opacity: 0.65 }}
                 />
               </View>
             ) : null}

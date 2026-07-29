@@ -3,11 +3,16 @@ from bson.objectid import ObjectId
 from typing import List, Optional
 from datetime import datetime
 
+import uuid
 from core.permissions import normalize_role
 from repositories.workout_repository import workout_repository
 from repositories.coach_repository import coach_repository
 from repositories.athlete_repository import athlete_repository
 from repositories.profile_repository import profile_repository
+from repositories.workout_session_repository import workout_session_repository
+from repositories.performance_log_repository import performance_log_repository
+from services.performance_log_service import create_performance_log
+from schemas.performance_log_schema import PerformanceLogCreate
 from models.workout_model import Workout
 from schemas.workout_schema import (
     WorkoutCreate,
@@ -76,23 +81,6 @@ async def get_workout_templates(
     search: Optional[str] = None,
     current_user: Optional[dict] = None,
 ) -> List[WorkoutResponse]:
-    user_role = normalize_role(current_user.get("role")) if current_user else "athlete"
-
-    athlete_primary_sport = None
-    if user_role == "athlete" and current_user and not sport:
-        user_id = current_user.get("id")
-        if user_id:
-            profile = await profile_repository.get_profile_by_user_id(user_id)
-            if profile and profile.get("athlete_data"):
-                athlete_primary_sport = profile["athlete_data"].get("sport")
-            if not athlete_primary_sport:
-                ath_doc = await athlete_repository.find_by_id(user_id)
-                if ath_doc:
-                    athlete_primary_sport = ath_doc.get("sport")
-
-        if not athlete_primary_sport:
-            athlete_primary_sport = "Track & Field"
-
     templates = await workout_repository.get_templates(
         skip=skip,
         limit=limit,
@@ -101,20 +89,6 @@ async def get_workout_templates(
         difficulty=difficulty,
         search=search,
     )
-
-    if athlete_primary_sport:
-        def is_allowed(t_sport: str) -> bool:
-            t_s = (t_sport or "").lower().strip()
-            p_s = (athlete_primary_sport or "").lower().strip()
-            if "general" in t_s:
-                return True
-            if t_s == p_s:
-                return True
-            if ("track" in p_s or "athletics" in p_s) and ("track" in t_s or "running" in t_s or "athletics" in t_s):
-                return True
-            return False
-
-        templates = [t for t in templates if is_allowed(t.get("sport", ""))]
 
     return [_format_workout_response(w) for w in templates]
 
@@ -200,6 +174,7 @@ async def create_workout(workout_data: WorkoutCreateLegacy, current_user: dict):
         raise HTTPException(status_code=403, detail="Athlete is not assigned to this coach")
 
     new_workout = Workout(
+        workout_template_id=workout_data.workout_template_id,
         title=workout_data.title,
         description=workout_data.description,
         coach_id=coach_id,
@@ -254,6 +229,7 @@ async def get_coach_workouts(
     return [
         WorkoutRead(
             workout_id=w.get("workout_id") or w.get("id"),
+            workout_template_id=w.get("workout_template_id"),
             title=w.get("title"),
             description=w.get("description"),
             coach_id=w.get("coach_id"),
@@ -293,6 +269,7 @@ async def get_athlete_workouts(
     return [
         WorkoutRead(
             workout_id=w.get("workout_id") or w.get("id"),
+            workout_template_id=w.get("workout_template_id"),
             title=w.get("title"),
             description=w.get("description"),
             coach_id=w.get("coach_id"),
@@ -310,6 +287,7 @@ async def get_athlete_workouts(
 
 
 async def update_workout_status(workout_id: str, status_update: WorkoutUpdateStatus, current_user: dict):
+    print(f"[RUNTIME_TRACE] Step 4: Entering WorkoutService.update_workout_status for workout_id={workout_id}, status={status_update.status}", flush=True)
     if current_user.get("role") != "athlete":
         raise HTTPException(status_code=403, detail="Only athletes can update workout status")
 
@@ -327,6 +305,43 @@ async def update_workout_status(workout_id: str, status_update: WorkoutUpdateSta
         completion_percentage=status_update.completion_percentage,
         athlete_notes=status_update.athlete_notes
     )
+
+    if status_update.status == "completed":
+        ws_id = f"assigned_{workout_id}"
+        ws = await workout_session_repository.find_workout_session_by_id(ws_id)
+        if not ws:
+            now = datetime.utcnow()
+            athlete_id = str(current_user.get("id"))
+            session_doc = {
+                "id": ws_id,
+                "athlete_id": athlete_id,
+                "workout_template_id": workout.get("workout_template_id"),
+                "source_type": "COACH_PLAN",
+                "status": "completed",
+                "completed_at": status_update.completed_at or now,
+                "total_duration_seconds": 1800,
+                "created_at": now,
+                "updated_at": now,
+            }
+            await workout_session_repository.create_workout_session(session_doc)
+
+        existing_log = await performance_log_repository.find_log_by_session_id(ws_id)
+        if not existing_log:
+            workout_name = str(workout.get("title") or workout.get("name") or "Coach Plan Workout")
+            log_payload = PerformanceLogCreate(
+                workout_session_id=ws_id,
+                workout_template_id=workout.get("workout_template_id"),
+                source_type="COACH_PLAN",
+                workout_name=workout_name,
+                activity_label=workout_name,
+                duration_minutes=30,
+                perceived_effort=5,
+                completion_rating=5,
+                notes=status_update.athlete_notes,
+            )
+            print(f"[RUNTIME_TRACE] Step 6: Invoking create_performance_log for assigned workout {workout_id} with ws_id={ws_id}", flush=True)
+            await create_performance_log(log_payload, current_user)
+
     return {
         "message": "Workout status updated successfully",
         "workout_id": workout_id,

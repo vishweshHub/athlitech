@@ -165,9 +165,7 @@ export default function CoachProfileForm({ onSubmit, isLoading, error, initialDa
 const styles = StyleSheet.create({
   formCard: {
     padding: 24,
-    maxWidth: 640,
     width: '100%',
-    alignSelf: 'center',
   },
   header: {
     flexDirection: 'row',

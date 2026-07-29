@@ -116,6 +116,15 @@ export interface PerformanceLogResponse {
   updated_at: string;
 }
 
+export function getSourceBadgeInfo(sourceType?: string): { label: string; variant: 'success' | 'info' } {
+  const norm = (sourceType || '').toUpperCase();
+  if (norm === 'PLANNED' || norm === 'COACH' || norm === 'COACH PLAN' || norm === 'COACH_PLAN') {
+    return { label: 'Coach Plan', variant: 'success' };
+  }
+  return { label: 'Self Workout', variant: 'info' };
+}
+
+
 export function parseApiErrorMessage(data: any, fallbackMessage: string): string {
   if (!data) return fallbackMessage;
   const detail = data.detail;
@@ -194,5 +203,45 @@ export async function fetchMyPerformanceLogs(token: string): Promise<Performance
     throw new Error(data?.detail || 'Failed to fetch performance logs');
   }
 
+  return response.json();
+}
+
+/**
+ * Fetch performance logs for a specific workout session.
+ * Returns an empty array if none exist (never throws on 404).
+ */
+export async function fetchLogBySession(
+  token: string,
+  workoutSessionId: string
+): Promise<PerformanceLogResponse[]> {
+  const response = await fetch(
+    `${API_URL}/performance-logs/workout-session/${workoutSessionId}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!response.ok) return [];
+  const data = await response.json().catch(() => []);
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * DEV-ONLY: Delete all performance logs for a workout session so the demo
+ * workflow can be repeated without manual DB edits.
+ * Only works when the backend is running with DEV_MODE=true.
+ */
+export async function deletePerformanceLogsBySession(
+  token: string,
+  workoutSessionId: string
+): Promise<{ deleted: number; message: string }> {
+  const response = await fetch(
+    `${API_URL}/performance-logs/dev-reset/${workoutSessionId}`,
+    {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data?.detail || 'Failed to reset performance log');
+  }
   return response.json();
 }

@@ -6,7 +6,8 @@ import { useRouter, Href } from 'expo-router';
 import { ScreenContainer, Card, Button, Badge, Loading, EmptyState } from '@/components/ui';
 import { useThemeColors, RADIUS } from '@/styles/tokens';
 import { getStoredToken } from '@/api/auth';
-import { fetchMyPerformanceLogs, PerformanceLogResponse } from '@/api/performance';
+import { fetchMyPerformanceLogs, PerformanceLogResponse, getSourceBadgeInfo } from '@/api/performance';
+import { Pressable } from 'react-native';
 
 export default function PerformanceScreen() {
   const colors = useThemeColors();
@@ -30,7 +31,12 @@ export default function PerformanceScreen() {
         }
 
         const data = await fetchMyPerformanceLogs(storedToken);
-        setLogs(data);
+        const sorted = [...data].sort((a, b) => {
+          const dA = a.completed_at || a.created_at || '';
+          const dB = b.completed_at || b.created_at || '';
+          return dB.localeCompare(dA);
+        });
+        setLogs(sorted);
       } catch (err: any) {
         setError(err.message || 'Failed to load performance logs');
       } finally {
@@ -85,72 +91,72 @@ export default function PerformanceScreen() {
           />
         ) : (
           <View style={styles.logsList}>
-            {logs.map((log) => (
-              <Card key={log.id} style={styles.logCard}>
-                <View style={styles.logHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.workoutTitle, { color: colors.textPrimary }]}>
-                      {log.workout_name}
-                    </Text>
-                    <Text style={[styles.dateText, { color: colors.textSub }]}>
-                      Completed {new Date(log.completed_at || log.created_at).toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </Text>
+            {logs.map((log) => {
+              const badgeInfo = getSourceBadgeInfo(log.source_type);
+              return (
+                <Card key={log.id} style={styles.logCard}>
+                  <View style={styles.logHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.workoutTitle, { color: colors.textPrimary }]}>
+                        {log.workout_name}
+                      </Text>
+                      <Text style={[styles.dateText, { color: colors.textSub }]}>
+                        Completed {new Date(log.completed_at || log.created_at).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </Text>
+                    </View>
+
+                    <Badge label={badgeInfo.label} variant={badgeInfo.variant} />
                   </View>
 
-                  <Badge
-                    label={log.source_type === 'SELF' ? 'Self Workout' : 'Coach Plan'}
-                    variant={log.source_type === 'SELF' ? 'info' : 'success'}
-                  />
-                </View>
+                  <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
 
-                <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
+                  <View style={styles.statsGrid}>
+                    <View style={[styles.statTile, { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle }]}>
+                      <Ionicons name="time-outline" size={18} color={colors.info} />
+                      <View>
+                        <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>DURATION</Text>
+                        <Text style={[styles.statTileValue, { color: colors.textPrimary }]}>
+                          {log.duration_minutes} mins
+                        </Text>
+                      </View>
+                    </View>
 
-                <View style={styles.statsGrid}>
-                  <View style={[styles.statTile, { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle }]}>
-                    <Ionicons name="time-outline" size={18} color={colors.info} />
-                    <View>
-                      <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>DURATION</Text>
-                      <Text style={[styles.statTileValue, { color: colors.textPrimary }]}>
-                        {log.duration_minutes} mins
-                      </Text>
+                    <View style={[styles.statTile, { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle }]}>
+                      <Ionicons name="speedometer-outline" size={18} color={colors.emerald} />
+                      <View>
+                        <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>EFFORT (RPE)</Text>
+                        <Text style={[styles.statTileValue, { color: colors.textPrimary }]}>
+                          {log.perceived_effort} / 10
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={[styles.statTile, { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle }]}>
+                      <Ionicons name="star" size={18} color={colors.warning} />
+                      <View>
+                        <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>RATING</Text>
+                        <Text style={[styles.statTileValue, { color: colors.textPrimary }]}>
+                          {log.completion_rating} / 5 Stars
+                        </Text>
+                      </View>
                     </View>
                   </View>
 
-                  <View style={[styles.statTile, { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle }]}>
-                    <Ionicons name="speedometer-outline" size={18} color={colors.emerald} />
-                    <View>
-                      <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>EFFORT (RPE)</Text>
-                      <Text style={[styles.statTileValue, { color: colors.textPrimary }]}>
-                        {log.perceived_effort} / 10
-                      </Text>
+                  {log.notes ? (
+                    <View style={[styles.notesBox, { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle }]}>
+                      <Ionicons name="document-text-outline" size={16} color={colors.textSub} style={{ marginTop: 2 }} />
+                      <Text style={[styles.notesText, { color: colors.textSub }]}>{log.notes}</Text>
                     </View>
-                  </View>
-
-                  <View style={[styles.statTile, { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle }]}>
-                    <Ionicons name="star" size={18} color={colors.warning} />
-                    <View>
-                      <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>RATING</Text>
-                      <Text style={[styles.statTileValue, { color: colors.textPrimary }]}>
-                        {log.completion_rating} / 5 Stars
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {log.notes ? (
-                  <View style={[styles.notesBox, { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle }]}>
-                    <Ionicons name="document-text-outline" size={16} color={colors.textSub} style={{ marginTop: 2 }} />
-                    <Text style={[styles.notesText, { color: colors.textSub }]}>{log.notes}</Text>
-                  </View>
-                ) : null}
-              </Card>
-            ))}
+                  ) : null}
+                </Card>
+              );
+            })}
           </View>
         )}
 
@@ -216,6 +222,7 @@ const styles = StyleSheet.create({
   logCard: {
     padding: 20,
     borderRadius: RADIUS.lg,
+    borderWidth: 1,
   },
   logHeader: {
     flexDirection: 'row',

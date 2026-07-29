@@ -13,4 +13,6 @@ export { default as UserDetails } from './UserDetails';
 export { ScreenContainer } from './ScreenContainer';
 export { default as Loading } from './Loading';
 export { default as OnboardingBanner } from './OnboardingBanner';
+export { default as WorkoutSuccessModal } from './WorkoutSuccessModal';
 export * from './ResponsiveGrid';
+

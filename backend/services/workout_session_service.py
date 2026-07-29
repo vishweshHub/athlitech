@@ -11,6 +11,9 @@ from repositories.athlete_repository import athlete_repository
 from repositories.workout_repository import workout_repository
 from repositories.workout_assignment_repository import workout_assignment_repository
 from repositories.athlete_saved_workout_repository import athlete_saved_workout_repository
+from repositories.performance_log_repository import performance_log_repository
+from services.performance_log_service import create_performance_log
+from schemas.performance_log_schema import PerformanceLogCreate
 from services.training_plan_service import _verify_plan_access
 from schemas.workout_session_schema import (
     WorkoutSessionStartRequest,
@@ -243,6 +246,28 @@ async def complete_workout_session(
         changes["session_notes"] = payload.session_notes
 
     updated = await workout_session_repository.update_workout_session(workout_session_id, changes)
+
+    existing_log = await performance_log_repository.find_log_by_session_id(workout_session_id)
+    if not existing_log:
+        raw_source = ws.get("source_type") or "SELF_WORKOUT"
+        norm_source = str(raw_source).strip().upper()
+        source_type = "COACH_PLAN" if norm_source in ["COACH_PLAN", "PLANNED", "COACH", "COACH PLAN", "COACH_ASSIGNED"] else "SELF_WORKOUT"
+        duration_mins = max(1, int(total_dur // 60)) if total_dur > 0 else 30
+
+        log_payload = PerformanceLogCreate(
+            workout_session_id=workout_session_id,
+            workout_template_id=ws.get("workout_template_id"),
+            assignment_id=ws.get("assignment_id"),
+            source_type=source_type,
+            workout_name=ws.get("workout_name") or ws.get("title") or "Workout Session",
+            activity_label=ws.get("workout_name") or ws.get("title") or "Workout Session",
+            duration_minutes=duration_mins,
+            perceived_effort=5,
+            completion_rating=5,
+            notes=payload.session_notes,
+        )
+        await create_performance_log(log_payload, current_user)
+
     return _format_workout_session_response(updated)
 
 

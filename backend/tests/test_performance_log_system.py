@@ -458,6 +458,31 @@ def run_tests():
     assert r12_admin.status_code == 200
     print("Test 14 Passed: Admin has full access to performance logs.")
 
+    # 15. Verify Assigned Workout Status Update automatically creates Performance Log with source_type COACH_PLAN
+    app.dependency_overrides[get_current_user] = lambda: athlete_1
+    fake_workout = {
+        "id": "work-assigned-999",
+        "workout_id": "work-assigned-999",
+        "athlete_id": "ath-111",
+        "title": "Bench Press Power Plan",
+        "status": "pending"
+    }
+    workouts_fake.data["work-assigned-999"] = fake_workout
+
+    r_status = client.put("/workouts/work-assigned-999/status", json={
+        "status": "completed",
+        "athlete_notes": "Pushed all sets smoothly"
+    })
+    assert r_status.status_code == 200
+
+    r_history = client.get("/performance-logs/athlete/ath-111")
+    assert r_history.status_code == 200
+    logs = r_history.json()
+    coach_logs = [l for l in logs if l.get("source_type") == "COACH_PLAN"]
+    assert len(coach_logs) >= 1
+    assert coach_logs[0]["workout_name"] == "Bench Press Power Plan"
+    print("Test 15 Passed: Assigned Workout status update automatically created Performance Log with source_type COACH_PLAN.")
+
     app.dependency_overrides.clear()
     print("All Performance Log & Metric Definition System Unit Tests Passed Successfully!")
 

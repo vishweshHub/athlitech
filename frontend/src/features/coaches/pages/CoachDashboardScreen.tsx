@@ -23,6 +23,8 @@ import type { Workout, Exercise } from '@/api/workout';
 import { createWorkout, fetchCoachWorkouts } from '@/api/workout';
 import type { PerformanceRecord } from '@/api/performance';
 import { fetchAthletePerformances, createPerformance } from '@/api/performance';
+import { completeProfile, CoachProfilePayload } from '@/api/profile';
+import { CoachProfileForm } from '@/features/profile';
 
 import {
   Button,
@@ -53,7 +55,7 @@ interface CoachDashboardScreenProps {
   onSignOut: () => void;
 }
 
-type TabType = 'dashboard' | 'athletes' | 'workouts' | 'performance' | 'library';
+type TabType = 'dashboard' | 'athletes' | 'workouts' | 'performance' | 'profile';
 
 
 const isWeb = Platform.OS === 'web';
@@ -135,6 +137,11 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
   const [isSavingLinkedPerf, setIsSavingLinkedPerf] = useState(false);
   const [linkedPerfMessage, setLinkedPerfMessage] = useState<{ text: string; isError: boolean } | null>(null);
 
+  // In-place profile edit state
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isSubmittingProfile, setIsSubmittingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
   // Load dashboard data
   const loadDashboardData = useCallback(async () => {
     if (!token || !user) return;
@@ -181,6 +188,22 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  const handleCoachProfileSubmit = async (payload: CoachProfilePayload) => {
+    if (!token) return;
+    setIsSubmittingProfile(true);
+    setProfileError(null);
+    try {
+      await completeProfile(token, payload);
+      await loadDashboardData();
+      setIsEditingProfile(false);
+      Alert.alert('Success', 'Coaching profile updated successfully!');
+    } catch (err: any) {
+      setProfileError(err.message || 'Failed to save profile. Please try again.');
+    } finally {
+      setIsSubmittingProfile(false);
+    }
+  };
 
   // Filter athletes
   useEffect(() => {
@@ -467,7 +490,6 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
             <View style={styles.sidebarNav}>
               {[
                 { id: 'dashboard', label: 'Dashboard', icon: 'grid', count: null },
-                { id: 'library', label: 'Workout Library', icon: 'book', count: null },
                 { id: 'athletes', label: 'My Athletes', icon: 'people', count: totalAthletes },
                 { id: 'workouts', label: 'Workouts', icon: 'fitness', count: totalWorkouts },
                 { id: 'performance', label: 'Performance', icon: 'speedometer', count: null },
@@ -480,11 +502,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                     activeTab === item.id && styles.sidebarItemActive,
                   ]}
                   onPress={() => {
-                    if (item.id === 'profile') {
-                      router.push('/complete-profile');
-                    } else {
-                      setActiveTab(item.id as TabType);
-                    }
+                    setActiveTab(item.id as TabType);
                     if (!isLargeScreen) setSidebarOpen(false);
                   }}
                 >
@@ -548,10 +566,10 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
             <View style={styles.headerInfo}>
               <Text style={styles.headerTitle}>
                 {activeTab === 'dashboard' && 'Coach Dashboard'}
-                {activeTab === 'library' && 'Workout Library'}
                 {activeTab === 'athletes' && 'My Athletes'}
                 {activeTab === 'workouts' && 'Workout Plans'}
                 {activeTab === 'performance' && 'Performance'}
+                {activeTab === 'profile' && 'My Profile'}
               </Text>
               <Text style={styles.headerSubtitle}>{user?.email || 'Coach'}</Text>
             </View>
@@ -586,11 +604,6 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
               </Card>
             ) : (
               <>
-                {/* ── WORKOUT LIBRARY TAB ── */}
-                {activeTab === 'library' && (
-                  <WorkoutLibraryScreen token={token} userRole="coach" />
-                )}
-
                 {/* ── DASHBOARD TAB ── */}
                 {activeTab === 'dashboard' && (
 
@@ -600,7 +613,10 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                       title="Welcome to AthliTech! 👋"
                       description="Your account has been created successfully. Complete your profile to unlock your full coaching experience."
                       buttonLabel="Complete Profile"
-                      onAction={() => router.push('/complete-profile')}
+                      onAction={() => {
+                        setActiveTab('profile');
+                        setIsEditingProfile(true);
+                      }}
                     />
 
                     {/* Coach Profile Summary card when profile is completed */}
@@ -610,8 +626,12 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                         specialization={coachProfile?.coach_data?.specialization || 'Not specified'}
                         yearsExperience={coachProfile?.coach_data?.years_experience || 0}
                         profileCompleted={user?.profile_completed || coachProfile?.profile_completed || false}
+                        totalAthletes={totalAthletes}
                         bio={coachProfile?.coach_data?.bio}
-                        onEdit={() => router.push('/complete-profile')}
+                        onEdit={() => {
+                          setActiveTab('profile');
+                          setIsEditingProfile(true);
+                        }}
                       />
                     )}
 
@@ -1181,6 +1201,77 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                       </Card>
                     )}
                   </>
+                )}
+
+                {/* ── MY PROFILE TAB ── */}
+                {activeTab === 'profile' && (
+                  <View style={{ gap: 24 }}>
+                    {isEditingProfile ? (
+                      <View style={{ gap: 16 }}>
+                        <Pressable
+                          onPress={() => setIsEditingProfile(false)}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}
+                        >
+                          <Ionicons name="arrow-back" size={16} color={colors.emerald} />
+                          <Text style={{ color: colors.emerald, fontWeight: '700', fontSize: 13 }}>
+                            Cancel & Return to Profile
+                          </Text>
+                        </Pressable>
+                        <CoachProfileForm
+                          onSubmit={handleCoachProfileSubmit}
+                          isLoading={isSubmittingProfile}
+                          error={profileError}
+                          initialData={coachProfile?.coach_data}
+                        />
+                      </View>
+                    ) : (
+                      <CoachProfileSummaryCard
+                        primarySport={coachProfile?.coach_data?.primary_sport || 'Not specified'}
+                        specialization={coachProfile?.coach_data?.specialization || 'Not specified'}
+                        yearsExperience={coachProfile?.coach_data?.years_experience || 0}
+                        profileCompleted={user?.profile_completed || coachProfile?.profile_completed || false}
+                        totalAthletes={totalAthletes}
+                        bio={coachProfile?.coach_data?.bio}
+                        onEdit={() => setIsEditingProfile(true)}
+                      />
+                    )}
+
+                    {/* Quick Roster Overview in Profile */}
+                    <Card style={styles.section}>
+                      <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 16 }]}>
+                        Assigned Athletes Summary
+                      </Text>
+                      {athletes.length === 0 ? (
+                        <EmptyState
+                          icon="people-outline"
+                          title="No athletes assigned yet"
+                          description="Your assigned roster will appear here once athletes are connected to your account."
+                        />
+                      ) : (
+                        <CollectionGrid gap={16}>
+                          {athletes.map((athlete) => (
+                            <CollectionGridItem itemWidth={280} key={athlete.athlete_id}>
+                              <Card style={{ padding: 14 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                  <View style={[styles.iconWrapper, { backgroundColor: colors.emeraldDim }]}>
+                                    <Ionicons name="person" size={20} color={colors.emerald} />
+                                  </View>
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary }}>
+                                      {athlete.name || 'Athlete'}
+                                    </Text>
+                                    <Text style={{ fontSize: 13, color: colors.textSub, marginTop: 2 }}>
+                                      {athlete.sport || 'General Sport'}
+                                    </Text>
+                                  </View>
+                                </View>
+                              </Card>
+                            </CollectionGridItem>
+                          ))}
+                        </CollectionGrid>
+                      )}
+                    </Card>
+                  </View>
                 )}
               </>
             )}

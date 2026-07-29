@@ -12,8 +12,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { WorkoutTemplate } from '@/api/workout';
-import { fetchWorkoutTemplates } from '@/api/workout';
+import { fetchWorkoutTemplates, createWorkout } from '@/api/workout';
 import { fetchMyProfile } from '@/api/profile';
+import { fetchCoachAthletes } from '@/api/admin';
 import { Button, Card, EmptyState, SearchBar, CollectionGrid, CollectionGridItem, Badge } from '@/components/ui';
 import WorkoutCard from '../components/WorkoutCard';
 import WorkoutDetailsModal from '../components/WorkoutDetailsModal';
@@ -52,6 +53,16 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
 
+  // Coach Workout Assignment State
+  const [selectedWorkoutForAssign, setSelectedWorkoutForAssign] = useState<WorkoutTemplate | null>(null);
+  const [isAssignModalVisible, setIsAssignModalVisible] = useState(false);
+  const [coachAthletes, setCoachAthletes] = useState<any[]>([]);
+  const [selectedAthleteId, setSelectedAthleteId] = useState<string>('');
+  const [assignDate, setAssignDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [assignNotes, setAssignNotes] = useState<string>('');
+  const [isSubmittingAssign, setIsSubmittingAssign] = useState<boolean>(false);
+  const [coachUserId, setCoachUserId] = useState<string>('');
+
   const { savedWorkouts, saveWorkout } = useSavedWorkouts();
   const router = useRouter();
 
@@ -64,6 +75,48 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
       )
   );
 
+  const handleOpenAssignModal = async (workout: WorkoutTemplate) => {
+    setSelectedWorkoutForAssign(workout);
+    setIsAssignModalVisible(true);
+    if (token && coachUserId) {
+      try {
+        const athletes = await fetchCoachAthletes(token, coachUserId);
+        setCoachAthletes(athletes);
+        if (athletes.length > 0) {
+          setSelectedAthleteId(athletes[0].athlete_id);
+        }
+      } catch (err) {
+        console.warn('Failed to load coach athletes:', err);
+      }
+    }
+  };
+
+  const handleConfirmAssignment = async () => {
+    if (!selectedWorkoutForAssign || !selectedAthleteId || !token) {
+      Alert.alert('Missing Selection', 'Please select an athlete to assign this workout to.');
+      return;
+    }
+    setIsSubmittingAssign(true);
+    try {
+      await createWorkout(token, {
+        workout_template_id: selectedWorkoutForAssign.id,
+        title: selectedWorkoutForAssign.title,
+        description: assignNotes.trim() || selectedWorkoutForAssign.description,
+        athlete_id: selectedAthleteId,
+        exercises: [],
+        date: assignDate,
+        status: 'pending',
+      });
+      Alert.alert('Success', `Workout "${selectedWorkoutForAssign.title}" assigned successfully!`);
+      setIsAssignModalVisible(false);
+      setSelectedWorkoutForAssign(null);
+      setAssignNotes('');
+    } catch (err: any) {
+      Alert.alert('Assignment Failed', err.message || 'Failed to assign workout to athlete.');
+    } finally {
+      setIsSubmittingAssign(false);
+    }
+  };
 
   const handleAddToMyWorkouts = async (workout: WorkoutTemplate) => {
     setSavingId(workout.id);
@@ -96,6 +149,9 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
         setPrimarySport(profileData.athlete_data.sport);
       } else if (profileData?.coach_data?.primary_sport) {
         setPrimarySport(profileData.coach_data.primary_sport);
+      }
+      if (profileData?.user_id || profileData?.id || profileData?.coach_data?.coach_id) {
+        setCoachUserId(profileData.user_id || profileData.id || profileData.coach_data?.coach_id);
       }
     } catch (err: any) {
       const message = err?.message || 'Failed to load workout library';
@@ -346,8 +402,93 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
         isSaved={isSelectedWorkoutSaved}
         onAddToMyWorkouts={handleAddToMyWorkouts}
         onOpenMyWorkouts={() => router.push('/my-workouts' as Href)}
+        onAssignToAthlete={handleOpenAssignModal}
+        onCustomizeAndAssign={handleOpenAssignModal}
         isSaving={savingId === selectedWorkout?.id}
       />
+
+      {/* Coach Workout Assignment Modal */}
+      {isAssignModalVisible && selectedWorkoutForAssign && (
+        <View style={styles.modalOverlay}>
+          <Card style={styles.assignCard}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                  Assign Workout
+                </Text>
+                <Text style={[{ fontSize: 13, color: colors.textSub, marginTop: 2 }]}>
+                  {selectedWorkoutForAssign.title}
+                </Text>
+              </View>
+              <Pressable onPress={() => setIsAssignModalVisible(false)} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={20} color={colors.textSub} />
+              </Pressable>
+            </View>
+
+            <View style={{ gap: 14, marginVertical: 12 }}>
+              <View>
+                <Text style={[styles.fieldLabel, { color: colors.textSub }]}>SELECT ATHLETE</Text>
+                {coachAthletes.length === 0 ? (
+                  <Text style={{ fontSize: 13, color: colors.textMuted, marginTop: 4 }}>
+                    No assigned athletes found. Add an athlete to your roster to assign workouts.
+                  </Text>
+                ) : (
+                  <View style={{ gap: 8, marginTop: 6 }}>
+                    {coachAthletes.map((ath) => {
+                      const athId = ath.athlete_id;
+                      const isSelected = selectedAthleteId === athId;
+                      return (
+                        <Pressable
+                          key={athId}
+                          onPress={() => setSelectedAthleteId(athId)}
+                          style={[
+                            styles.athleteSelectOption,
+                            {
+                              backgroundColor: isSelected ? colors.emeraldDim : colors.bgMid,
+                              borderColor: isSelected ? colors.borderEmerald : colors.borderSubtle,
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                            size={18}
+                            color={isSelected ? colors.emerald : colors.textMuted}
+                          />
+                          <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textPrimary }}>
+                            {ath.name || ath.athlete_name || 'Athlete'}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+
+              <View>
+                <Text style={[styles.fieldLabel, { color: colors.textSub }]}>ASSIGNMENT DATE</Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginTop: 4 }}>
+                  {assignDate}
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+              <Button
+                label="Cancel"
+                onPress={() => setIsAssignModalVisible(false)}
+                variant="secondary"
+              />
+              <Button
+                label="Confirm Assignment"
+                onPress={handleConfirmAssignment}
+                variant="primary"
+                isLoading={isSubmittingAssign}
+                disabled={!selectedAthleteId || coachAthletes.length === 0}
+              />
+            </View>
+          </Card>
+        </View>
+      )}
 
     </View>
   );
@@ -461,5 +602,45 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     padding: 24,
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+    padding: SPACING.md,
+  },
+  assignCard: {
+    width: '100%',
+    maxWidth: 520,
+    padding: 20,
+    borderRadius: RADIUS.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  modalCloseBtn: {
+    padding: 6,
+  },
+  fieldLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  athleteSelectOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
   },
 });

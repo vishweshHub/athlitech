@@ -22,6 +22,10 @@ FRONTEND_ORIGINS = [
     if origin.strip()
 ]
 
+# Set to "true" in .env for development/demo utilities (e.g. data-reset endpoints)
+DEV_MODE: bool = os.getenv("DEV_MODE", "false").lower() == "true"
+
+
 MONGODB_URI = os.getenv("MONGODB_URI")
 
 if not MONGODB_URI:

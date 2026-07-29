@@ -70,5 +70,16 @@ class PerformanceLogRepository:
             logs.append(l)
         return logs
 
+    async def delete_logs_by_session_id(self, workout_session_id: str, athlete_id: str) -> int:
+        """Delete all performance logs for a specific session belonging to a specific athlete.
+        Scoped to athlete_id to prevent cross-athlete deletion.
+        Returns the number of deleted documents.
+        """
+        result = await self.collection.delete_many({
+            "workout_session_id": workout_session_id,
+            "athlete_id": athlete_id,
+        })
+        return result.deleted_count
+
 
 performance_log_repository = PerformanceLogRepository()

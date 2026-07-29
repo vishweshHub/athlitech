@@ -15,6 +15,15 @@ from schemas.performance_log_schema import (
 )
 
 
+def _normalize_source_type(st: Optional[str]) -> str:
+    if hasattr(st, "value"):
+        st = getattr(st, "value")
+    norm = str(st or "").strip().upper()
+    if norm in ["COACH_PLAN", "PLANNED", "COACH", "COACH PLAN", "COACH_ASSIGNED"]:
+        return "COACH_PLAN"
+    return "SELF_WORKOUT"
+
+
 def _format_performance_log_response(log: dict) -> PerformanceLogResponse:
     log_id = str(log.get("id") or log.get("_id"))
     now = datetime.utcnow()
@@ -39,7 +48,7 @@ def _format_performance_log_response(log: dict) -> PerformanceLogResponse:
         workout_template_id=log.get("workout_template_id"),
         assignment_id=log.get("assignment_id"),
         athlete_id=str(log.get("athlete_id", "")),
-        source_type=str(log.get("source_type") or "SELF"),
+        source_type=_normalize_source_type(log.get("source_type")),
         workout_name=workout_name,
         activity_label=log.get("activity_label") or workout_name,
         metrics=log.get("metrics"),
@@ -109,6 +118,7 @@ async def _evaluate_personal_record(athlete_id: str, metrics: dict) -> bool:
 async def create_performance_log(
     payload: PerformanceLogCreate, current_user: dict
 ) -> PerformanceLogResponse:
+    print(f"[RUNTIME_TRACE] Step 7: Entering create_performance_log for session={payload.workout_session_id}, source={payload.source_type}", flush=True)
     # 1. Validate Workout Session exists
     ws = await workout_session_repository.find_workout_session_by_id(payload.workout_session_id)
     if not ws:
@@ -152,9 +162,7 @@ async def create_performance_log(
     completed_time = payload.completed_at or payload.recorded_at or ws.get("completed_at") or now
 
     workout_name = payload.workout_name or payload.activity_label or ws.get("workout_name") or ws.get("title") or "Workout Session"
-    source_type = payload.source_type or ws.get("source_type") or "SELF"
-    if hasattr(source_type, "value"):
-        source_type = source_type.value
+    source_type = _normalize_source_type(payload.source_type or ws.get("source_type"))
 
     # Derive duration_minutes
     duration_min = payload.duration_minutes

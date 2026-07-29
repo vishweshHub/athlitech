@@ -80,6 +80,7 @@ export async function fetchWorkoutTemplateById(token: string, id: string): Promi
 export async function createWorkout(
   token: string,
   workoutData: {
+    workout_template_id?: string;
     title: string;
     description?: string;
     athlete_id: string;

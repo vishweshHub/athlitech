@@ -27,6 +27,7 @@ class Workout(BaseModel):
     is_public: bool = True
 
     # Legacy fields
+    workout_template_id: Optional[str] = None
     coach_id: Optional[str] = None
     athlete_id: Optional[str] = None
     exercises: Optional[List[Exercise]] = None

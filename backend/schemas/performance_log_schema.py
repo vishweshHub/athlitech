@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class SourceTypeEnum(str, Enum):
+    SELF_WORKOUT = "SELF_WORKOUT"
+    COACH_PLAN = "COACH_PLAN"
     SELF = "SELF"
     PLANNED = "PLANNED"
     MANUAL = "manual"

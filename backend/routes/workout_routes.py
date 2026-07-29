@@ -37,7 +37,8 @@ async def create_workout(
     return await workout_service.create_workout_template(workout_data, current_user)
 
 
-@router.get("/", response_model=List[WorkoutResponse])
+@router.get("", response_model=List[WorkoutResponse])
+@router.get("/", response_model=List[WorkoutResponse], include_in_schema=False)
 async def get_workouts(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),

@@ -41,7 +41,9 @@ class WorkoutRepository:
         difficulty: str | None = None,
         search: str | None = None
     ) -> list:
-        query = {}
+        # Exclude legacy assigned-workout documents (they have athlete_id/coach_id
+        # but lack sport/category/difficulty/duration_minutes required by WorkoutResponse).
+        query: dict = {"athlete_id": {"$exists": False}, "sport": {"$exists": True, "$ne": None}}
         if sport:
             query["sport"] = {"$regex": f"^{sport}$", "$options": "i"}
         if category:
@@ -56,7 +58,7 @@ class WorkoutRepository:
                 {"category": {"$regex": search, "$options": "i"}},
                 {"instructions": {"$regex": search, "$options": "i"}}
             ]
-        
+
         cursor = self.collection.find(query)
         if hasattr(cursor, "skip"):
             cursor = cursor.skip(skip)
