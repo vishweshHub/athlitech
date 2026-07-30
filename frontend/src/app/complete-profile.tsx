@@ -259,9 +259,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 20,
-    maxWidth: 640,
     width: '100%',
-    alignSelf: 'center',
   },
   backBtn: {
     flexDirection: 'row',

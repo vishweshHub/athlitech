@@ -37,7 +37,8 @@ async def create_workout(
     return await workout_service.create_workout_template(workout_data, current_user)
 
 
-@router.get("/", response_model=List[WorkoutResponse])
+@router.get("", response_model=List[WorkoutResponse])
+@router.get("/", response_model=List[WorkoutResponse], include_in_schema=False)
 async def get_workouts(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
@@ -87,6 +88,17 @@ async def update_workout_status(
     current_user: dict = Depends(get_current_user)
 ):
     return await workout_service.update_workout_status(workout_id, status_update, current_user)
+
+
+@router.get("/metadata", response_model=dict)
+async def get_workout_metadata():
+    return await workout_service.get_workout_metadata()
+
+
+@router.get("/sports", response_model=List[str])
+async def get_sports():
+    meta = await workout_service.get_workout_metadata()
+    return meta["sports"]
 
 
 @router.get("/{id}", response_model=WorkoutResponse)

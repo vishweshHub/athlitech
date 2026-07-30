@@ -102,6 +102,7 @@ class ExerciseSchema(BaseModel):
 
 
 class WorkoutCreateLegacy(BaseModel):
+    workout_template_id: Optional[str] = None
     title: str = Field(..., min_length=1)
     description: Optional[str] = None
     athlete_id: str = Field(..., min_length=1)
@@ -119,6 +120,7 @@ class WorkoutUpdateStatus(BaseModel):
 
 class WorkoutRead(BaseModel):
     workout_id: str
+    workout_template_id: Optional[str] = None
     title: str
     description: Optional[str] = None
     coach_id: str

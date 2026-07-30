@@ -1,91 +1,78 @@
 import React from 'react';
-import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-
-import Button from './Button';
-import { useThemeColors } from '@/styles/tokens';
+import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Button } from './Button';
 
 interface EmptyStateProps {
-  icon?: keyof typeof Ionicons.glyphMap;
   title: string;
-  description: string;
+  message?: string;
+  description?: string;
   actionLabel?: string;
+  actionText?: string;
+  onAction?: () => void;
   onActionPress?: () => void;
-  style?: StyleProp<ViewStyle>;
+  icon?: React.ReactNode;
+  style?: ViewStyle;
 }
 
-export default function EmptyState({
-  icon = 'document-text-outline',
+export const EmptyState: React.FC<EmptyStateProps> = ({
   title,
+  message,
   description,
   actionLabel,
+  actionText,
+  onAction,
   onActionPress,
+  icon,
   style,
-}: EmptyStateProps) {
-  const colors = useThemeColors();
+}) => {
+  const displayMessage = message || description;
+  const displayBtnLabel = actionLabel || actionText;
+  const activeOnAction = onAction || onActionPress;
 
   return (
     <View style={[styles.container, style]}>
-      <View style={[styles.iconContainer, { backgroundColor: colors.bgMid, borderColor: colors.border }]}>
-        <Ionicons name={icon} size={32} color={colors.emerald} />
-      </View>
-
-      <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
-      
-      <Text style={[styles.description, { color: colors.textSub }]}>
-        {description}
-      </Text>
-
-      {actionLabel && onActionPress && (
-        <Button
-          label={actionLabel}
-          onPress={onActionPress}
-          variant="primary"
-          size="sm"
-          style={styles.actionButton}
-        />
+      {icon && <View style={styles.iconContainer}>{icon}</View>}
+      <Text style={styles.title}>{title}</Text>
+      {displayMessage && <Text style={styles.message}>{displayMessage}</Text>}
+      {displayBtnLabel && activeOnAction && (
+        <Button title={displayBtnLabel} onPress={activeOnAction} size="sm" style={styles.button} />
       )}
     </View>
   );
-}
+};
+
+
+export default EmptyState;
+
 
 const styles = StyleSheet.create({
   container: {
+    padding: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 24,
-    width: '100%',
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginVertical: 12,
   },
   iconContainer: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    // Soft shadow
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 2,
+    marginBottom: 12,
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 8,
+    color: '#F8FAFC',
     textAlign: 'center',
   },
-  description: {
+  message: {
     fontSize: 14,
+    color: '#94A3B8',
     textAlign: 'center',
+    marginTop: 6,
     lineHeight: 20,
-    marginBottom: 24,
-    maxWidth: 320,
   },
-  actionButton: {
-    marginTop: 4,
+  button: {
+    marginTop: 16,
   },
 });

@@ -21,7 +21,12 @@ import type { AuthUser } from '@/api/auth';
 import type { Workout } from '@/api/workout';
 import { fetchAthleteWorkouts, updateWorkoutStatus } from '@/api/workout';
 import type { PerformanceRecord } from '@/api/performance';
-import { fetchAthletePerformances } from '@/api/performance';
+import {
+  fetchAthletePerformances,
+  fetchMyPerformanceLogs,
+  PerformanceLogResponse,
+  getSourceBadgeInfo,
+} from '@/api/performance';
 
 import {
   Button,
@@ -34,12 +39,19 @@ import {
   StatsGrid,
   StatsGridItem,
   OnboardingBanner,
+  WorkoutSuccessModal,
 } from '@/components/ui';
 import RecommendedWorkoutsCard from '../components/RecommendedWorkoutsCard';
 import WorkoutLibraryScreen from '@/features/workouts/pages/WorkoutLibraryScreen';
+import TodayTrainingSection from '@/features/training/components/TodayTrainingSection';
+import { useSavedWorkouts } from '@/hooks/useSavedWorkouts';
+import { Href } from 'expo-router';
 import { fetchWorkoutRecommendations, WorkoutRecommendation } from '@/api/profile';
-import { useThemeColors } from '@/styles/tokens';
+
+
+import { useThemeColors, RADIUS } from '@/styles/tokens';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import AthleteProfileDetailsCard from '@/features/profile/components/AthleteProfileDetailsCard';
 
 interface AthleteDashboardScreenProps {
   user: AuthUser | null;
@@ -80,7 +92,7 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
   const [workouts, setWorkouts] = useState<Workout[]>([]);
 
   // Performance
-  const [performances, setPerformances] = useState<PerformanceRecord[]>([]);
+  const [performanceLogs, setPerformanceLogs] = useState<PerformanceLogResponse[]>([]);
   const [isPerfLoading, setIsPerfLoading] = useState(false);
   const [perfError, setPerfError] = useState<string | null>(null);
 
@@ -93,8 +105,29 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
   const [completionPercentage, setCompletionPercentage] = useState('100');
   const [athleteNotes, setAthleteNotes] = useState('');
   const [isSavingCompletion, setIsSavingCompletion] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const athleteId = user?.id;
+
+  const loadPerformanceData = useCallback(async () => {
+    if (!token) return;
+    setIsPerfLoading(true);
+    setPerfError(null);
+    try {
+      const data = await fetchMyPerformanceLogs(token);
+      const sorted = [...data].sort((a, b) => {
+        const dA = a.completed_at || a.created_at || '';
+        const dB = b.completed_at || b.created_at || '';
+        return dB.localeCompare(dA);
+      });
+      setPerformanceLogs(sorted);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to load performance data';
+      setPerfError(message);
+    } finally {
+      setIsPerfLoading(false);
+    }
+  }, [token]);
 
   const loadDashboardData = useCallback(async () => {
     if (!athleteId || !token) return;
@@ -143,6 +176,9 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
           console.warn('Failed to fetch workout recommendations:', recErr);
         }
       }
+
+      // Load performance history as part of dashboard refresh
+      await loadPerformanceData();
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to load dashboard data';
       console.warn('Error loading athlete dashboard data:', e);
@@ -150,36 +186,17 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
     } finally {
       setIsLoading(false);
     }
-  }, [athleteId, token]);
+  }, [athleteId, token, loadPerformanceData]);
 
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
 
   useEffect(() => {
-    if (!athleteId || !token || activeTab !== 'performance') return;
-
-    async function loadPerformanceData() {
-      setIsPerfLoading(true);
-      setPerfError(null);
-      try {
-        const data = await fetchAthletePerformances(token, athleteId as string);
-        const sorted = [...data].sort((a, b) => {
-          const dA = a.date || a.recorded_at || '';
-          const dB = b.date || b.recorded_at || '';
-          return dB.localeCompare(dA);
-        });
-        setPerformances(sorted);
-      } catch (e) {
-        const message = e instanceof Error ? e.message : 'Failed to load performance data';
-        setPerfError(message);
-      } finally {
-        setIsPerfLoading(false);
-      }
+    if (activeTab === 'performance') {
+      loadPerformanceData();
     }
-
-    loadPerformanceData();
-  }, [athleteId, token, activeTab]);
+  }, [activeTab, loadPerformanceData]);
 
   const handleUpdateStatus = async (workoutId: string, status: 'pending' | 'completed' | 'skipped') => {
     try {
@@ -239,7 +256,13 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
         )
       );
 
+      const isCompleted = completionStatus === 'completed';
       setSelectedWorkoutForCompletion(null);
+
+      if (isCompleted) {
+        setShowSuccessModal(true);
+        await loadPerformanceData();
+      }
     } catch (err: any) {
       alert('Failed to save completion: ' + err.message);
     } finally {
@@ -268,6 +291,10 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
 
   return (
     <SafeAreaView style={styles.wrapper}>
+      <WorkoutSuccessModal
+        visible={showSuccessModal}
+        onComplete={() => setShowSuccessModal(false)}
+      />
       <View style={styles.mainContainer}>
         {/* ── SIDEBAR ── */}
         {sidebarOpen && (
@@ -301,50 +328,62 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
 
             <View style={styles.sidebarNav}>
               {[
-                { id: 'dashboard', label: 'Dashboard', icon: 'grid', count: null },
-                { id: 'library', label: 'Workout Library', icon: 'book', count: null },
-                { id: 'workouts', label: 'My Workouts', icon: 'fitness', count: totalWorkouts },
-                { id: 'performance', label: 'Performance', icon: 'speedometer', count: null },
-                { id: 'profile', label: 'My Profile', icon: 'person', count: null },
-              ].map((item) => (
-                <Pressable
-                  key={item.id}
-                  style={[
-                    styles.sidebarItem,
-                    activeTab === item.id && styles.sidebarItemActive,
-                  ]}
-                  onPress={() => {
-                    if (item.id === 'profile') {
-                      router.push('/complete-profile');
-                    } else {
-                      setActiveTab(item.id as TabType);
-                    }
-                    if (!isLargeScreen) setSidebarOpen(false);
-                  }}
-
-                >
-                  <Ionicons
-                    name={item.icon as any}
-                    size={20}
-                    color={activeTab === item.id ? colors.emerald : colors.textSub}
-                  />
-                  <Text
+                { id: 'dashboard', label: 'Dashboard', icon: 'grid', count: null, requiresProfile: false },
+                { id: 'my-workouts', label: 'My Workouts', icon: 'bookmark', count: null, requiresProfile: true },
+                { id: 'library', label: 'Workout Library', icon: 'book', count: null, requiresProfile: true },
+                { id: 'workouts', label: 'Assigned Workouts', icon: 'fitness', count: totalWorkouts, requiresProfile: true },
+                { id: 'performance', label: 'Performance', icon: 'speedometer', count: null, requiresProfile: true },
+                { id: 'profile', label: 'My Profile', icon: 'person', count: null, requiresProfile: false },
+              ].map((item) => {
+                const isLocked = item.requiresProfile && !user?.profile_completed;
+                return (
+                  <Pressable
+                    key={item.id}
                     style={[
-                      styles.sidebarItemLabel,
-                      activeTab === item.id && styles.sidebarItemLabelActive,
+                      styles.sidebarItem,
+                      activeTab === item.id && styles.sidebarItemActive,
+                      isLocked && { opacity: 0.6 },
                     ]}
+                    onPress={() => {
+                      if (isLocked) {
+                        router.push('/complete-profile');
+                        return;
+                      }
+                      if (item.id === 'my-workouts') {
+                        router.push('/my-workouts');
+                      } else if (item.id === 'profile') {
+                        router.push('/complete-profile');
+                      } else {
+                        setActiveTab(item.id as TabType);
+                      }
+                      if (!isLargeScreen) setSidebarOpen(false);
+                    }}
                   >
-                    {item.label}
-                  </Text>
-                  {item.count !== null && item.count !== undefined && (
-                    <View style={[styles.sidebarBadge, activeTab === item.id && styles.sidebarBadgeActive]}>
-                      <Text style={[styles.sidebarBadgeText, activeTab === item.id && styles.sidebarBadgeTextActive]}>
-                        {item.count}
-                      </Text>
-                    </View>
-                  )}
-                </Pressable>
-              ))}
+                    <Ionicons
+                      name={isLocked ? 'lock-closed-outline' : (item.icon as any)}
+                      size={20}
+                      color={activeTab === item.id ? colors.emerald : isLocked ? colors.textMuted : colors.textSub}
+                    />
+                    <Text
+                      style={[
+                        styles.sidebarItemLabel,
+                        activeTab === item.id && styles.sidebarItemLabelActive,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                    {isLocked ? (
+                      <Badge label="Locked" variant="neutral" />
+                    ) : item.count !== null && item.count !== undefined ? (
+                      <View style={[styles.sidebarBadge, activeTab === item.id && styles.sidebarBadgeActive]}>
+                        <Text style={[styles.sidebarBadgeText, activeTab === item.id && styles.sidebarBadgeTextActive]}>
+                          {item.count}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
             </View>
 
             <View style={styles.sidebarFooter}>
@@ -374,9 +413,10 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
               <Text style={styles.headerTitle}>
                 {activeTab === 'dashboard' && 'My Dashboard'}
                 {activeTab === 'library' && 'Workout Library'}
-                {activeTab === 'workouts' && 'My Workouts'}
+                {activeTab === 'workouts' && 'Assigned Workouts'}
                 {activeTab === 'performance' && 'My Performance'}
                 {activeTab === 'profile' && 'My Profile'}
+
               </Text>
               <Text style={styles.headerSubtitle}>{user?.email || 'Athlete'}</Text>
             </View>
@@ -421,23 +461,36 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                 />
               </Card>
             ) : (
-              <>
-                {/* ── WORKOUT LIBRARY TAB ── */}
-                {activeTab === 'library' && (
-                  <WorkoutLibraryScreen token={token} userRole="athlete" />
-                )}
-
-                {/* ── DASHBOARD TAB ── */}
-                {activeTab === 'dashboard' && (
-
-                  <>
-                    <OnboardingBanner
-                      isVisible={!user?.profile_completed}
-                      title="Welcome to AthliTech! 👋"
-                      description="Your account has been created successfully. Complete your profile to unlock personalized workout recommendations & tracking."
-                      buttonLabel="Complete Profile"
-                      onAction={() => router.push('/complete-profile')}
+              <React.Fragment>
+                {/* ── PROFILE COMPLETION GATE FOR NON-DASHBOARD TABS ── */}
+                {!user?.profile_completed && activeTab !== 'dashboard' ? (
+                  <Card style={styles.section}>
+                    <EmptyState
+                      icon="lock-closed-outline"
+                      title="Profile Completion Required"
+                      description="Complete your athlete profile to unlock personalized training."
+                      actionLabel="Complete Profile Now"
+                      onActionPress={() => router.push('/complete-profile')}
                     />
+                  </Card>
+                ) : (
+                  <React.Fragment>
+                    {/* ── WORKOUT LIBRARY TAB ── */}
+                    {activeTab === 'library' && (
+                      <WorkoutLibraryScreen token={token} userRole="athlete" />
+                    )}
+
+                    {/* ── DASHBOARD TAB ── */}
+                    {activeTab === 'dashboard' && (
+
+                      <React.Fragment>
+                        <OnboardingBanner
+                          isVisible={!user?.profile_completed}
+                          title="Welcome to AthliTech! 👋"
+                          description="Complete your athlete profile to unlock personalized training."
+                          buttonLabel="Complete Profile"
+                          onAction={() => router.push('/complete-profile')}
+                        />
                     {/* Welcome Banner */}
                     <Card style={[styles.section, { marginBottom: 24 }]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
@@ -463,6 +516,13 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                         )}
                       </View>
                     </Card>
+
+                    {/* Today's Training Section */}
+                    <TodayTrainingSection
+                      athleteId={athleteId}
+                      onNavigateToWorkoutSession={() => router.push('/workout-session' as Href)}
+                    />
+
 
                     {/* Stat Cards */}
                     <StatsGrid gap={16} style={{ marginBottom: 24 }}>
@@ -580,8 +640,12 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                       </Card>
                     )}
 
+                    {/* My Workouts Section Preview */}
+                    <MyWorkoutsDashboardSection />
+
                     {/* Quick Actions */}
                     <View style={styles.section}>
+
                       <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Quick Actions</Text>
                       <StatsGrid gap={16} style={{ marginTop: 12 }}>
                         <StatsGridItem minWidth={260}>
@@ -590,10 +654,11 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                             onPress={() => setActiveTab('workouts')}
                           >
                             <Ionicons name="barbell-outline" size={32} color={colors.info} />
-                            <Text style={styles.actionCardTitle}>My Workouts</Text>
+                            <Text style={styles.actionCardTitle}>Assigned Workouts</Text>
                             <Text style={styles.actionCardDesc}>
                               View and update the status of your assigned workout plans.
                             </Text>
+
                           </Pressable>
                         </StatsGridItem>
                         <StatsGridItem minWidth={260}>
@@ -610,7 +675,7 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                         </StatsGridItem>
                       </StatsGrid>
                     </View>
-                  </>
+                  </React.Fragment>
                 )}
 
                 {/* ── WORKOUTS TAB ── */}
@@ -692,50 +757,59 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                             )}
 
                             {/* Status Controls */}
-                            <View style={styles.statusControlsRow}>
-                              <Pressable
-                                style={[
-                                  styles.statusBtn,
-                                  {
-                                    backgroundColor: w.status === 'pending' ? colors.bgMid : 'transparent',
-                                    borderColor: w.status === 'pending' ? colors.textSub : colors.border,
-                                  },
-                                ]}
-                                onPress={() => handleUpdateStatusClick(w, 'pending')}
-                              >
-                                <Text style={[styles.statusBtnText, { color: w.status === 'pending' ? colors.textPrimary : colors.textSub }]}>
-                                  Pending
-                                </Text>
-                              </Pressable>
-                              <Pressable
-                                style={[
-                                  styles.statusBtn,
-                                  {
-                                    backgroundColor: w.status === 'completed' ? colors.emeraldDim : 'transparent',
-                                    borderColor: w.status === 'completed' ? colors.emerald : colors.border,
-                                  },
-                                ]}
-                                onPress={() => handleUpdateStatusClick(w, 'completed')}
-                              >
-                                <Text style={[styles.statusBtnText, { color: w.status === 'completed' ? colors.emerald : colors.textSub }]}>
-                                  Completed
-                                </Text>
-                              </Pressable>
-                              <Pressable
-                                style={[
-                                  styles.statusBtn,
-                                  {
-                                    backgroundColor: w.status === 'skipped' ? colors.errorDim : 'transparent',
-                                    borderColor: w.status === 'skipped' ? colors.error : colors.border,
-                                  },
-                                ]}
-                                onPress={() => handleUpdateStatusClick(w, 'skipped')}
-                              >
-                                <Text style={[styles.statusBtnText, { color: w.status === 'skipped' ? colors.error : colors.textSub }]}>
-                                  Skipped
-                                </Text>
-                              </Pressable>
-                            </View>
+                            {w.status === 'completed' || w.status === 'skipped' ? (
+                              <View style={[styles.statusControlsRow, { justifyContent: 'flex-end' }]}>
+                                <Badge
+                                  label={w.status === 'completed' ? 'Completed (Locked)' : 'Skipped (Locked)'}
+                                  variant={w.status === 'completed' ? 'success' : 'error'}
+                                />
+                              </View>
+                            ) : (
+                              <View style={styles.statusControlsRow}>
+                                <Pressable
+                                  style={[
+                                    styles.statusBtn,
+                                    {
+                                      backgroundColor: colors.bgMid,
+                                      borderColor: colors.textSub,
+                                    },
+                                  ]}
+                                  onPress={() => handleUpdateStatusClick(w, 'pending')}
+                                >
+                                  <Text style={[styles.statusBtnText, { color: colors.textPrimary }]}>
+                                    Pending
+                                  </Text>
+                                </Pressable>
+                                <Pressable
+                                  style={[
+                                    styles.statusBtn,
+                                    {
+                                      backgroundColor: 'transparent',
+                                      borderColor: colors.emerald,
+                                    },
+                                  ]}
+                                  onPress={() => handleUpdateStatusClick(w, 'completed')}
+                                >
+                                  <Text style={[styles.statusBtnText, { color: colors.emerald }]}>
+                                    Mark Completed
+                                  </Text>
+                                </Pressable>
+                                <Pressable
+                                  style={[
+                                    styles.statusBtn,
+                                    {
+                                      backgroundColor: 'transparent',
+                                      borderColor: colors.error,
+                                    },
+                                  ]}
+                                  onPress={() => handleUpdateStatusClick(w, 'skipped')}
+                                >
+                                  <Text style={[styles.statusBtnText, { color: colors.error }]}>
+                                    Skip
+                                  </Text>
+                                </Pressable>
+                              </View>
+                            )}
                           </Card>
                         ))}
                       </View>
@@ -746,150 +820,142 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                 {/* ── PERFORMANCE TAB ── */}
                 {activeTab === 'performance' && (
                   <Card style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 20 }]}>
-                      My Performance History
-                    </Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                      <View style={{ flex: 1, marginRight: 12 }}>
+                        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                          My Performance History
+                        </Text>
+                        <Text style={[{ fontSize: 13, color: colors.textSub, marginTop: 2 }]}>
+                          Unified record of Coach Plans & Self Workouts
+                        </Text>
+                      </View>
+                      <Button
+                        label="Refresh"
+                        onPress={loadPerformanceData}
+                        variant="secondary"
+                        size="sm"
+                        prefix={<Ionicons name="refresh-outline" size={16} color={colors.textPrimary} style={{ marginRight: 4 }} />}
+                      />
+                    </View>
 
                     {isPerfLoading ? (
                       <View style={{ padding: 40, alignItems: 'center' }}>
                         <ActivityIndicator size="large" color={colors.emerald} />
-                        <Text style={[styles.loaderText, { marginTop: 12 }]}>Loading performance data…</Text>
+                        <Text style={[styles.loaderText, { marginTop: 12 }]}>Loading performance history…</Text>
                       </View>
                     ) : perfError ? (
                       <Text style={[styles.errorText, { color: colors.error }]}>{perfError}</Text>
-                    ) : performances.length === 0 ? (
+                    ) : performanceLogs.length === 0 ? (
                       <EmptyState
-                        icon="speedometer-outline"
-                        title="No performance records yet"
-                        description="Your coach will log performance records after workouts."
+                        icon="trophy-outline"
+                        title="No performance logs recorded yet"
+                        description="Complete workout sessions to record your performance history."
+                        actionLabel="Browse Workout Library"
+                        onAction={() => setActiveTab('library')}
                       />
                     ) : (
-                      <Table
-                        headers={['Event', 'Value', 'Date', 'Workout', 'Coach Feedback']}
-                        data={performances}
-                        renderRow={(perf: PerformanceRecord) => {
-                          const linkedWorkout = workouts.find((w) => w.workout_id === perf.workout_id);
-                          const valStr = perf.value !== undefined
-                            ? `${perf.value} ${perf.unit || ''}`
-                            : `${perf.sprint_time || 0}s`;
-                          const eventName = perf.sport_event || '100m Sprint';
-                          const feedback = perf.feedback || perf.coach_remarks || '—';
+                      <View style={styles.performanceGrid}>
+                        {performanceLogs.map((log) => {
+                          const badgeInfo = getSourceBadgeInfo(log.source_type);
+                          const dateFormatted = log.completed_at || log.created_at
+                            ? new Date(log.completed_at || log.created_at).toLocaleDateString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : 'Recently completed';
 
                           return (
-                            <React.Fragment key={perf.performance_id}>
-                              <View style={styles.tableCellMain}>
-                                <Text style={[styles.tableMainText, { color: colors.textPrimary }]}>{eventName}</Text>
+                            <Card key={log.id} style={styles.perfCard}>
+                              <View style={styles.perfCardHeader}>
+                                <View style={{ flex: 1, paddingRight: 8 }}>
+                                  <Text style={[styles.perfWorkoutTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+                                    {log.workout_name}
+                                  </Text>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                                    <Ionicons name="calendar-outline" size={14} color={colors.textMuted} />
+                                    <Text style={[styles.perfDateText, { color: colors.textSub }]}>{dateFormatted}</Text>
+                                  </View>
+                                </View>
+                                <Badge label={badgeInfo.label} variant={badgeInfo.variant} />
                               </View>
-                              <View style={styles.tableCell}>
-                                <Badge label={valStr} variant="info" />
+
+                              <View style={[styles.perfDivider, { backgroundColor: colors.borderSubtle }]} />
+
+                              <View style={styles.perfStatsRow}>
+                                <View style={[styles.perfStatTile, { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle }]}>
+                                  <Ionicons name="time-outline" size={16} color={colors.info} />
+                                  <View>
+                                    <Text style={[styles.perfTileLabel, { color: colors.textMuted }]}>DURATION</Text>
+                                    <Text style={[styles.perfTileValue, { color: colors.textPrimary }]}>
+                                      {log.duration_minutes} mins
+                                    </Text>
+                                  </View>
+                                </View>
+
+                                <View style={[styles.perfStatTile, { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle }]}>
+                                  <Ionicons name="speedometer-outline" size={16} color={colors.emerald} />
+                                  <View>
+                                    <Text style={[styles.perfTileLabel, { color: colors.textMuted }]}>EFFORT (RPE)</Text>
+                                    <Text style={[styles.perfTileValue, { color: colors.textPrimary }]}>
+                                      {log.perceived_effort} / 10
+                                    </Text>
+                                  </View>
+                                </View>
+
+                                <View style={[styles.perfStatTile, { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle }]}>
+                                  <Ionicons name="star" size={16} color={colors.warning} />
+                                  <View>
+                                    <Text style={[styles.perfTileLabel, { color: colors.textMuted }]}>RATING</Text>
+                                    <Text style={[styles.perfTileValue, { color: colors.textPrimary }]}>
+                                      {log.completion_rating} / 5 Stars
+                                    </Text>
+                                  </View>
+                                </View>
                               </View>
-                              <View style={styles.tableCell}>
-                                <Text style={[styles.tableCellText, { color: colors.textSub }]}>
-                                  {perf.recorded_at || perf.date || '—'}
-                                </Text>
-                              </View>
-                              <View style={styles.tableCell}>
-                                <Text style={[styles.tableCellText, { color: colors.textSub }]} numberOfLines={1}>
-                                  {linkedWorkout?.title || '—'}
-                                </Text>
-                              </View>
-                              <View style={styles.tableCellMain}>
-                                <Text style={[styles.tableCellText, { color: colors.textSub }]} numberOfLines={2}>
-                                  {feedback}
-                                </Text>
-                              </View>
-                            </React.Fragment>
+
+                              {log.notes ? (
+                                <View style={[styles.perfNotesBox, { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle }]}>
+                                  <Ionicons name="document-text-outline" size={15} color={colors.textSub} style={{ marginTop: 2 }} />
+                                  <Text style={[styles.perfNotesText, { color: colors.textSub }]} numberOfLines={2}>
+                                    {log.notes}
+                                  </Text>
+                                </View>
+                              ) : null}
+                            </Card>
                           );
-                        }}
-                      />
+                        })}
+                      </View>
                     )}
                   </Card>
                 )}
 
                 {/* ── PROFILE TAB ── */}
                 {activeTab === 'profile' && (
-                  <>
-                    {/* Profile Header */}
-                    <Card style={styles.section}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
-                        <View style={[styles.profileAvatarLarge, { backgroundColor: colors.infoDim, borderColor: 'rgba(14,165,233,0.3)' }]}>
-                          <Text style={[styles.avatarTextLarge, { color: colors.info }]}>
-                            {athlete.name.charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.profileNameText, { color: colors.textPrimary }]}>{athlete.name}</Text>
-                          <Text style={[styles.profileEmailText, { color: colors.textSub }]}>{user.email}</Text>
-                          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                            <Badge label="Athlete" variant="info" />
-                            {athlete.sport && <Badge label={athlete.sport} variant="neutral" />}
-                          </View>
-                        </View>
-                      </View>
-                    </Card>
-
-                    {/* Profile Details */}
-                    <Card style={styles.section}>
-                      <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 20 }]}>
-                        Personal Information
-                      </Text>
-                      {[
-                        { icon: 'person-outline', label: 'Full Name', value: athlete.name },
-                        { icon: 'mail-outline', label: 'Email', value: user.email },
-                        { icon: 'fitness-outline', label: 'Sport', value: athlete.sport || 'Not specified' },
-                        { icon: 'scale-outline', label: 'Weight', value: athlete.weight ? `${athlete.weight} kg` : 'Not specified' },
-                        { icon: 'id-card-outline', label: 'Athlete ID', value: athlete.athlete_id },
-                        { icon: 'ribbon-outline', label: 'Role', value: 'Athlete' },
-                      ].map((item, idx, arr) => (
-                        <View key={item.label}>
-                          <View style={styles.infoRow}>
-                            <View style={[styles.infoIconWrapper, { backgroundColor: colors.bgMid }]}>
-                              <Ionicons name={item.icon as any} size={18} color={colors.textSub} />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                              <Text style={[styles.infoLabel, { color: colors.textMuted }]}>{item.label}</Text>
-                              <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{item.value}</Text>
-                            </View>
-                          </View>
-                          {idx < arr.length - 1 && (
-                            <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
-                          )}
-                        </View>
-                      ))}
-                    </Card>
-
-                    {/* Coach Assignment */}
-                    <Card style={styles.section}>
-                      <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 20 }]}>
-                        My Coach
-                      </Text>
-                      {coach ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                          <View style={[styles.coachAvatar, { backgroundColor: colors.emeraldDim, borderColor: colors.borderEmerald }]}>
-                            <Text style={[styles.avatarText, { color: colors.emerald }]}>
-                              {coach.name.charAt(0).toUpperCase()}
-                            </Text>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.coachName, { color: colors.textPrimary }]}>{coach.name}</Text>
-                            <Text style={[styles.coachEmail, { color: colors.textSub }]}>{coach.email}</Text>
-                            <View style={{ marginTop: 8 }}>
-                              <Badge label="Coach" variant="success" />
-                            </View>
-                          </View>
-                        </View>
-                      ) : (
-                        <EmptyState
-                          icon="person-outline"
-                          title="No coach assigned yet"
-                          description="Contact your admin to get a coach assigned to you."
-                        />
-                      )}
-                    </Card>
-                  </>
+                  <AthleteProfileDetailsCard
+                    userName={athlete.name}
+                    userEmail={user.email}
+                    profile={{
+                      sport: athlete.sport || '',
+                      event: (athlete as any).event || '',
+                      height: (athlete as any).height || null,
+                      weight: athlete.weight ? parseFloat(String(athlete.weight)) : null,
+                      dob: (athlete as any).dob || null,
+                      personal_best: (athlete as any).personal_best || null,
+                      primary_goal: (athlete as any).primary_goal || null,
+                      goal_timeline: (athlete as any).goal_timeline || null,
+                    }}
+                    onEdit={() => router.push('/complete-profile')}
+                    coachName={coach?.name}
+                    coachEmail={coach?.email}
+                  />
                 )}
-              </>
+              </React.Fragment>
             )}
+          </React.Fragment>
+        )}
           </ScrollView>
         </View>
       </View>
@@ -1538,5 +1604,171 @@ function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boo
       textTransform: 'uppercase',
       letterSpacing: 0.5,
     },
+
+    // ── Performance Card UI ──
+    performanceGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 16,
+    },
+    perfCard: {
+      width: isLargeScreen ? '48.5%' : '100%',
+      minWidth: isLargeScreen ? 340 : '100%',
+      padding: 20,
+      borderRadius: RADIUS.lg,
+      backgroundColor: colors.bgCard,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: colors.cardShadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.12,
+      shadowRadius: 10,
+      elevation: 4,
+      gap: 14,
+    },
+    perfCardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+    },
+    perfWorkoutTitle: {
+      fontSize: 17,
+      fontWeight: '700',
+    },
+    perfDateText: {
+      fontSize: 13,
+    },
+    perfDivider: {
+      height: 1,
+      marginVertical: 4,
+    },
+    perfStatsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    perfStatTile: {
+      flex: 1,
+      minWidth: 95,
+      padding: 10,
+      borderRadius: RADIUS.md,
+      borderWidth: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    perfTileLabel: {
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+    },
+    perfTileValue: {
+      fontSize: 13,
+      fontWeight: '700',
+      marginTop: 1,
+    },
+    perfNotesBox: {
+      padding: 10,
+      borderRadius: RADIUS.md,
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 8,
+    },
+    perfNotesText: {
+      fontSize: 13,
+      lineHeight: 18,
+      flex: 1,
+    },
+    perfFooterRow: {
+      borderTopWidth: 1,
+      paddingTop: 10,
+      marginTop: 4,
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+    },
+    viewDetailsBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    viewDetailsText: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
   });
+}
+
+function MyWorkoutsDashboardSection() {
+  const router = useRouter();
+  const colors = useThemeColors();
+  const { savedWorkouts, isLoading } = useSavedWorkouts();
+
+  const previewItems = savedWorkouts.slice(0, 5);
+
+  return (
+    <Card style={{ marginBottom: 24 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: colors.textPrimary }}>My Workouts</Text>
+        <Button
+          label="View All →"
+          onPress={() => router.push('/my-workouts' as Href)}
+          variant="secondary"
+          size="sm"
+        />
+      </View>
+
+      {isLoading ? (
+        <ActivityIndicator size="small" color={colors.emerald} style={{ padding: 16 }} />
+      ) : previewItems.length === 0 ? (
+        <EmptyState
+          icon="bookmark-outline"
+          title="No workouts saved yet."
+          description="Browse the Workout Library and save workouts to begin training."
+        />
+      ) : (
+        <View style={{ gap: 10 }}>
+          {previewItems.map((item) => {
+            const tmpl = item.workout_template || {};
+            const title = tmpl.title || 'Saved Workout';
+            const sport = tmpl.sport || 'General';
+            const difficulty = tmpl.difficulty || 'Intermediate';
+            const duration = tmpl.duration_minutes || 30;
+
+            const diffVariant =
+              difficulty === 'Beginner'
+                ? 'success'
+                : difficulty === 'Advanced'
+                ? 'error'
+                : 'warning';
+
+            return (
+              <View
+                key={item.id}
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: 12,
+                  backgroundColor: colors.bgMid,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: colors.borderSubtle,
+                }}
+              >
+                <View style={{ flex: 1, marginRight: 12 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary }} numberOfLines={1}>
+                    {title}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: colors.textSub, marginTop: 2 }}>
+                    {sport} • {duration} mins
+                  </Text>
+                </View>
+                <Badge label={difficulty} variant={diffVariant as any} />
+              </View>
+            );
+          })}
+        </View>
+      )}
+    </Card>
+  );
 }

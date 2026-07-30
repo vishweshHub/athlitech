@@ -19,6 +19,12 @@ interface WorkoutDetailsModalProps {
   workout: WorkoutTemplate | null;
   userRole: 'athlete' | 'coach' | string;
   onClose: () => void;
+  isSaved?: boolean;
+  onAddToMyWorkouts?: (workout: WorkoutTemplate) => void;
+  onOpenMyWorkouts?: () => void;
+  onAssignToAthlete?: (workout: WorkoutTemplate) => void;
+  onCustomizeAndAssign?: (workout: WorkoutTemplate) => void;
+  isSaving?: boolean;
 }
 
 export default function WorkoutDetailsModal({
@@ -26,8 +32,15 @@ export default function WorkoutDetailsModal({
   workout,
   userRole,
   onClose,
+  isSaved = false,
+  onAddToMyWorkouts,
+  onOpenMyWorkouts,
+  onAssignToAthlete,
+  onCustomizeAndAssign,
+  isSaving = false,
 }: WorkoutDetailsModalProps) {
   const colors = useThemeColors();
+
   const { width, height } = useWindowDimensions();
 
   const isLargeScreen = width >= 1024;
@@ -223,31 +236,49 @@ export default function WorkoutDetailsModal({
             </View>
           </ScrollView>
 
-          {/* 7. Future Actions Placeholder Footer */}
+          {/* Footer Actions */}
           <View style={[styles.footer, { borderTopColor: colors.borderSubtle }]}>
             {userRole === 'athlete' ? (
               <View style={styles.actionWrapper}>
-                <Button
-                  label="Start Workout (Coming Soon)"
-                  onPress={() => {}}
-                  variant="primary"
-                  disabled
-                  style={{ opacity: 0.65 }}
-                />
+                {isSaved ? (
+                  <Button
+                    label="Open in My Workouts"
+                    onPress={() => {
+                      onClose();
+                      onOpenMyWorkouts?.();
+                    }}
+                    variant="primary"
+                  />
+                ) : (
+                  <Button
+                    label="➕ Add to My Workouts"
+                    onPress={() => {
+                      if (workout) onAddToMyWorkouts?.(workout);
+                    }}
+                    variant="primary"
+                    isLoading={isSaving}
+                  />
+                )}
               </View>
             ) : userRole === 'coach' ? (
               <View style={styles.actionWrapper}>
                 <Button
-                  label="Assign Workout (Coming Soon)"
-                  onPress={() => {}}
+                  label="Customize & Assign"
+                  onPress={() => {
+                    onClose();
+                    if (onCustomizeAndAssign) {
+                      onCustomizeAndAssign(workout);
+                    } else if (onAssignToAthlete) {
+                      onAssignToAthlete(workout);
+                    }
+                  }}
                   variant="primary"
-                  disabled
-                  style={{ opacity: 0.65 }}
                 />
               </View>
             ) : null}
             <Button label="Close" onPress={onClose} variant="secondary" />
           </View>
+
         </View>
       </View>
     </Modal>
@@ -258,8 +289,9 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justify: 'center',
+    justifyContent: 'center',
     alignItems: 'center',
+
     padding: SPACING.md,
   },
   backdrop: {
@@ -279,8 +311,9 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justify: 'space-between',
+    justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
+
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
   },
@@ -320,15 +353,17 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     borderRadius: RADIUS.md,
     borderWidth: 1,
-    justify: 'space-between',
+    justifyContent: 'space-between',
   },
+
   metricCell: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     flex: 1,
-    justify: 'center',
+    justifyContent: 'center',
   },
+
   metricDivider: {
     width: 1,
     height: 32,
@@ -395,8 +430,9 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
     borderWidth: 1,
     alignItems: 'center',
-    justify: 'center',
+    justifyContent: 'center',
   },
+
   stepNumber: {
     fontSize: 13,
     fontWeight: '800',
@@ -413,8 +449,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justify: 'flex-end',
+    justifyContent: 'flex-end',
     gap: 12,
+
   },
   actionWrapper: {
     flex: 1,

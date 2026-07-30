@@ -110,9 +110,7 @@ export default function CoachProfileDetailsCard({
 const styles = StyleSheet.create({
   cardContainer: {
     padding: 24,
-    maxWidth: 640,
     width: '100%',
-    alignSelf: 'center',
   },
   headerRow: {
     flexDirection: 'row',

@@ -58,41 +58,41 @@ export const THEME_COLORS = {
     bg: '#f8fafc',
     bgMid: '#f1f5f9',
     bgCard: '#ffffff',
-    bgGlass: 'rgba(255, 255, 255, 0.8)',
+    bgGlass: '#ffffff',
 
     // Borders
-    border: 'rgba(15, 23, 42, 0.08)',
-    borderSubtle: 'rgba(15, 23, 42, 0.04)',
-    borderEmerald: 'rgba(16, 185, 129, 0.15)',
+    border: '#cbd5e1',
+    borderSubtle: '#e2e8f0',
+    borderEmerald: 'rgba(16, 185, 129, 0.3)',
 
     // Brand
     emerald: '#10b981',
     emeraldPressed: '#059669',
-    emeraldDim: 'rgba(16, 185, 129, 0.08)',
-    emeraldGlow: 'rgba(16, 185, 129, 0.12)',
+    emeraldDim: 'rgba(16, 185, 129, 0.1)',
+    emeraldGlow: 'rgba(16, 185, 129, 0.16)',
 
     // Text
     textPrimary: '#0f172a',
-    textSub: '#475569',
+    textSub: '#334155',
     textMuted: '#64748b',
     textDimmed: '#94a3b8',
 
     // Status
     error: '#ef4444',
-    errorDim: 'rgba(239, 68, 68, 0.08)',
+    errorDim: 'rgba(239, 68, 68, 0.1)',
     success: '#10b981',
     warning: '#d97706',
     
     // Extends
-    cardShadow: 'rgba(0, 0, 0, 0.06)',
+    cardShadow: 'rgba(15, 23, 42, 0.08)',
     inputBg: '#ffffff',
-    inputBorder: '#e2e8f0',
+    inputBorder: '#cbd5e1',
     skeletonBg: '#e2e8f0',
     skeletonHighlight: '#cbd5e1',
     info: '#0284c7',
-    infoDim: 'rgba(2, 132, 199, 0.08)',
+    infoDim: 'rgba(2, 132, 199, 0.1)',
     neutral: '#e2e8f0',
-    neutralText: '#475569',
+    neutralText: '#334155',
   },
 } as const;
 

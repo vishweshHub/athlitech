@@ -116,6 +116,15 @@ def setup_fakes():
     workout_routes.athletes_collection = fake_athletes
     workout_routes.workouts_collection = fake_workouts
 
+    from services import workout_service
+    from repositories import workout_repository, athlete_repository
+    workout_service.workouts_collection = fake_workouts
+    workout_repository.workout_repository.collection = fake_workouts
+    athlete_repository.athlete_repository.collection = fake_athletes
+
+
+
+
 
 def run_tests():
     setup_fakes()

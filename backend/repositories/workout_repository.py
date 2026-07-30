@@ -2,8 +2,13 @@ from database import mongodb
 from bson.objectid import ObjectId
 
 class WorkoutRepository:
+    def __init__(self):
+        self._collection = None
+
     @property
     def collection(self):
+        if self._collection is not None:
+            return self._collection
         try:
             from routes import workout_routes
             if hasattr(workout_routes, "workouts_collection"):
@@ -18,6 +23,11 @@ class WorkoutRepository:
             pass
         return mongodb.workouts_collection
 
+    @collection.setter
+    def collection(self, value):
+        self._collection = value
+
+
     async def create_template(self, workout_data: dict) -> dict:
         await self.collection.insert_one(workout_data)
         return workout_data
@@ -31,7 +41,9 @@ class WorkoutRepository:
         difficulty: str | None = None,
         search: str | None = None
     ) -> list:
-        query = {}
+        # Exclude legacy assigned-workout documents (they have athlete_id/coach_id
+        # but lack sport/category/difficulty/duration_minutes required by WorkoutResponse).
+        query: dict = {"athlete_id": {"$exists": False}, "sport": {"$exists": True, "$ne": None}}
         if sport:
             query["sport"] = {"$regex": f"^{sport}$", "$options": "i"}
         if category:
@@ -46,7 +58,7 @@ class WorkoutRepository:
                 {"category": {"$regex": search, "$options": "i"}},
                 {"instructions": {"$regex": search, "$options": "i"}}
             ]
-        
+
         cursor = self.collection.find(query)
         if hasattr(cursor, "skip"):
             cursor = cursor.skip(skip)
@@ -139,5 +151,29 @@ class WorkoutRepository:
             {"workout_id": workout_id},
             {"$set": update_data}
         )
+
+    async def get_distinct_sports(self) -> list:
+        distinct_sports = await self.collection.distinct("sport", {"sport": {"$exists": True, "$ne": None}})
+        return [s for s in distinct_sports if s and isinstance(s, str) and s.strip()]
+
+    async def get_distinct_categories(self) -> list:
+        distinct_cats = await self.collection.distinct("category", {"category": {"$exists": True, "$ne": None}})
+        return [c for c in distinct_cats if c and isinstance(c, str) and c.strip()]
+
+    async def get_distinct_difficulties(self) -> list:
+        distinct_diffs = await self.collection.distinct("difficulty", {"difficulty": {"$exists": True, "$ne": None}})
+        return [d for d in distinct_diffs if d and isinstance(d, str) and d.strip()]
+
+    async def get_distinct_equipment(self) -> list:
+        distinct_eq = await self.collection.distinct("equipment", {"equipment": {"$exists": True, "$ne": None}})
+        res = set()
+        for item in distinct_eq:
+            if isinstance(item, list):
+                for sub in item:
+                    if sub and isinstance(sub, str):
+                        res.add(sub.strip())
+            elif isinstance(item, str) and item.strip():
+                res.add(item.strip())
+        return list(res)
 
 workout_repository = WorkoutRepository()

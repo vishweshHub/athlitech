@@ -111,11 +111,22 @@ class FakeCollection:
                     match = False
             else:
                 for k, val in query.items():
-                    if isinstance(val, dict) and "$regex" in val:
-                        pattern = val["$regex"].replace("^", "").replace("$", "").lower()
-                        if pattern not in str(v.get(k, "")).lower():
-                            match = False
-                            break
+                    if isinstance(val, dict):
+                        if "$exists" in val:
+                            req_exists = val["$exists"]
+                            has_key = k in v and v[k] is not None
+                            if req_exists != has_key:
+                                match = False
+                                break
+                        elif "$ne" in val:
+                            if v.get(k) == val["$ne"]:
+                                match = False
+                                break
+                        elif "$regex" in val:
+                            pattern = val["$regex"].replace("^", "").replace("$", "").lower()
+                            if pattern not in str(v.get(k, "")).lower():
+                                match = False
+                                break
                     elif v.get(k) != val:
                         match = False
                         break
@@ -129,6 +140,7 @@ def setup_fakes():
     from database import mongodb
     from routes import workout_routes
     from services import workout_service
+    from repositories.workout_repository import workout_repository
 
     workouts = {}
     fake_workouts = FakeCollection(workouts)
@@ -136,6 +148,7 @@ def setup_fakes():
     mongodb.workouts_collection = fake_workouts
     workout_routes.workouts_collection = fake_workouts
     workout_service.workouts_collection = fake_workouts
+    workout_repository.collection = fake_workouts
 
 
 def run_tests():
