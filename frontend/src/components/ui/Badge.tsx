@@ -1,6 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, View, ViewStyle, TextStyle } from 'react-native';
 
+import { useColorScheme } from '@/hooks/use-color-scheme';
+
 export type BadgeVariant = 'success' | 'warning' | 'info' | 'danger' | 'neutral' | 'error' | 'primary';
 
 interface BadgeProps {
@@ -12,9 +14,19 @@ interface BadgeProps {
 
 export const Badge: React.FC<BadgeProps> = ({ label, variant = 'info', style, textStyle }) => {
   const activeVariant = variant === 'error' ? 'danger' : variant;
+  const colorScheme = useColorScheme();
+  const isLight = colorScheme === 'light';
+
+  const neutralStyle: ViewStyle = isLight && activeVariant === 'neutral'
+    ? { backgroundColor: '#f1f5f9', borderColor: '#cbd5e1', borderWidth: 1 }
+    : {};
+  const neutralTextStyle: TextStyle = isLight && activeVariant === 'neutral'
+    ? { color: '#1e293b', fontWeight: '700' }
+    : {};
+
   return (
-    <View style={[styles.base, styles[activeVariant], style]}>
-      <Text style={[styles.text, styles[`text_${activeVariant}`], textStyle]}>{label}</Text>
+    <View style={[styles.base, styles[activeVariant], neutralStyle, style]}>
+      <Text style={[styles.text, styles[`text_${activeVariant}`], neutralTextStyle, textStyle]}>{label}</Text>
     </View>
   );
 };

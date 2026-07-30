@@ -206,6 +206,24 @@ export async function fetchMyPerformanceLogs(token: string): Promise<Performance
   return response.json();
 }
 
+export async function fetchAthletePerformanceLogs(
+  token: string,
+  athleteId: string
+): Promise<PerformanceLogResponse[]> {
+  const response = await fetch(`${API_URL}/performance-logs/athlete/${athleteId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data?.detail || 'Failed to fetch athlete performance logs');
+  }
+
+  return response.json();
+}
+
 /**
  * Fetch performance logs for a specific workout session.
  * Returns an empty array if none exist (never throws on 404).
