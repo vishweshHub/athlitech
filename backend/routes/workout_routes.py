@@ -90,6 +90,17 @@ async def update_workout_status(
     return await workout_service.update_workout_status(workout_id, status_update, current_user)
 
 
+@router.get("/metadata", response_model=dict)
+async def get_workout_metadata():
+    return await workout_service.get_workout_metadata()
+
+
+@router.get("/sports", response_model=List[str])
+async def get_sports():
+    meta = await workout_service.get_workout_metadata()
+    return meta["sports"]
+
+
 @router.get("/{id}", response_model=WorkoutResponse)
 async def get_workout_by_id(
     id: str,

@@ -286,6 +286,30 @@ async def get_athlete_workouts(
     ]
 
 
+async def get_workout_metadata() -> dict:
+    distinct_sports = await workout_repository.get_distinct_sports()
+    distinct_cats = await workout_repository.get_distinct_categories()
+    distinct_diffs = await workout_repository.get_distinct_difficulties()
+    distinct_eq = await workout_repository.get_distinct_equipment()
+
+    DEFAULT_SPORTS = ["Track & Field", "Football", "Basketball", "Cricket", "General Fitness"]
+    DEFAULT_CATEGORIES = ["Speed", "Endurance", "Strength", "Technique", "Mobility", "Recovery"]
+    DEFAULT_DIFFICULTIES = ["Beginner", "Intermediate", "Advanced"]
+    DEFAULT_EQUIPMENT = ["Starting Blocks", "Spikes", "Stopwatch", "Agility Cones", "Foam Roller", "Barbell", "Dumbbells"]
+
+    sports = sorted(list(set(distinct_sports + DEFAULT_SPORTS)))
+    categories = sorted(list(set(distinct_cats + DEFAULT_CATEGORIES)))
+    difficulties = ["Beginner", "Intermediate", "Advanced"]
+    equipment = sorted(list(set(distinct_eq + DEFAULT_EQUIPMENT)))
+
+    return {
+        "sports": sports,
+        "categories": categories,
+        "difficulties": difficulties,
+        "equipment": equipment,
+    }
+
+
 async def update_workout_status(workout_id: str, status_update: WorkoutUpdateStatus, current_user: dict):
     print(f"[RUNTIME_TRACE] Step 4: Entering WorkoutService.update_workout_status for workout_id={workout_id}, status={status_update.status}", flush=True)
     if current_user.get("role") != "athlete":
@@ -297,6 +321,14 @@ async def update_workout_status(workout_id: str, status_update: WorkoutUpdateSta
 
     if workout.get("athlete_id") != current_user.get("id"):
         raise HTTPException(status_code=403, detail="Athletes can only update the status of their own workouts")
+
+    # STATUS LOCKING GATE: Completed or Skipped workouts cannot be edited or reverted.
+    current_status = workout.get("status")
+    if current_status in ["completed", "skipped"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Workout is already {current_status} and cannot be modified."
+        )
 
     await workout_repository.update_status(
         workout_id,

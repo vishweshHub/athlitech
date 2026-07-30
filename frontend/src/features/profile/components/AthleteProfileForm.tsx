@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Card, Input, Button, Badge } from '@/components/ui';
 import { useThemeColors, RADIUS } from '@/styles/tokens';
 import { AthleteProfilePayload } from '@/api/profile';
+import { fetchSports } from '@/api/workout';
 
 interface AthleteProfileFormProps {
   onSubmit: (payload: AthleteProfilePayload) => Promise<void>;
@@ -14,13 +15,35 @@ interface AthleteProfileFormProps {
 }
 
 const GOAL_TIMELINES = ['3 Months', '6 Months', '1 Year', 'Custom'];
+const DEFAULT_SPORTS = ['Track & Field', 'Football', 'Basketball', 'Cricket', 'General Fitness'];
 
 export default function AthleteProfileForm({ onSubmit, isLoading, error, initialData }: AthleteProfileFormProps) {
   const colors = useThemeColors();
 
+  // Dynamic Sports from Backend
+  const [availableSports, setAvailableSports] = useState<string[]>(DEFAULT_SPORTS);
+
   // Required
   const [sport, setSport] = useState(initialData?.sport || '');
   const [event, setEvent] = useState(initialData?.event || '');
+
+  // Fetch dynamic sports list from Workout Library
+  useEffect(() => {
+    async function loadSports() {
+      try {
+        const sportsList = await fetchSports();
+        if (sportsList && sportsList.length > 0) {
+          setAvailableSports(sportsList);
+          if (!sport && sportsList.length > 0) {
+            setSport(sportsList[0]);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load dynamic sports list:', err);
+      }
+    }
+    loadSports();
+  }, []);
 
   // Recommended
   const [height, setHeight] = useState(initialData?.height !== undefined && initialData?.height !== null ? String(initialData.height) : '');
@@ -102,15 +125,49 @@ export default function AthleteProfileForm({ onSubmit, isLoading, error, initial
           <Badge label="Required" variant="error" />
         </View>
 
+        <Text style={[styles.inputLabel, { color: colors.textSub }]}>Primary Sport *</Text>
+        <View style={styles.timelineContainer}>
+          {availableSports.map((s) => {
+            const isSelected = sport.toLowerCase().trim() === s.toLowerCase().trim();
+            return (
+              <Pressable
+                key={s}
+                onPress={() => {
+                  setSport(s);
+                  if (validationErrors.sport) setValidationErrors((prev) => ({ ...prev, sport: undefined }));
+                }}
+                style={[
+                  styles.timelinePill,
+                  {
+                    backgroundColor: isSelected ? colors.emeraldDim : colors.bgMid,
+                    borderColor: isSelected ? colors.emerald : colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.timelinePillText,
+                    { color: isSelected ? colors.emerald : colors.textSub, fontWeight: isSelected ? '700' : '500' },
+                  ]}
+                >
+                  {s}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {validationErrors.sport && (
+          <Text style={{ fontSize: 12, color: colors.error, marginTop: -4 }}>{validationErrors.sport}</Text>
+        )}
+
         <Input
-          label="Primary Sport *"
-          placeholder="e.g. Athletics, Swimming, Basketball"
+          label="Or Custom Sport Name"
+          placeholder="Enter sport if not listed above"
           value={sport}
           onChangeText={(t) => {
             setSport(t);
             if (validationErrors.sport) setValidationErrors((prev) => ({ ...prev, sport: undefined }));
           }}
-          error={validationErrors.sport}
         />
 
         <Input

@@ -170,3 +170,31 @@ export async function fetchAllWorkouts(token: string): Promise<Workout[]> {
   }
   return response.json();
 }
+
+export type WorkoutMetadata = {
+  sports: string[];
+  categories: string[];
+  difficulties: string[];
+  equipment: string[];
+};
+
+export async function fetchWorkoutMetadata(token?: string): Promise<WorkoutMetadata> {
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const response = await fetch(`${API_URL}/workouts/metadata`, { headers });
+  if (!response.ok) {
+    return {
+      sports: ["Track & Field", "Football", "Basketball", "Cricket", "General Fitness"],
+      categories: ["Speed", "Endurance", "Strength", "Technique", "Mobility", "Recovery"],
+      difficulties: ["Beginner", "Intermediate", "Advanced"],
+      equipment: ["Starting Blocks", "Spikes", "Stopwatch", "Agility Cones", "Foam Roller", "Barbell", "Dumbbells"],
+    };
+  }
+  return response.json();
+}
+
+export async function fetchSports(token?: string): Promise<string[]> {
+  const meta = await fetchWorkoutMetadata(token);
+  return meta.sports;
+}

@@ -152,4 +152,28 @@ class WorkoutRepository:
             {"$set": update_data}
         )
 
+    async def get_distinct_sports(self) -> list:
+        distinct_sports = await self.collection.distinct("sport", {"sport": {"$exists": True, "$ne": None}})
+        return [s for s in distinct_sports if s and isinstance(s, str) and s.strip()]
+
+    async def get_distinct_categories(self) -> list:
+        distinct_cats = await self.collection.distinct("category", {"category": {"$exists": True, "$ne": None}})
+        return [c for c in distinct_cats if c and isinstance(c, str) and c.strip()]
+
+    async def get_distinct_difficulties(self) -> list:
+        distinct_diffs = await self.collection.distinct("difficulty", {"difficulty": {"$exists": True, "$ne": None}})
+        return [d for d in distinct_diffs if d and isinstance(d, str) and d.strip()]
+
+    async def get_distinct_equipment(self) -> list:
+        distinct_eq = await self.collection.distinct("equipment", {"equipment": {"$exists": True, "$ne": None}})
+        res = set()
+        for item in distinct_eq:
+            if isinstance(item, list):
+                for sub in item:
+                    if sub and isinstance(sub, str):
+                        res.add(sub.strip())
+            elif isinstance(item, str) and item.strip():
+                res.add(item.strip())
+        return list(res)
+
 workout_repository = WorkoutRepository()

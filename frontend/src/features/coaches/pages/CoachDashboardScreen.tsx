@@ -619,22 +619,6 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                       }}
                     />
 
-                    {/* Coach Profile Summary card when profile is completed */}
-                    {(user?.profile_completed || coachProfile?.coach_data) && (
-                      <CoachProfileSummaryCard
-                        primarySport={coachProfile?.coach_data?.primary_sport || 'Not specified'}
-                        specialization={coachProfile?.coach_data?.specialization || 'Not specified'}
-                        yearsExperience={coachProfile?.coach_data?.years_experience || 0}
-                        profileCompleted={user?.profile_completed || coachProfile?.profile_completed || false}
-                        totalAthletes={totalAthletes}
-                        bio={coachProfile?.coach_data?.bio}
-                        onEdit={() => {
-                          setActiveTab('profile');
-                          setIsEditingProfile(true);
-                        }}
-                      />
-                    )}
-
 
                     {/* Stat Cards Row */}
                     <StatsGrid gap={16} style={{ marginBottom: 24 }}>

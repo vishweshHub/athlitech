@@ -328,53 +328,62 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
 
             <View style={styles.sidebarNav}>
               {[
-                { id: 'dashboard', label: 'Dashboard', icon: 'grid', count: null },
-                { id: 'my-workouts', label: 'My Workouts', icon: 'bookmark', count: null },
-                { id: 'library', label: 'Workout Library', icon: 'book', count: null },
-                { id: 'workouts', label: 'Assigned Workouts', icon: 'fitness', count: totalWorkouts },
-                { id: 'performance', label: 'Performance', icon: 'speedometer', count: null },
-                { id: 'profile', label: 'My Profile', icon: 'person', count: null },
-              ].map((item) => (
-                <Pressable
-                  key={item.id}
-                  style={[
-                    styles.sidebarItem,
-                    activeTab === item.id && styles.sidebarItemActive,
-                  ]}
-                  onPress={() => {
-                    if (item.id === 'my-workouts') {
-                      router.push('/my-workouts');
-                    } else if (item.id === 'profile') {
-                      router.push('/complete-profile');
-                    } else {
-                      setActiveTab(item.id as TabType);
-                    }
-                    if (!isLargeScreen) setSidebarOpen(false);
-                  }}
-                >
-
-                  <Ionicons
-                    name={item.icon as any}
-                    size={20}
-                    color={activeTab === item.id ? colors.emerald : colors.textSub}
-                  />
-                  <Text
+                { id: 'dashboard', label: 'Dashboard', icon: 'grid', count: null, requiresProfile: false },
+                { id: 'my-workouts', label: 'My Workouts', icon: 'bookmark', count: null, requiresProfile: true },
+                { id: 'library', label: 'Workout Library', icon: 'book', count: null, requiresProfile: true },
+                { id: 'workouts', label: 'Assigned Workouts', icon: 'fitness', count: totalWorkouts, requiresProfile: true },
+                { id: 'performance', label: 'Performance', icon: 'speedometer', count: null, requiresProfile: true },
+                { id: 'profile', label: 'My Profile', icon: 'person', count: null, requiresProfile: false },
+              ].map((item) => {
+                const isLocked = item.requiresProfile && !user?.profile_completed;
+                return (
+                  <Pressable
+                    key={item.id}
                     style={[
-                      styles.sidebarItemLabel,
-                      activeTab === item.id && styles.sidebarItemLabelActive,
+                      styles.sidebarItem,
+                      activeTab === item.id && styles.sidebarItemActive,
+                      isLocked && { opacity: 0.6 },
                     ]}
+                    onPress={() => {
+                      if (isLocked) {
+                        router.push('/complete-profile');
+                        return;
+                      }
+                      if (item.id === 'my-workouts') {
+                        router.push('/my-workouts');
+                      } else if (item.id === 'profile') {
+                        router.push('/complete-profile');
+                      } else {
+                        setActiveTab(item.id as TabType);
+                      }
+                      if (!isLargeScreen) setSidebarOpen(false);
+                    }}
                   >
-                    {item.label}
-                  </Text>
-                  {item.count !== null && item.count !== undefined && (
-                    <View style={[styles.sidebarBadge, activeTab === item.id && styles.sidebarBadgeActive]}>
-                      <Text style={[styles.sidebarBadgeText, activeTab === item.id && styles.sidebarBadgeTextActive]}>
-                        {item.count}
-                      </Text>
-                    </View>
-                  )}
-                </Pressable>
-              ))}
+                    <Ionicons
+                      name={isLocked ? 'lock-closed-outline' : (item.icon as any)}
+                      size={20}
+                      color={activeTab === item.id ? colors.emerald : isLocked ? colors.textMuted : colors.textSub}
+                    />
+                    <Text
+                      style={[
+                        styles.sidebarItemLabel,
+                        activeTab === item.id && styles.sidebarItemLabelActive,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                    {isLocked ? (
+                      <Badge label="Locked" variant="neutral" />
+                    ) : item.count !== null && item.count !== undefined ? (
+                      <View style={[styles.sidebarBadge, activeTab === item.id && styles.sidebarBadgeActive]}>
+                        <Text style={[styles.sidebarBadgeText, activeTab === item.id && styles.sidebarBadgeTextActive]}>
+                          {item.count}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
             </View>
 
             <View style={styles.sidebarFooter}>
@@ -452,23 +461,36 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                 />
               </Card>
             ) : (
-              <>
-                {/* ── WORKOUT LIBRARY TAB ── */}
-                {activeTab === 'library' && (
-                  <WorkoutLibraryScreen token={token} userRole="athlete" />
-                )}
-
-                {/* ── DASHBOARD TAB ── */}
-                {activeTab === 'dashboard' && (
-
-                  <>
-                    <OnboardingBanner
-                      isVisible={!user?.profile_completed}
-                      title="Welcome to AthliTech! 👋"
-                      description="Your account has been created successfully. Complete your profile to unlock personalized workout recommendations & tracking."
-                      buttonLabel="Complete Profile"
-                      onAction={() => router.push('/complete-profile')}
+              <React.Fragment>
+                {/* ── PROFILE COMPLETION GATE FOR NON-DASHBOARD TABS ── */}
+                {!user?.profile_completed && activeTab !== 'dashboard' ? (
+                  <Card style={styles.section}>
+                    <EmptyState
+                      icon="lock-closed-outline"
+                      title="Profile Completion Required"
+                      description="Complete your athlete profile to unlock personalized training."
+                      actionLabel="Complete Profile Now"
+                      onActionPress={() => router.push('/complete-profile')}
                     />
+                  </Card>
+                ) : (
+                  <React.Fragment>
+                    {/* ── WORKOUT LIBRARY TAB ── */}
+                    {activeTab === 'library' && (
+                      <WorkoutLibraryScreen token={token} userRole="athlete" />
+                    )}
+
+                    {/* ── DASHBOARD TAB ── */}
+                    {activeTab === 'dashboard' && (
+
+                      <React.Fragment>
+                        <OnboardingBanner
+                          isVisible={!user?.profile_completed}
+                          title="Welcome to AthliTech! 👋"
+                          description="Complete your athlete profile to unlock personalized training."
+                          buttonLabel="Complete Profile"
+                          onAction={() => router.push('/complete-profile')}
+                        />
                     {/* Welcome Banner */}
                     <Card style={[styles.section, { marginBottom: 24 }]}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
@@ -653,7 +675,7 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                         </StatsGridItem>
                       </StatsGrid>
                     </View>
-                  </>
+                  </React.Fragment>
                 )}
 
                 {/* ── WORKOUTS TAB ── */}
@@ -735,50 +757,59 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                             )}
 
                             {/* Status Controls */}
-                            <View style={styles.statusControlsRow}>
-                              <Pressable
-                                style={[
-                                  styles.statusBtn,
-                                  {
-                                    backgroundColor: w.status === 'pending' ? colors.bgMid : 'transparent',
-                                    borderColor: w.status === 'pending' ? colors.textSub : colors.border,
-                                  },
-                                ]}
-                                onPress={() => handleUpdateStatusClick(w, 'pending')}
-                              >
-                                <Text style={[styles.statusBtnText, { color: w.status === 'pending' ? colors.textPrimary : colors.textSub }]}>
-                                  Pending
-                                </Text>
-                              </Pressable>
-                              <Pressable
-                                style={[
-                                  styles.statusBtn,
-                                  {
-                                    backgroundColor: w.status === 'completed' ? colors.emeraldDim : 'transparent',
-                                    borderColor: w.status === 'completed' ? colors.emerald : colors.border,
-                                  },
-                                ]}
-                                onPress={() => handleUpdateStatusClick(w, 'completed')}
-                              >
-                                <Text style={[styles.statusBtnText, { color: w.status === 'completed' ? colors.emerald : colors.textSub }]}>
-                                  Completed
-                                </Text>
-                              </Pressable>
-                              <Pressable
-                                style={[
-                                  styles.statusBtn,
-                                  {
-                                    backgroundColor: w.status === 'skipped' ? colors.errorDim : 'transparent',
-                                    borderColor: w.status === 'skipped' ? colors.error : colors.border,
-                                  },
-                                ]}
-                                onPress={() => handleUpdateStatusClick(w, 'skipped')}
-                              >
-                                <Text style={[styles.statusBtnText, { color: w.status === 'skipped' ? colors.error : colors.textSub }]}>
-                                  Skipped
-                                </Text>
-                              </Pressable>
-                            </View>
+                            {w.status === 'completed' || w.status === 'skipped' ? (
+                              <View style={[styles.statusControlsRow, { justifyContent: 'flex-end' }]}>
+                                <Badge
+                                  label={w.status === 'completed' ? 'Completed (Locked)' : 'Skipped (Locked)'}
+                                  variant={w.status === 'completed' ? 'success' : 'error'}
+                                />
+                              </View>
+                            ) : (
+                              <View style={styles.statusControlsRow}>
+                                <Pressable
+                                  style={[
+                                    styles.statusBtn,
+                                    {
+                                      backgroundColor: colors.bgMid,
+                                      borderColor: colors.textSub,
+                                    },
+                                  ]}
+                                  onPress={() => handleUpdateStatusClick(w, 'pending')}
+                                >
+                                  <Text style={[styles.statusBtnText, { color: colors.textPrimary }]}>
+                                    Pending
+                                  </Text>
+                                </Pressable>
+                                <Pressable
+                                  style={[
+                                    styles.statusBtn,
+                                    {
+                                      backgroundColor: 'transparent',
+                                      borderColor: colors.emerald,
+                                    },
+                                  ]}
+                                  onPress={() => handleUpdateStatusClick(w, 'completed')}
+                                >
+                                  <Text style={[styles.statusBtnText, { color: colors.emerald }]}>
+                                    Mark Completed
+                                  </Text>
+                                </Pressable>
+                                <Pressable
+                                  style={[
+                                    styles.statusBtn,
+                                    {
+                                      backgroundColor: 'transparent',
+                                      borderColor: colors.error,
+                                    },
+                                  ]}
+                                  onPress={() => handleUpdateStatusClick(w, 'skipped')}
+                                >
+                                  <Text style={[styles.statusBtnText, { color: colors.error }]}>
+                                    Skip
+                                  </Text>
+                                </Pressable>
+                              </View>
+                            )}
                           </Card>
                         ))}
                       </View>
@@ -921,8 +952,10 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                     coachEmail={coach?.email}
                   />
                 )}
-              </>
+              </React.Fragment>
             )}
+          </React.Fragment>
+        )}
           </ScrollView>
         </View>
       </View>

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { WorkoutTemplate } from '@/api/workout';
-import { fetchWorkoutTemplates, createWorkout } from '@/api/workout';
+import { fetchWorkoutTemplates, createWorkout, fetchWorkoutMetadata } from '@/api/workout';
 import { fetchMyProfile } from '@/api/profile';
 import { fetchCoachAthletes } from '@/api/admin';
 import { Button, Card, EmptyState, SearchBar, CollectionGrid, CollectionGridItem, Badge } from '@/components/ui';
@@ -30,8 +30,8 @@ interface WorkoutLibraryScreenProps {
   userRole: 'athlete' | 'coach' | string;
 }
 
-const CATEGORY_CHIPS = ['All', 'Strength', 'Speed', 'Endurance', 'Mobility', 'Technique', 'Recovery'];
-const ALL_SPORTS_CATALOG = ['Track & Field', 'Football', 'Basketball', 'Cricket', 'General Fitness'];
+const DEFAULT_CATEGORY_CHIPS = ['All', 'Strength', 'Speed', 'Endurance', 'Mobility', 'Technique', 'Recovery'];
+const DEFAULT_SPORTS_CATALOG = ['Track & Field', 'Football', 'Basketball', 'Cricket', 'General Fitness'];
 
 export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibraryScreenProps) {
   const colors = useThemeColors();
@@ -41,6 +41,8 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
 
   const [workouts, setWorkouts] = useState<WorkoutTemplate[]>([]);
   const [primarySport, setPrimarySport] = useState<string>('Track & Field');
+  const [categoryChips, setCategoryChips] = useState<string[]>(DEFAULT_CATEGORY_CHIPS);
+  const [allSportsCatalog, setAllSportsCatalog] = useState<string[]>(DEFAULT_SPORTS_CATALOG);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -138,12 +140,22 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
     setIsLoading(true);
     setError(null);
     try {
-      const [workoutsData, profileData] = await Promise.all([
+      const [workoutsData, profileData, metadata] = await Promise.all([
         fetchWorkoutTemplates(token),
         fetchMyProfile(token).catch(() => null),
+        fetchWorkoutMetadata(token).catch(() => null),
       ]);
 
       setWorkouts(workoutsData);
+
+      if (metadata) {
+        if (metadata.categories && metadata.categories.length > 0) {
+          setCategoryChips(['All', ...metadata.categories]);
+        }
+        if (metadata.sports && metadata.sports.length > 0) {
+          setAllSportsCatalog(metadata.sports);
+        }
+      }
 
       if (profileData?.athlete_data?.sport) {
         setPrimarySport(profileData.athlete_data.sport);
@@ -202,7 +214,7 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
   );
 
   // Identify Locked Sports for Athletes
-  const lockedSports = ALL_SPORTS_CATALOG.filter((sport) => {
+  const lockedSports = allSportsCatalog.filter((sport) => {
     if (userRole !== 'athlete') return false;
     if (sport === 'General Fitness') return false;
     return !isPrimarySport(sport);
@@ -249,7 +261,7 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.chipsScroll}
         >
-          {CATEGORY_CHIPS.map((cat) => {
+          {categoryChips.map((cat) => {
             const isSelected = selectedCategory === cat;
             return (
               <Pressable
