@@ -8,22 +8,21 @@ import {
   Text,
   View,
   useWindowDimensions,
-
+  Platform,
+  ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { WorkoutTemplate } from '@/api/workout';
 import { fetchWorkoutTemplates, createWorkout, fetchWorkoutMetadata } from '@/api/workout';
 import { fetchMyProfile } from '@/api/profile';
 import { fetchCoachAthletes } from '@/api/admin';
-import { Button, Card, EmptyState, SearchBar, CollectionGrid, CollectionGridItem, Badge } from '@/components/ui';
+import { Button, Card, EmptyState, SearchBar, Badge } from '@/components/ui';
 import WorkoutCard from '../components/WorkoutCard';
 import WorkoutDetailsModal from '../components/WorkoutDetailsModal';
 import { useRouter, Href } from 'expo-router';
 import { useSavedWorkouts } from '@/hooks/useSavedWorkouts';
 
 import { useThemeColors, RADIUS, SPACING } from '@/styles/tokens';
-
-
 
 interface WorkoutLibraryScreenProps {
   token: string;
@@ -36,8 +35,18 @@ const DEFAULT_SPORTS_CATALOG = ['Track & Field', 'Football', 'Basketball', 'Cric
 export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibraryScreenProps) {
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
-  const isLargeScreen = width > 768;
-  const isMediumScreen = width > 500 && width <= 768;
+
+  // Responsive Breakpoints:
+  // Desktop (≥1200px) -> 3 cards per row
+  // Tablet (768px–1199px) -> 2 cards per row
+  // Mobile (<768px) -> 1 card per row
+  const getColumnsCount = (w: number) => {
+    if (w >= 1200) return 3;
+    if (w >= 768) return 2;
+    return 1;
+  };
+
+  const numColumns = getColumnsCount(width);
 
   const [workouts, setWorkouts] = useState<WorkoutTemplate[]>([]);
   const [primarySport, setPrimarySport] = useState<string>('Track & Field');
@@ -133,9 +142,7 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
     }
   };
 
-
   const loadData = useCallback(async () => {
-
     if (!token) return;
     setIsLoading(true);
     setError(null);
@@ -230,7 +237,33 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
     setSelectedWorkout(null);
   };
 
-  const cardWidth = isLargeScreen ? 340 : isMediumScreen ? '48%' : '100%';
+  // Dynamic CSS Grid Layout parameters
+  const gridContainerStyle: ViewStyle = Platform.OS === 'web'
+    ? ({
+        display: 'grid' as any,
+        gridTemplateColumns: `repeat(${numColumns}, minmax(0, 1fr))`,
+        gap: 20,
+        width: '100%',
+        alignItems: 'stretch',
+      } as any)
+    : {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 16,
+        width: '100%',
+      };
+
+  const gridItemStyle: ViewStyle = Platform.OS === 'web'
+    ? ({
+        width: '100%',
+        height: '100%',
+        display: 'flex' as any,
+        flexDirection: 'column' as any,
+      } as any)
+    : {
+        width: numColumns === 3 ? '31.5%' : numColumns === 2 ? '48.5%' : '100%',
+        marginBottom: 16,
+      };
 
   return (
     <View style={styles.container}>
@@ -332,18 +365,19 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
                     Recommended for You ({primarySport})
                   </Text>
                 </View>
-                <CollectionGrid gap={16}>
+                <View style={gridContainerStyle}>
                   {primarySportWorkouts.map((workout) => (
-                    <CollectionGridItem key={workout.id} itemWidth={cardWidth}>
+                    <View key={workout.id} style={gridItemStyle}>
                       <WorkoutCard
                         workout={workout}
                         onViewDetails={handleViewDetails}
                         onAddToMyWorkouts={userRole === 'athlete' ? handleAddToMyWorkouts : undefined}
+                        onAssignToAthlete={userRole === 'coach' ? handleOpenAssignModal : undefined}
                         isSaving={savingId === workout.id}
                       />
-                    </CollectionGridItem>
+                    </View>
                   ))}
-                </CollectionGrid>
+                </View>
               </View>
             )}
 
@@ -356,19 +390,19 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
                     General Performance & Conditioning
                   </Text>
                 </View>
-                <CollectionGrid gap={16}>
+                <View style={gridContainerStyle}>
                   {generalWorkouts.map((workout) => (
-                    <CollectionGridItem key={workout.id} itemWidth={cardWidth}>
+                    <View key={workout.id} style={gridItemStyle}>
                       <WorkoutCard
                         workout={workout}
                         onViewDetails={handleViewDetails}
                         onAddToMyWorkouts={userRole === 'athlete' ? handleAddToMyWorkouts : undefined}
+                        onAssignToAthlete={userRole === 'coach' ? handleOpenAssignModal : undefined}
                         isSaving={savingId === workout.id}
                       />
-                    </CollectionGridItem>
+                    </View>
                   ))}
-                </CollectionGrid>
-
+                </View>
               </View>
             )}
 
@@ -381,9 +415,9 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
                     Explore Other Sports (Locked Previews)
                   </Text>
                 </View>
-                <CollectionGrid gap={16}>
+                <View style={gridContainerStyle}>
                   {lockedSports.map((sport) => (
-                    <CollectionGridItem key={sport} itemWidth={cardWidth}>
+                    <View key={sport} style={gridItemStyle}>
                       <Card style={[styles.lockedCard, { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle }]}>
                         <View style={styles.lockedHeader}>
                           <View style={[styles.lockIconBox, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
@@ -396,9 +430,9 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
                           Unlock {sport} Training Library
                         </Text>
                       </Card>
-                    </CollectionGridItem>
+                    </View>
                   ))}
-                </CollectionGrid>
+                </View>
               </View>
             )}
           </ScrollView>
@@ -501,7 +535,6 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
           </Card>
         </View>
       )}
-
     </View>
   );
 }
@@ -513,25 +546,27 @@ const styles = StyleSheet.create({
   },
   filterCard: {
     padding: SPACING.md,
-    gap: 12,
+    gap: 14,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 12,
-
+    flexWrap: 'wrap',
   },
   screenTitle: {
     fontSize: 22,
     fontWeight: '700',
+    letterSpacing: -0.3,
   },
   screenSubtitle: {
     fontSize: 14,
     marginTop: 2,
+    lineHeight: 20,
   },
   searchWrapper: {
-    marginTop: 4,
+    marginTop: 2,
   },
   chipsScroll: {
     flexDirection: 'row',
@@ -539,7 +574,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   chip: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: RADIUS.full,
     borderWidth: 1,
@@ -552,11 +587,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollGrid: {
-    paddingBottom: 24,
-    gap: 24,
+    paddingBottom: 32,
+    gap: 28,
   },
   sectionContainer: {
-    gap: 12,
+    gap: 14,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -565,19 +600,22 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sectionTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
+    letterSpacing: -0.2,
   },
   lockedCard: {
     padding: SPACING.md,
     gap: 12,
-    opacity: 0.8,
+    opacity: 0.85,
+    height: '100%',
+    minHeight: 180,
+    justifyContent: 'space-between',
   },
   lockedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-
   },
   lockIconBox: {
     width: 36,
@@ -587,7 +625,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   lockedTitle: {
     fontSize: 18,
     fontWeight: '700',
@@ -600,7 +637,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   loadingText: {
     marginTop: 12,
     fontSize: 14,
@@ -614,6 +650,8 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,

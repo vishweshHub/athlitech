@@ -146,7 +146,10 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
             setCoach(coachData);
           } catch (coachError) {
             console.warn('Failed to fetch coach details:', coachError);
+            setCoach(null);
           }
+        } else {
+          setCoach(null);
         }
       } catch (e) {
         const errMessage = e instanceof Error ? e.message.toLowerCase() : '';
@@ -517,11 +520,13 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                       </View>
                     </Card>
 
-                    {/* Today's Training Section */}
-                    <TodayTrainingSection
-                      athleteId={athleteId}
-                      onNavigateToWorkoutSession={() => router.push('/workout-session' as Href)}
-                    />
+                    {/* Today's Training Section (Coach-Managed Informational Reminder) */}
+                    {Boolean(athlete?.coach_id || coach) && (
+                      <TodayTrainingSection
+                        athleteId={athleteId}
+                        hasCoach={Boolean(athlete?.coach_id || coach)}
+                      />
+                    )}
 
 
                     {/* Stat Cards */}
