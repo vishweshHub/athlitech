@@ -47,6 +47,7 @@ import {
   StatsGridItem,
   CollectionGrid,
   CollectionGridItem,
+  EmptyState,
 } from '@/components/ui';
 import { useThemeColors } from '@/styles/tokens';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -988,7 +989,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                                 variant="secondary"
                                 size="sm"
                                 prefix={<Ionicons name="eye-outline" size={16} color={colors.textPrimary} />}
-                                style={{ paddingHorizontal: 12, marginRight: 8 }}
+                                style={{ width: 36, height: 34, paddingHorizontal: 0, justifyContent: 'center', marginRight: 6 }}
                               />
                               {!isSelf && selectedRole !== item.role && (
                                 <Button
@@ -996,7 +997,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                                   onPress={() => handleUpdateUserRole(item.id)}
                                   variant="primary"
                                   size="sm"
-                                  style={{ marginRight: 8 }}
+                                  style={{ height: 34, justifyContent: 'center', marginRight: 6 }}
                                 />
                               )}
                               {!isSelf && (
@@ -1005,8 +1006,8 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                                   onPress={() => handleDeletePress(item)}
                                   variant="danger"
                                   size="sm"
-                                  prefix={<Ionicons name="trash-outline" size={16} color={colors.error} />}
-                                  style={{ paddingHorizontal: 12 }}
+                                  prefix={<Ionicons name="trash-outline" size={16} color="#fff" />}
+                                  style={{ width: 36, height: 34, paddingHorizontal: 0, justifyContent: 'center' }}
                                 />
                               )}
                             </View>
@@ -1148,57 +1149,87 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                 {/* Coaches Tab */}
                 {activeTab === 'coaches' && (
                   <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 16 }]}>Coaches ({coachesList.length})</Text>
-                    <CollectionGrid gap={16}>
-                      {coachesList.length === 0 ? (
-                        <View style={styles.emptyContainer}>
-                          <Ionicons name="fitness-outline" size={48} color={colors.textMuted} />
-                          <Text style={styles.emptyText}>No coaches registered yet</Text>
-                        </View>
-                      ) : (
-                        coachesList.map((coach) => (
-                          <CollectionGridItem itemWidth={320} key={coach.id}>
-                            <Card style={styles.coachCard}>
-                              <View style={styles.coachHeader}>
-                                <View style={styles.coachAvatar}>
-                                  <Text style={styles.avatarText}>
+                    <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontSize: 20, fontWeight: '800', marginBottom: 16 }]}>
+                      Coaches ({coachesList.length})
+                    </Text>
+                    {coachesList.length === 0 ? (
+                      <EmptyState
+                        icon="fitness-outline"
+                        title="No coaches registered yet"
+                        description="New coaches will appear here once registered."
+                      />
+                    ) : (
+                      <StatsGrid gap={16}>
+                        {coachesList.map((coach) => (
+                          <StatsGridItem minWidth={280} key={coach.id}>
+                            <Card
+                              style={{
+                                flex: 1,
+                                padding: 16,
+                                justifyContent: 'space-between',
+                                borderColor: colors.border,
+                              }}
+                            >
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                                <View
+                                  style={{
+                                    width: 44,
+                                    height: 44,
+                                    borderRadius: 22,
+                                    backgroundColor: colors.emeraldDim,
+                                    borderColor: 'rgba(16,185,129,0.3)',
+                                    borderWidth: 1,
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                  }}
+                                >
+                                  <Text style={{ fontSize: 16, fontWeight: '800', color: colors.emerald }}>
                                     {coach.name.charAt(0).toUpperCase()}
                                   </Text>
                                 </View>
-                                <View style={styles.coachInfo}>
-                                  <Text style={styles.coachName}>{coach.name}</Text>
-                                  <Text style={styles.coachEmail}>{coach.email}</Text>
+                                <View style={{ flex: 1, justifyContent: 'center' }}>
+                                  <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary }} numberOfLines={1}>
+                                    {coach.name}
+                                  </Text>
+                                  <Text style={{ fontSize: 12, color: colors.textSub, marginTop: 2 }} numberOfLines={1}>
+                                    {coach.email}
+                                  </Text>
                                 </View>
                               </View>
-                              <View style={styles.coachFooter}>
+
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderColor: colors.borderSubtle, paddingTop: 12, marginTop: 8 }}>
                                 <Badge label="Coach" variant="success" />
                                 <Button
-                                  label="View"
+                                  label="View Profile"
                                   onPress={() => router.push(`/coach-details?coachId=${coach.id}`)}
                                   variant="secondary"
                                   size="sm"
+                                  style={{ height: 34, justifyContent: 'center' }}
                                 />
                               </View>
                             </Card>
-                          </CollectionGridItem>
-                        ))
-                      )}
-                    </CollectionGrid>
+                          </StatsGridItem>
+                        ))}
+                      </StatsGrid>
+                    )}
                   </View>
                 )}
 
                 {/* Athletes Tab */}
                 {activeTab === 'athletes' && (
                   <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 16 }]}>Athletes ({athletesList.length})</Text>
-                    <CollectionGrid gap={16}>
-                      {athletesList.length === 0 ? (
-                        <View style={styles.emptyContainer}>
-                          <Ionicons name="walk-outline" size={48} color={colors.textMuted} />
-                          <Text style={styles.emptyText}>No athletes registered yet</Text>
-                        </View>
-                      ) : (
-                        athletesList.map((athlete) => {
+                    <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontSize: 20, fontWeight: '800', marginBottom: 16 }]}>
+                      Athletes ({athletesList.length})
+                    </Text>
+                    {athletesList.length === 0 ? (
+                      <EmptyState
+                        icon="walk-outline"
+                        title="No athletes registered yet"
+                        description="New athletes will appear here once registered."
+                      />
+                    ) : (
+                      <StatsGrid gap={16}>
+                        {athletesList.map((athlete) => {
                           const athleteDoc = athletesData.find((a) => a.athlete_id === athlete.id);
                           const currentCoachId = athleteDoc?.coach_id;
                           const currentCoach = coachesList.find(
@@ -1213,182 +1244,197 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                           const message = athleteCoachMessage[athlete.id];
 
                           return (
-                            <CollectionGridItem 
-                              key={athlete.id} 
-                              itemWidth={320} 
-                              style={openCoachDropdownAthleteId === athlete.id ? { zIndex: 10 } : { zIndex: 1 }}
-                            >
+                            <StatsGridItem minWidth={280} key={athlete.id}>
                               <Card
-                                style={[
-                                  styles.athleteCard,
-                                ]}
+                                style={{
+                                  flex: 1,
+                                  padding: 16,
+                                  justifyContent: 'space-between',
+                                  borderColor: colors.border,
+                                }}
                               >
-                              <View style={styles.athleteHeader}>
-                                <View style={styles.athleteAvatar}>
-                                  <Text style={styles.avatarText}>
-                                    {athlete.name.charAt(0).toUpperCase()}
-                                  </Text>
-                                </View>
-                                <View style={styles.athleteInfo}>
-                                  <Text style={styles.athleteName}>{athlete.name}</Text>
-                                  <Text style={styles.athleteShortId}>
-                                    {athlete.id.length > 8
-                                      ? `${athlete.id.substring(0, 4)}...${athlete.id.substring(athlete.id.length - 4)}`
-                                      : athlete.id}
-                                  </Text>
-                                  <Text style={styles.athleteEmail}>{athlete.email}</Text>
-                                  <Text style={{ fontSize: 12, color: colors.textSub, marginTop: 4 }}>
-                                    Current Coach: {currentCoach ? currentCoach.name : 'No coach assigned'}
-                                  </Text>
-                                </View>
-                              </View>
-
-                              {/* Assign Coach UI */}
-                              <View style={{ 
-                                marginVertical: 12, 
-                                borderTopWidth: 1, 
-                                borderTopColor: colors.borderSubtle, 
-                                paddingTop: 12, 
-                                gap: 8,
-                                zIndex: openCoachDropdownAthleteId === athlete.id ? 20 : 1
-                              }}>
-                                <Text style={styles.smallLabel}>Assign Coach:</Text>
-                                <View style={[styles.dropdownContainer, { width: '100%' }]}>
-                                  <Pressable
-                                    style={[styles.dropdownButton, { backgroundColor: colors.bgMid, borderColor: colors.border }]}
-                                    onPress={() =>
-                                      setOpenCoachDropdownAthleteId(
-                                        openCoachDropdownAthleteId === athlete.id ? null : athlete.id
-                                      )
-                                    }
+                                {/* Top Header */}
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                                  <View
+                                    style={{
+                                      width: 44,
+                                      height: 44,
+                                      borderRadius: 22,
+                                      backgroundColor: colors.infoDim,
+                                      borderColor: 'rgba(14,165,233,0.3)',
+                                      borderWidth: 1,
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                    }}
                                   >
-                                    <Text style={[styles.dropdownButtonText, { color: colors.textPrimary }]}>
-                                      {selectedCoach ? selectedCoach.name : 'Select a coach...'}
+                                    <Text style={{ fontSize: 16, fontWeight: '800', color: colors.info }}>
+                                      {athlete.name.charAt(0).toUpperCase()}
                                     </Text>
-                                    <Ionicons
-                                      name={openCoachDropdownAthleteId === athlete.id ? 'chevron-up' : 'chevron-down'}
-                                      size={16}
-                                      color={colors.textSub}
-                                    />
-                                  </Pressable>
+                                  </View>
+                                  <View style={{ flex: 1, justifyContent: 'center' }}>
+                                    <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary }} numberOfLines={1}>
+                                      {athlete.name}
+                                    </Text>
+                                    <Text style={{ fontSize: 12, color: colors.textSub, marginTop: 2 }} numberOfLines={1}>
+                                      {athlete.email}
+                                    </Text>
+                                  </View>
+                                </View>
 
-                                  {openCoachDropdownAthleteId === athlete.id && (
-                                    <Modal
-                                      transparent
-                                      visible={true}
-                                      animationType="fade"
-                                      onRequestClose={() => setOpenCoachDropdownAthleteId(null)}
+                                {/* Coach Assignment Section */}
+                                <View
+                                  style={{
+                                    paddingVertical: 10,
+                                    borderTopWidth: 1,
+                                    borderBottomWidth: 1,
+                                    borderColor: colors.borderSubtle,
+                                    marginVertical: 4,
+                                    gap: 8,
+                                  }}
+                                >
+                                  <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textMuted }}>
+                                    Current Coach: <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{currentCoach ? currentCoach.name : 'None'}</Text>
+                                  </Text>
+
+                                  <View style={{ width: '100%' }}>
+                                    <Pressable
+                                      style={[styles.dropdownButton, { backgroundColor: colors.bgMid, borderColor: colors.border, height: 36 }]}
+                                      onPress={() =>
+                                        setOpenCoachDropdownAthleteId(
+                                          openCoachDropdownAthleteId === athlete.id ? null : athlete.id
+                                        )
+                                      }
                                     >
-                                      <Pressable
-                                        style={styles.modalOverlay}
-                                        onPress={() => setOpenCoachDropdownAthleteId(null)}
+                                      <Text style={[styles.dropdownButtonText, { color: colors.textPrimary, fontSize: 13 }]} numberOfLines={1}>
+                                        {selectedCoach ? selectedCoach.name : 'Select a coach...'}
+                                      </Text>
+                                      <Ionicons
+                                        name={openCoachDropdownAthleteId === athlete.id ? 'chevron-up' : 'chevron-down'}
+                                        size={16}
+                                        color={colors.textSub}
+                                      />
+                                    </Pressable>
+
+                                    {openCoachDropdownAthleteId === athlete.id && (
+                                      <Modal
+                                        transparent
+                                        visible={true}
+                                        animationType="fade"
+                                        onRequestClose={() => setOpenCoachDropdownAthleteId(null)}
                                       >
-                                        <View
-                                          style={[
-                                            styles.modalMenu,
-                                            { backgroundColor: colors.bgCard, borderColor: colors.border }
-                                          ]}
+                                        <Pressable
+                                          style={styles.modalOverlay}
+                                          onPress={() => setOpenCoachDropdownAthleteId(null)}
                                         >
-                                          <Text style={[styles.modalHeader, { color: colors.textSub, borderBottomColor: colors.border }]}>
-                                            Select Coach for {athlete.name}
-                                          </Text>
-                                          <Pressable
+                                          <View
                                             style={[
-                                              styles.modalItem,
-                                              selectedCoachId === '' && { backgroundColor: colors.bgMid },
+                                              styles.modalMenu,
+                                              { backgroundColor: colors.bgCard, borderColor: colors.border }
                                             ]}
-                                            onPress={() => {
-                                              setUpdatingAthleteCoachMap((prev) => ({
-                                                ...prev,
-                                                [athlete.id]: '',
-                                              }));
-                                              setOpenCoachDropdownAthleteId(null);
-                                            }}
                                           >
-                                            <Text style={[styles.modalItemText, { color: colors.textSub }]}>
-                                              No Coach (Unassign)
+                                            <Text style={[styles.modalHeader, { color: colors.textSub, borderBottomColor: colors.border }]}>
+                                              Select Coach for {athlete.name}
                                             </Text>
-                                          </Pressable>
-                                          {coachesList.map((c) => {
-                                            const coachKey = c.coach_id || c.id;
-                                            return (
-                                              <Pressable
-                                                key={coachKey}
-                                                style={[
-                                                  styles.modalItem,
-                                                  selectedCoachId === coachKey && { backgroundColor: colors.bgMid },
-                                                ]}
-                                                onPress={() => {
-                                                  setUpdatingAthleteCoachMap((prev) => ({
-                                                    ...prev,
-                                                    [athlete.id]: coachKey,
-                                                  }));
-                                                  setOpenCoachDropdownAthleteId(null);
-                                                }}
-                                              >
-                                                <Text
+                                            <Pressable
+                                              style={[
+                                                styles.modalItem,
+                                                selectedCoachId === '' && { backgroundColor: colors.bgMid },
+                                              ]}
+                                              onPress={() => {
+                                                setUpdatingAthleteCoachMap((prev) => ({
+                                                  ...prev,
+                                                  [athlete.id]: '',
+                                                }));
+                                                setOpenCoachDropdownAthleteId(null);
+                                              }}
+                                            >
+                                              <Text style={[styles.modalItemText, { color: colors.textSub }]}>
+                                                No Coach (Unassign)
+                                              </Text>
+                                            </Pressable>
+                                            {coachesList.map((c) => {
+                                              const coachKey = c.coach_id || c.id;
+                                              return (
+                                                <Pressable
+                                                  key={coachKey}
                                                   style={[
-                                                    styles.modalItemText,
-                                                    { color: colors.textPrimary, fontWeight: selectedCoachId === coachKey ? '700' : '400' },
+                                                    styles.modalItem,
+                                                    selectedCoachId === coachKey && { backgroundColor: colors.bgMid },
                                                   ]}
+                                                  onPress={() => {
+                                                    setUpdatingAthleteCoachMap((prev) => ({
+                                                      ...prev,
+                                                      [athlete.id]: coachKey,
+                                                    }));
+                                                    setOpenCoachDropdownAthleteId(null);
+                                                  }}
                                                 >
-                                                  {c.name}
-                                                </Text>
-                                              </Pressable>
-                                            );
-                                          })}
-                                        </View>
-                                      </Pressable>
-                                    </Modal>
+                                                  <Text
+                                                    style={[
+                                                      styles.modalItemText,
+                                                      { color: colors.textPrimary, fontWeight: selectedCoachId === coachKey ? '700' : '400' },
+                                                    ]}
+                                                  >
+                                                    {c.name}
+                                                  </Text>
+                                                </Pressable>
+                                              );
+                                            })}
+                                          </View>
+                                        </Pressable>
+                                      </Modal>
+                                    )}
+                                  </View>
+
+                                  {selectedCoachId !== (currentCoachId || '') && selectedCoachId !== '' && (
+                                    <Button
+                                      label="Apply Coach"
+                                      onPress={() => handleAssignCoach(athlete.id, selectedCoachId)}
+                                      variant="primary"
+                                      size="sm"
+                                      style={{ height: 34, justifyContent: 'center' }}
+                                    />
+                                  )}
+
+                                  {currentCoach && (
+                                    <Button
+                                      label="Unassign Coach"
+                                      onPress={() => handleRemoveCoachAssignment(athlete.id)}
+                                      variant="danger"
+                                      size="sm"
+                                      prefix={<Ionicons name="close-circle-outline" size={14} color="#fff" />}
+                                      style={{ height: 34, justifyContent: 'center' }}
+                                    />
+                                  )}
+
+                                  {message && (
+                                    <Text
+                                      style={[
+                                        styles.userItemMessage,
+                                        { color: message.isError ? colors.error : colors.success }
+                                      ]}
+                                    >
+                                      {message.text}
+                                    </Text>
                                   )}
                                 </View>
 
-                                {selectedCoachId !== (currentCoachId || '') && selectedCoachId !== '' && (
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                                  <Badge label="Athlete" variant="info" />
                                   <Button
-                                    label="Apply Coach"
-                                    onPress={() => handleAssignCoach(athlete.id, selectedCoachId)}
-                                    variant="primary"
+                                    label="View Profile"
+                                    onPress={() => router.push(`/athlete-details?athleteId=${athlete.id}`)}
+                                    variant="secondary"
                                     size="sm"
+                                    style={{ height: 34, justifyContent: 'center' }}
                                   />
-                                )}
-
-                                {currentCoach && (
-                                  <Button
-                                    label="Remove Assignment"
-                                    onPress={() => handleRemoveCoachAssignment(athlete.id)}
-                                    variant="danger"
-                                    size="sm"
-                                    prefix={<Ionicons name="close-circle-outline" size={14} color={colors.error} />}
-                                  />
-                                )}
-
-                                {message && (
-                                  <Text
-                                    style={[
-                                      styles.userItemMessage,
-                                      { color: message.isError ? colors.error : colors.success }
-                                    ]}
-                                  >
-                                    {message.text}
-                                  </Text>
-                                )}
-                              </View>
-
-                              <View style={styles.athleteFooter}>
-                                <Badge label="Athlete" variant="info" />
-                                <Button
-                                  label="View Details"
-                                  onPress={() => router.push(`/athlete-details?athleteId=${athlete.id}`)}
-                                  variant="secondary"
-                                  size="sm"
-                                />
-                              </View>
+                                </View>
                               </Card>
-                            </CollectionGridItem>
+                            </StatsGridItem>
                           );
-                        })
-                      )}
-                    </CollectionGrid>
+                        })}
+                      </StatsGrid>
+                    )}
                   </View>
                 )}
               </>

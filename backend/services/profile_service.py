@@ -65,7 +65,7 @@ async def get_user_profile(user_id: str) -> dict:
     role = user_doc.get("role", "athlete") if user_doc else "athlete"
 
     if not profile:
-        return {
+        profile = {
             "user_id": user_id,
             "role": role,
             "profile_completed": profile_completed,
@@ -73,8 +73,46 @@ async def get_user_profile(user_id: str) -> dict:
             "coach_data": None,
             "visibility": {"bio_is_public": False, "stats_is_public": False},
         }
-    
+
     profile["profile_completed"] = profile_completed
+
+    # Synchronize coach assignment from single source of truth db["athletes"]
+    if role == "athlete":
+        ath_doc = await athletes_collection.find_one({"athlete_id": user_id})
+        coach_id = ath_doc.get("coach_id") if ath_doc else None
+        if not coach_id and user_doc:
+            coach_id = user_doc.get("coach_id")
+
+        coach_name = None
+        coach_email = None
+
+        if coach_id:
+            coach_user = None
+            if ObjectId.is_valid(coach_id):
+                try:
+                    coach_user = await users_collection.find_one({"_id": ObjectId(coach_id)})
+                except Exception:
+                    coach_user = None
+
+            if not coach_user:
+                coach_user = (
+                    await users_collection.find_one({"coach_id": coach_id})
+                    or await users_collection.find_one({"id": coach_id})
+                )
+
+            if coach_user:
+                coach_name = coach_user.get("name")
+                coach_email = coach_user.get("email")
+
+        profile["coach_id"] = coach_id
+        profile["coach_name"] = coach_name
+        profile["coach_email"] = coach_email
+
+        if profile.get("athlete_data"):
+            profile["athlete_data"]["coach_id"] = coach_id
+            profile["athlete_data"]["coach_name"] = coach_name
+            profile["athlete_data"]["coach_email"] = coach_email
+
     return profile
 
 
