@@ -60,7 +60,7 @@ export default function CoachProfileSummaryCard({
         </View>
         <Pressable onPress={handleEdit} style={({ pressed }) => [styles.editBtn, { borderColor: colors.borderEmerald, backgroundColor: colors.emeraldDim, opacity: pressed ? 0.7 : 1 }]}>
           <Ionicons name="create-outline" size={16} color={colors.emerald} />
-          <Text style={[styles.editBtnText, { color: colors.emerald }]}>Edit Profile</Text>
+          <Text style={[styles.editBtnText, { color: colors.emerald }]}>Edit Credentials</Text>
         </Pressable>
       </View>
 
@@ -178,11 +178,10 @@ const styles = StyleSheet.create({
   editBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 6,
-    height: 38,
-    paddingHorizontal: 14,
-    borderRadius: RADIUS.md,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: RADIUS.sm,
     borderWidth: 1,
   },
   editBtnText: {
@@ -201,10 +200,8 @@ const styles = StyleSheet.create({
   detailItem: {
     flex: 1,
     minWidth: 140,
-    minHeight: 88,
-    padding: 14,
-    justifyContent: 'center',
-    borderRadius: RADIUS.md,
+    padding: 12,
+    borderRadius: RADIUS.sm,
     borderWidth: 1,
     gap: 6,
   },
@@ -236,16 +233,16 @@ const styles = StyleSheet.create({
   bioBox: {
     flex: 1,
     minWidth: 280,
-    padding: 16,
-    borderRadius: RADIUS.md,
+    padding: 14,
+    borderRadius: RADIUS.sm,
     borderWidth: 1,
     gap: 4,
   },
   certBox: {
     flex: 1,
     minWidth: 280,
-    padding: 16,
-    borderRadius: RADIUS.md,
+    padding: 14,
+    borderRadius: RADIUS.sm,
     borderWidth: 1,
     gap: 6,
   },
