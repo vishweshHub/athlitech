@@ -3,18 +3,6 @@ from database import mongodb
 class PerformanceRepository:
     @property
     def collection(self):
-        try:
-            from routes import performance_routes
-            if hasattr(performance_routes, "performance_collection"):
-                return performance_routes.performance_collection
-        except ImportError:
-            pass
-        try:
-            from services import performance_service
-            if hasattr(performance_service, "performance_collection"):
-                return performance_service.performance_collection
-        except ImportError:
-            pass
         return mongodb.performance_collection
 
     async def create(self, performance_data: dict) -> dict:

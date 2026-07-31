@@ -20,9 +20,3 @@ workout_sessions_collection = db["workout_sessions"]
 metric_definitions_collection = db["metric_definitions"]
 performance_logs_collection = db["performance_logs"]
 athlete_saved_workouts_collection = db["athlete_saved_workouts"]
-
-
-
-
-
-

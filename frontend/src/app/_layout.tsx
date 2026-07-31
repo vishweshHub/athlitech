@@ -15,7 +15,7 @@ function LayoutContent() {
   // Dynamically synchronize web root document background with active theme
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      const bgColor = theme === 'dark' ? '#02050a' : '#f8fafc';
+      const bgColor = colors.bg;
       document.documentElement.style.backgroundColor = bgColor;
       document.body.style.backgroundColor = bgColor;
       const rootEl = document.getElementById('root');
@@ -23,7 +23,7 @@ function LayoutContent() {
         rootEl.style.backgroundColor = bgColor;
       }
     }
-  }, [theme]);
+  }, [colors.bg]);
 
   // Create transparent background for React Navigation so ThemeTransition shows through
   const navTheme = theme === 'dark' ? {

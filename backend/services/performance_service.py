@@ -3,7 +3,7 @@ from models.performance_model import Performance
 
 
 async def add_performance(performance: Performance):
-    await performance_repository.create(performance.dict())
+    await performance_repository.create(performance.model_dump())
     return {"message": "Performance record added", "performance_id": performance.performance_id}
 
 

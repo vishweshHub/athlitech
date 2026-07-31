@@ -9,24 +9,17 @@ class WorkoutRepository:
     def collection(self):
         if self._collection is not None:
             return self._collection
-        try:
-            from routes import workout_routes
-            if hasattr(workout_routes, "workouts_collection"):
-                return workout_routes.workouts_collection
-        except ImportError:
-            pass
-        try:
-            from services import workout_service
-            if hasattr(workout_service, "workouts_collection"):
-                return workout_service.workouts_collection
-        except ImportError:
-            pass
         return mongodb.workouts_collection
 
     @collection.setter
     def collection(self, value):
         self._collection = value
 
+    def _build_id_query(self, workout_id: str) -> dict:
+        query = {"$or": [{"id": workout_id}, {"workout_id": workout_id}]}
+        if ObjectId.is_valid(workout_id):
+            query["$or"].append({"_id": ObjectId(workout_id)})
+        return query
 
     async def create_template(self, workout_data: dict) -> dict:
         await self.collection.insert_one(workout_data)
@@ -71,26 +64,17 @@ class WorkoutRepository:
         return workouts
 
     async def find_template_by_id(self, workout_id: str) -> dict | None:
-        query = {"$or": [{"id": workout_id}, {"workout_id": workout_id}]}
-        if ObjectId.is_valid(workout_id):
-            query["$or"].append({"_id": ObjectId(workout_id)})
-        return await self.collection.find_one(query)
+        return await self.collection.find_one(self._build_id_query(workout_id))
 
     async def update_template(self, workout_id: str, update_data: dict) -> dict | None:
-        query = {"$or": [{"id": workout_id}, {"workout_id": workout_id}]}
-        if ObjectId.is_valid(workout_id):
-            query["$or"].append({"_id": ObjectId(workout_id)})
-        
+        query = self._build_id_query(workout_id)
         result = await self.collection.update_one(query, {"$set": update_data})
         if result.matched_count == 0:
             return None
         return await self.collection.find_one(query)
 
     async def delete_template(self, workout_id: str) -> bool:
-        query = {"$or": [{"id": workout_id}, {"workout_id": workout_id}]}
-        if ObjectId.is_valid(workout_id):
-            query["$or"].append({"_id": ObjectId(workout_id)})
-        
+        query = self._build_id_query(workout_id)
         result = await self.collection.delete_one(query)
         return result.deleted_count > 0
 

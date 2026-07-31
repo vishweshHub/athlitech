@@ -118,7 +118,6 @@ async def _evaluate_personal_record(athlete_id: str, metrics: dict) -> bool:
 async def create_performance_log(
     payload: PerformanceLogCreate, current_user: dict
 ) -> PerformanceLogResponse:
-    print(f"[RUNTIME_TRACE] Step 7: Entering create_performance_log for session={payload.workout_session_id}, source={payload.source_type}", flush=True)
     # 1. Validate Workout Session exists
     ws = await workout_session_repository.find_workout_session_by_id(payload.workout_session_id)
     if not ws:

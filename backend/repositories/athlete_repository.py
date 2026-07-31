@@ -8,24 +8,6 @@ class AthleteRepository:
     def collection(self):
         if self._collection is not None:
             return self._collection
-        try:
-            from routes import workout_routes
-            if hasattr(workout_routes, "athletes_collection"):
-                return workout_routes.athletes_collection
-        except ImportError:
-            pass
-        try:
-            from routes import performance_routes
-            if hasattr(performance_routes, "athletes_collection"):
-                return performance_routes.athletes_collection
-        except ImportError:
-            pass
-        try:
-            from services import athlete_service
-            if hasattr(athlete_service, "athletes_collection"):
-                return athlete_service.athletes_collection
-        except ImportError:
-            pass
         return mongodb.athletes_collection
 
     @collection.setter

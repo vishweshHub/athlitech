@@ -68,7 +68,7 @@ async def create_workout_template(workout_data: WorkoutCreate, current_user: dic
         updated_at=datetime.utcnow(),
     )
 
-    created_doc = await workout_repository.create_template(new_workout.dict())
+    created_doc = await workout_repository.create_template(new_workout.model_dump())
     return _format_workout_response(created_doc)
 
 
@@ -184,7 +184,7 @@ async def create_workout(workout_data: WorkoutCreateLegacy, current_user: dict):
         status=workout_data.status
     )
 
-    await workout_repository.create(new_workout.dict())
+    await workout_repository.create(new_workout.model_dump())
     return {"message": "Workout plan created successfully", "workout_id": new_workout.workout_id or new_workout.id}
 
 
@@ -311,7 +311,6 @@ async def get_workout_metadata() -> dict:
 
 
 async def update_workout_status(workout_id: str, status_update: WorkoutUpdateStatus, current_user: dict):
-    print(f"[RUNTIME_TRACE] Step 4: Entering WorkoutService.update_workout_status for workout_id={workout_id}, status={status_update.status}", flush=True)
     if current_user.get("role") != "athlete":
         raise HTTPException(status_code=403, detail="Only athletes can update workout status")
 
@@ -371,7 +370,6 @@ async def update_workout_status(workout_id: str, status_update: WorkoutUpdateSta
                 completion_rating=5,
                 notes=status_update.athlete_notes,
             )
-            print(f"[RUNTIME_TRACE] Step 6: Invoking create_performance_log for assigned workout {workout_id} with ws_id={ws_id}", flush=True)
             await create_performance_log(log_payload, current_user)
 
     return {

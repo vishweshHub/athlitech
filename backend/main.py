@@ -73,21 +73,11 @@ app.include_router(performance_log_router)
 app.include_router(activity_feed_router)
 app.include_router(athlete_saved_workout_router)
 
-
-
-
-
-
-
-
-
 @app.on_event("startup")
 async def startup_event():
     await seed_default_roles()
     await seed_demo_users()
     await seed_demo_workouts()
-
-
 
 @app.get("/")
 def home():
