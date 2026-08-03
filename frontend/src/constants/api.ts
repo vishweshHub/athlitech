@@ -1,7 +1,8 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import { STORAGE_KEYS } from './app';
 
-export const TOKEN_KEY = 'athlitech_access_token';
+export const TOKEN_KEY = STORAGE_KEYS.TOKEN_KEY;
 
 export const API_URL =
   process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '') ?? 'http://127.0.0.1:8000';

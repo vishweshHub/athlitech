@@ -4,6 +4,7 @@ from typing import List, Optional
 from fastapi import HTTPException
 
 from core.permissions import normalize_role
+from core.utils import get_utc_now
 from repositories.training_plan_repository import training_plan_repository
 from repositories.athlete_repository import athlete_repository
 from schemas.training_plan_schema import (
@@ -32,8 +33,8 @@ def _format_plan_response(p: dict) -> TrainingPlanResponse:
         start_date=str(p.get("start_date", "")),
         end_date=str(p.get("end_date", "")),
         status=str(p.get("status", "draft")),
-        created_at=p.get("created_at") if isinstance(p.get("created_at"), datetime) else datetime.utcnow(),
-        updated_at=p.get("updated_at") if isinstance(p.get("updated_at"), datetime) else datetime.utcnow(),
+        created_at=p.get("created_at") if isinstance(p.get("created_at"), datetime) else get_utc_now(),
+        updated_at=p.get("updated_at") if isinstance(p.get("updated_at"), datetime) else get_utc_now(),
     )
 
 
@@ -109,8 +110,8 @@ async def create_training_plan(payload: TrainingPlanCreate, current_user: dict) 
         "start_date": payload.start_date,
         "end_date": payload.end_date,
         "status": payload.status.value if payload.status else "draft",
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
+        "created_at": get_utc_now(),
+        "updated_at": get_utc_now(),
     }
 
     created = await training_plan_repository.create_plan(plan_doc)
@@ -157,7 +158,7 @@ async def update_training_plan(plan_id: str, payload: TrainingPlanUpdate, curren
     if not changes:
         return _format_plan_response(plan)
 
-    changes["updated_at"] = datetime.utcnow()
+    changes["updated_at"] = get_utc_now()
     updated = await training_plan_repository.update_plan(plan_id, changes)
     return _format_plan_response(updated)
 

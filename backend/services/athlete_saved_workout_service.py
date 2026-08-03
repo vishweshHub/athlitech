@@ -3,6 +3,8 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 from fastapi import HTTPException, status
 
+from core.utils import get_utc_now
+from core.constants import ROLE_ATHLETE
 from repositories.athlete_saved_workout_repository import athlete_saved_workout_repository
 from repositories.workout_repository import workout_repository
 from schemas.athlete_saved_workout_schema import (
@@ -25,7 +27,7 @@ async def save_workout_for_athlete(
     current_user: dict,
 ) -> AthleteSavedWorkoutResponse:
     user_role = current_user.get("role")
-    if user_role != "athlete":
+    if user_role != ROLE_ATHLETE:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only athletes can save workouts to their personal collection.",
@@ -54,7 +56,7 @@ async def save_workout_for_athlete(
         )
 
     doc_id = str(uuid4())
-    now = datetime.utcnow()
+    now = get_utc_now()
     doc = {
         "id": doc_id,
         "athlete_id": athlete_id,

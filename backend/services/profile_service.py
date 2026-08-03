@@ -1,26 +1,30 @@
-from bson import ObjectId
 from database.mongodb import users_collection, athletes_collection
+from database.utils import to_object_id
 from repositories.profile_repository import profile_repository
 from schemas.profile_schema import CompleteAthleteProfileRequest, CompleteCoachProfileRequest
 from services.recommendation_service import recommendation_engine
 from datetime import datetime
+from core.utils import get_utc_now
+from core.constants import ROLE_ATHLETE, ROLE_COACH
 
 
 async def complete_athlete_profile(user_id: str, request: CompleteAthleteProfileRequest) -> dict:
     profile_data = request.model_dump()
     
     # Save into profiles collection
-    saved_profile = await profile_repository.save_profile(user_id, "athlete", profile_data)
+    saved_profile = await profile_repository.save_profile(user_id, ROLE_ATHLETE, profile_data)
     
     # Update profile_completed flag on user record
-    await users_collection.update_one(
-        {"_id": ObjectId(user_id)},
-        {"$set": {"profile_completed": True, "updated_at": datetime.utcnow()}}
-    )
+    oid = to_object_id(user_id)
+    if oid:
+        await users_collection.update_one(
+            {"_id": oid},
+            {"$set": {"profile_completed": True, "updated_at": get_utc_now()}}
+        )
 
     # Sync with athletes_collection for dashboard lists if needed
     existing_athlete = await athletes_collection.find_one({"athlete_id": user_id})
-    user_doc = await users_collection.find_one({"_id": ObjectId(user_id)})
+    user_doc = await users_collection.find_one({"_id": oid}) if oid else None
     name = user_doc.get("name", "Athlete") if user_doc else "Athlete"
 
     if existing_athlete:
@@ -45,16 +49,19 @@ async def complete_coach_profile(user_id: str, request: CompleteCoachProfileRequ
     profile_data = request.model_dump()
     
     # Save into profiles collection
-    saved_profile = await profile_repository.save_profile(user_id, "coach", profile_data)
+    saved_profile = await profile_repository.save_profile(user_id, ROLE_COACH, profile_data)
     
     # Update profile_completed flag on user record
-    await users_collection.update_one(
-        {"_id": ObjectId(user_id)},
-        {"$set": {"profile_completed": True, "updated_at": datetime.utcnow()}}
-    )
+    oid = to_object_id(user_id)
+    if oid:
+        await users_collection.update_one(
+            {"_id": oid},
+            {"$set": {"profile_completed": True, "updated_at": get_utc_now()}}
+        )
 
     saved_profile["profile_completed"] = True
     return saved_profile
+
 
 
 async def get_user_profile(user_id: str) -> dict:

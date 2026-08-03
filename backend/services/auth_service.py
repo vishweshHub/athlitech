@@ -1,6 +1,15 @@
 from fastapi import Depends, HTTPException
 
 from core.permissions import normalize_role
+from core.utils import get_utc_now
+from core.constants import (
+    ROLE_ADMIN,
+    ROLE_COACH,
+    ROLE_ATHLETE,
+    ACCOUNT_STATUS_ACTIVE,
+    VERIFICATION_STATUS_UNVERIFIED,
+    TOKEN_TYPE_BEARER,
+)
 from core.security import (
     bearer_scheme,
     create_access_token,
@@ -45,19 +54,20 @@ async def register_user(user: RegisterRequest):
         "email": email,
         "hashed_password": hashed_password,
         "role": role,
-        "account_status": "active",
+        "account_status": ACCOUNT_STATUS_ACTIVE,
         "profile_completed": False,
         "onboarding_completed": False,
         "registration_source": "self",
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
+        "created_at": get_utc_now(),
+        "updated_at": get_utc_now(),
     }
 
-    if role == "coach":
-        user_doc["verification_status"] = "unverified"
+    if role == ROLE_COACH:
+        user_doc["verification_status"] = VERIFICATION_STATUS_UNVERIFIED
         user_doc["coach_id"] = str(uuid.uuid4())
 
     result = await users_collection.insert_one(user_doc)
+
     user_id = str(result.inserted_id)
 
     return {

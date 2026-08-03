@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
+from core.utils import get_utc_now
 
 
 class ProfileVisibility(BaseModel):
@@ -40,5 +41,6 @@ class Profile(BaseModel):
     athlete_data: Optional[AthleteProfileData] = None
     coach_data: Optional[CoachProfileData] = None
     visibility: ProfileVisibility = Field(default_factory=ProfileVisibility)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=get_utc_now)
+    updated_at: datetime = Field(default_factory=get_utc_now)
+

@@ -6,6 +6,7 @@ from datetime import datetime
 # Add parent backend directory to sys.path so imports resolve
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from core.utils import get_utc_now
 from database.mongodb import workouts_collection
 
 CURATED_WORKOUT_TEMPLATES = [
@@ -447,7 +448,7 @@ async def seed_workouts() -> int:
     Matches by template 'id' or 'title'. Returns the count of newly inserted items.
     """
     inserted_count = 0
-    now = datetime.utcnow()
+    now = get_utc_now()
 
     for tpl in CURATED_WORKOUT_TEMPLATES:
         template_doc = {**tpl}

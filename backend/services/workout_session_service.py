@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import HTTPException, status
 
 from core.permissions import normalize_role
+from core.utils import get_utc_now
 from repositories.workout_session_repository import workout_session_repository
 from repositories.session_repository import session_repository
 from repositories.training_plan_repository import training_plan_repository
@@ -37,15 +38,15 @@ def _format_workout_session_response(ws: dict) -> WorkoutSessionResponse:
         athlete_id=str(ws.get("athlete_id", "")),
         source_type=str(ws.get("source_type", "PLANNED")),
         status=str(ws.get("status", "not_started")),
-        started_at=ws.get("started_at") if isinstance(ws.get("started_at"), datetime) else datetime.utcnow(),
+        started_at=ws.get("started_at") if isinstance(ws.get("started_at"), datetime) else get_utc_now(),
         paused_at=ws.get("paused_at") if isinstance(ws.get("paused_at"), datetime) else None,
         resumed_at=ws.get("resumed_at") if isinstance(ws.get("resumed_at"), datetime) else None,
         completed_at=ws.get("completed_at") if isinstance(ws.get("completed_at"), datetime) else None,
         total_duration_seconds=int(ws.get("total_duration_seconds", 0)),
         completion_percentage=float(ws.get("completion_percentage", 0.0)),
         session_notes=ws.get("session_notes"),
-        created_at=ws.get("created_at") if isinstance(ws.get("created_at"), datetime) else datetime.utcnow(),
-        updated_at=ws.get("updated_at") if isinstance(ws.get("updated_at"), datetime) else datetime.utcnow(),
+        created_at=ws.get("created_at") if isinstance(ws.get("created_at"), datetime) else get_utc_now(),
+        updated_at=ws.get("updated_at") if isinstance(ws.get("updated_at"), datetime) else get_utc_now(),
     )
 
 
@@ -165,7 +166,7 @@ async def start_workout_session(payload: WorkoutSessionStartRequest, current_use
         source_type = "PLANNED" if is_assigned else "SELF"
 
     # Create new workout session
-    now = datetime.utcnow()
+    now = get_utc_now()
     ws_doc = {
         "id": str(uuid.uuid4()),
         "session_id": final_session_id,
@@ -200,7 +201,7 @@ async def pause_workout_session(workout_session_id: str, current_user: dict) -> 
     if current_status != "in_progress":
         raise HTTPException(status_code=400, detail=f"Cannot pause workout session in state '{current_status}'")
 
-    now = datetime.utcnow()
+    now = get_utc_now()
     last_active = ws.get("resumed_at") or ws.get("started_at")
     elapsed = int((now - last_active).total_seconds()) if isinstance(last_active, datetime) else 0
     total_dur = int(ws.get("total_duration_seconds", 0)) + max(0, elapsed)
@@ -227,7 +228,7 @@ async def resume_workout_session(workout_session_id: str, current_user: dict) ->
     if current_status != "paused":
         raise HTTPException(status_code=400, detail=f"Cannot resume workout session in state '{current_status}'")
 
-    now = datetime.utcnow()
+    now = get_utc_now()
     changes = {
         "status": "in_progress",
         "resumed_at": now,
@@ -251,7 +252,7 @@ async def complete_workout_session(
     if current_status not in ["in_progress", "paused"]:
         raise HTTPException(status_code=400, detail=f"Cannot complete workout session in state '{current_status}'")
 
-    now = datetime.utcnow()
+    now = get_utc_now()
     total_dur = int(ws.get("total_duration_seconds", 0))
     if current_status == "in_progress":
         last_active = ws.get("resumed_at") or ws.get("started_at")
@@ -309,7 +310,7 @@ async def cancel_workout_session(
     if current_status in ["completed", "cancelled"]:
         raise HTTPException(status_code=400, detail=f"Cannot cancel workout session in state '{current_status}'")
 
-    now = datetime.utcnow()
+    now = get_utc_now()
     changes = {
         "status": "cancelled",
         "completed_at": now,

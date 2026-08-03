@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 import uuid
 from datetime import datetime
 from typing import Optional
+from core.utils import get_utc_now
 
 class Performance(BaseModel):
     performance_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -21,4 +22,5 @@ class Performance(BaseModel):
     feedback: Optional[str] = None
     recorded_at: Optional[str] = None
     
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=get_utc_now)
+

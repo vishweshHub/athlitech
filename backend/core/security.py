@@ -1,4 +1,10 @@
-from datetime import datetime, timedelta, timezone
+"""
+AthliTech Core Security Services.
+
+Handles password hashing/verification and JWT token creation/decoding.
+"""
+
+from datetime import timedelta
 import bcrypt
 from fastapi import HTTPException, status
 from fastapi.security import HTTPBearer
@@ -10,11 +16,21 @@ from core.config import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     REFRESH_TOKEN_EXPIRE_DAYS,
 )
+from core.utils import get_utc_now
 
 bearer_scheme = HTTPBearer()
 
 
 def hash_password(password: str) -> str:
+    """
+    Hashes a plain text password using bcrypt.
+
+    Args:
+        password (str): Plain text password.
+
+    Returns:
+        str: Bcrypt hashed password string.
+    """
     password_bytes = password.encode("utf-8")
     salt = bcrypt.gensalt()
     hashed_password = bcrypt.hashpw(password_bytes, salt)
@@ -23,17 +39,34 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """
+    Verifies a plain text password against a bcrypt hash.
+
+    Args:
+        plain_password (str): Plain text password.
+        hashed_password (str): Hashed password.
+
+    Returns:
+        bool: True if matched, False otherwise.
+    """
     plain_password_bytes = plain_password.encode("utf-8")
     hashed_password_bytes = hashed_password.encode("utf-8")
 
     return bcrypt.checkpw(plain_password_bytes, hashed_password_bytes)
 
 
-def create_access_token(data: dict):
+def create_access_token(data: dict) -> str:
+    """
+    Encodes a JWT access token with expiration time.
+
+    Args:
+        data (dict): Claims dictionary to encode (must contain 'sub').
+
+    Returns:
+        str: Encoded JWT string.
+    """
     to_encode = data.copy()
-
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-
+    expire = get_utc_now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
 
     return jwt.encode(
@@ -43,9 +76,18 @@ def create_access_token(data: dict):
     )
 
 
-def create_refresh_token(data: dict):
+def create_refresh_token(data: dict) -> str:
+    """
+    Encodes a JWT refresh token with extended expiration time.
+
+    Args:
+        data (dict): Claims dictionary to encode (must contain 'sub').
+
+    Returns:
+        str: Encoded JWT string.
+    """
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = get_utc_now() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire})
 
     return jwt.encode(
@@ -56,6 +98,18 @@ def create_refresh_token(data: dict):
 
 
 def decode_refresh_token(token: str) -> dict:
+    """
+    Decodes and validates a JWT refresh token.
+
+    Args:
+        token (str): JWT string.
+
+    Returns:
+        dict: Payload dictionary.
+
+    Raises:
+        HTTPException: HTTP 401 if token is invalid or expired.
+    """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get("sub")
@@ -75,6 +129,18 @@ def decode_refresh_token(token: str) -> dict:
 
 
 def decode_access_token(token: str) -> dict:
+    """
+    Decodes and validates a JWT access token.
+
+    Args:
+        token (str): JWT string.
+
+    Returns:
+        dict: Payload dictionary.
+
+    Raises:
+        HTTPException: HTTP 401 if token is invalid or expired.
+    """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get("sub")
@@ -91,3 +157,4 @@ def decode_access_token(token: str) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token"
         )
+

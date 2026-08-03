@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import List
 from fastapi import HTTPException
 
+from core.utils import get_utc_now
 from repositories.workout_assignment_repository import workout_assignment_repository
 from repositories.session_repository import session_repository
 from repositories.training_plan_repository import training_plan_repository
@@ -25,8 +26,8 @@ def _format_assignment_response(a: dict) -> WorkoutAssignmentResponse:
         order=int(a.get("order", 1)),
         assignment_note=a.get("assignment_note"),
         overrides=a.get("overrides") or {},
-        created_at=a.get("created_at") if isinstance(a.get("created_at"), datetime) else datetime.utcnow(),
-        updated_at=a.get("updated_at") if isinstance(a.get("updated_at"), datetime) else datetime.utcnow(),
+        created_at=a.get("created_at") if isinstance(a.get("created_at"), datetime) else get_utc_now(),
+        updated_at=a.get("updated_at") if isinstance(a.get("updated_at"), datetime) else get_utc_now(),
     )
 
 
@@ -71,8 +72,8 @@ async def create_assignment(payload: WorkoutAssignmentCreate, current_user: dict
         "order": payload.order,
         "assignment_note": payload.assignment_note,
         "overrides": payload.overrides or {},
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
+        "created_at": get_utc_now(),
+        "updated_at": get_utc_now(),
     }
 
     created = await workout_assignment_repository.create_assignment(assignment_doc)
@@ -117,7 +118,7 @@ async def update_assignment(assignment_id: str, payload: WorkoutAssignmentUpdate
                 detail=f"Workout Assignment with order {changes['order']} already exists for this Session"
             )
 
-    changes["updated_at"] = datetime.utcnow()
+    changes["updated_at"] = get_utc_now()
     updated = await workout_assignment_repository.update_assignment(assignment_id, changes)
     return _format_assignment_response(updated)
 

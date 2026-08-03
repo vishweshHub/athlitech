@@ -5,6 +5,7 @@ from datetime import datetime
 
 import uuid
 from core.permissions import normalize_role
+from core.utils import get_utc_now
 from repositories.workout_repository import workout_repository
 from repositories.coach_repository import coach_repository
 from repositories.athlete_repository import athlete_repository
@@ -28,19 +29,20 @@ def _format_workout_response(w: dict) -> WorkoutResponse:
     workout_id = w.get("id") or w.get("workout_id") or str(w.get("_id", ""))
     return WorkoutResponse(
         id=str(workout_id),
+        workout_id=str(workout_id),
         title=w.get("title", ""),
         description=w.get("description"),
         sport=w.get("sport", "General"),
         category=w.get("category", "General"),
         difficulty=w.get("difficulty", "Beginner"),
-        duration_minutes=w.get("duration_minutes", 30),
+        duration_minutes=int(w.get("duration_minutes") or 0),
         equipment=w.get("equipment") or [],
         instructions=w.get("instructions"),
-        created_by=str(w.get("created_by") or w.get("coach_id", "")),
-        created_by_role=str(w.get("created_by_role", "coach")),
-        is_public=w.get("is_public", True),
-        created_at=w.get("created_at") if isinstance(w.get("created_at"), datetime) else datetime.utcnow(),
-        updated_at=w.get("updated_at") if isinstance(w.get("updated_at"), datetime) else datetime.utcnow(),
+        created_by=w.get("created_by"),
+        created_by_role=w.get("created_by_role"),
+        is_public=bool(w.get("is_public", True)),
+        created_at=w.get("created_at") if isinstance(w.get("created_at"), datetime) else get_utc_now(),
+        updated_at=w.get("updated_at") if isinstance(w.get("updated_at"), datetime) else get_utc_now(),
     )
 
 
@@ -48,9 +50,11 @@ def _format_workout_response(w: dict) -> WorkoutResponse:
 
 async def create_workout_template(workout_data: WorkoutCreate, current_user: dict) -> WorkoutResponse:
     role = normalize_role(current_user.get("role"))
-    if role not in ["admin", "coach"]:
-        raise HTTPException(status_code=403, detail="Athletes do not have permission to create workouts")
-
+    if role not in {"admin", "coach"}:
+        raise HTTPException(
+            status_code=403,
+            detail="Only coaches or admins can create workout templates"
+        )
 
     new_workout = Workout(
         title=workout_data.title,
@@ -64,9 +68,10 @@ async def create_workout_template(workout_data: WorkoutCreate, current_user: dic
         created_by=current_user.get("id"),
         created_by_role=role,
         is_public=workout_data.is_public,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=get_utc_now(),
+        updated_at=get_utc_now(),
     )
+
 
     created_doc = await workout_repository.create_template(new_workout.model_dump())
     return _format_workout_response(created_doc)
@@ -121,7 +126,7 @@ async def update_workout_template(workout_id: str, update_data: WorkoutUpdate, c
     if "difficulty" in changes and changes["difficulty"] is not None:
         changes["difficulty"] = changes["difficulty"].value
 
-    changes["updated_at"] = datetime.utcnow()
+    changes["updated_at"] = get_utc_now()
 
     updated_doc = await workout_repository.update_template(workout_id, changes)
     if not updated_doc:
@@ -240,7 +245,7 @@ async def get_coach_workouts(
             completed_at=w.get("completed_at"),
             completion_percentage=w.get("completion_percentage"),
             athlete_notes=w.get("athlete_notes"),
-            created_at=w.get("created_at") if isinstance(w.get("created_at"), datetime) else datetime.utcnow()
+            created_at=w.get("created_at") if isinstance(w.get("created_at"), datetime) else get_utc_now()
         )
         for w in valid_workouts
     ]
@@ -280,7 +285,7 @@ async def get_athlete_workouts(
             completed_at=w.get("completed_at"),
             completion_percentage=w.get("completion_percentage"),
             athlete_notes=w.get("athlete_notes"),
-            created_at=w.get("created_at") if isinstance(w.get("created_at"), datetime) else datetime.utcnow()
+            created_at=w.get("created_at") if isinstance(w.get("created_at"), datetime) else get_utc_now()
         )
         for w in workouts
     ]
@@ -341,7 +346,7 @@ async def update_workout_status(workout_id: str, status_update: WorkoutUpdateSta
         ws_id = f"assigned_{workout_id}"
         ws = await workout_session_repository.find_workout_session_by_id(ws_id)
         if not ws:
-            now = datetime.utcnow()
+            now = get_utc_now()
             athlete_id = str(current_user.get("id"))
             session_doc = {
                 "id": ws_id,

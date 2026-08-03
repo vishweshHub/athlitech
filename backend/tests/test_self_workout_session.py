@@ -1,5 +1,6 @@
 import pytest
 from datetime import datetime
+from core.utils import get_utc_now
 from fastapi.testclient import TestClient
 from bson.objectid import ObjectId
 
@@ -144,7 +145,7 @@ def test_self_workout_session_suite():
             "id": "saved_rec_1",
             "athlete_id": "ath_99",
             "workout_template_id": "tmpl_saved_1",
-            "created_at": datetime.utcnow(),
+            "created_at": get_utc_now(),
         }
     })
     fake_workout_sessions = FakeCollection()

@@ -2,6 +2,8 @@ from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List
 import uuid
 from datetime import datetime
+from core.utils import get_utc_now
+from core.constants import STATUS_PENDING
 
 
 class Exercise(BaseModel):
@@ -32,16 +34,17 @@ class Workout(BaseModel):
     athlete_id: Optional[str] = None
     exercises: Optional[List[Exercise]] = None
     date: Optional[str] = None
-    status: str = "pending"
+    status: str = STATUS_PENDING
     completed_at: Optional[str] = None
     completion_percentage: Optional[int] = None
     athlete_notes: Optional[str] = None
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=get_utc_now)
+    updated_at: datetime = Field(default_factory=get_utc_now)
 
     @model_validator(mode='after')
     def set_defaults(self):
         if not self.workout_id:
             self.workout_id = self.id
         return self
+

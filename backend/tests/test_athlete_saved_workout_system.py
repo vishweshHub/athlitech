@@ -1,5 +1,6 @@
 import pytest
 from datetime import datetime
+from core.utils import get_utc_now
 from fastapi.testclient import TestClient
 from bson.objectid import ObjectId
 
@@ -108,7 +109,7 @@ def test_athlete_saved_workout_suite():
             "category": "Sprint",
             "difficulty": "Advanced",
             "exercises": [{"name": "Block Starts", "sets": 5, "reps": 3}],
-            "created_at": datetime.utcnow(),
+            "created_at": get_utc_now(),
         },
         "tmpl_2": {
             "id": "tmpl_2",
@@ -117,7 +118,7 @@ def test_athlete_saved_workout_suite():
             "category": "Speed",
             "difficulty": "Intermediate",
             "exercises": [{"name": "Flying 30m", "sets": 4, "reps": 1}],
-            "created_at": datetime.utcnow(),
+            "created_at": get_utc_now(),
         },
     })
     fake_saved_workouts = FakeCollection()

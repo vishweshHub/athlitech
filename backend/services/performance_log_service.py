@@ -4,6 +4,7 @@ from typing import List, Optional
 from fastapi import HTTPException
 
 from core.permissions import normalize_role
+from core.utils import get_utc_now
 from repositories.performance_log_repository import performance_log_repository
 from repositories.workout_session_repository import workout_session_repository
 from repositories.workout_assignment_repository import workout_assignment_repository
@@ -26,7 +27,7 @@ def _normalize_source_type(st: Optional[str]) -> str:
 
 def _format_performance_log_response(log: dict) -> PerformanceLogResponse:
     log_id = str(log.get("id") or log.get("_id"))
-    now = datetime.utcnow()
+    now = get_utc_now()
 
     completed_at = log.get("completed_at") or log.get("recorded_at") or log.get("created_at")
     if not isinstance(completed_at, datetime):
@@ -157,7 +158,7 @@ async def create_performance_log(
     if payload.metrics:
         is_pr = await _evaluate_personal_record(target_athlete_id, payload.metrics)
 
-    now = datetime.utcnow()
+    now = get_utc_now()
     completed_time = payload.completed_at or payload.recorded_at or ws.get("completed_at") or now
 
     workout_name = payload.workout_name or payload.activity_label or ws.get("workout_name") or ws.get("title") or "Workout Session"
