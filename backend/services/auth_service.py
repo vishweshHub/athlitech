@@ -52,12 +52,13 @@ async def register_user(user: RegisterRequest):
 
     hashed_password = hash_password(user.password)
 
-    role = user.role
+    role = user.role or "none"
     user_doc = {
         "name": f"{user.first_name} {user.last_name}",
         "first_name": user.first_name,
         "last_name": user.last_name,
         "email": email,
+        "phone": getattr(user, "phone", None),
         "hashed_password": hashed_password,
         "role": role,
         "account_status": ACCOUNT_STATUS_ACTIVE,
@@ -73,13 +74,13 @@ async def register_user(user: RegisterRequest):
         user_doc["coach_id"] = str(uuid.uuid4())
 
     result = await users_collection.insert_one(user_doc)
-
     user_id = str(result.inserted_id)
 
     # --- Dual-Write: Populate Unified Account Architecture ---
     account_doc = {
         "account_id": user_id,
         "email": email,
+        "phone": getattr(user, "phone", None),
         "hashed_password": hashed_password,
         "first_name": user.first_name,
         "last_name": user.last_name,
@@ -94,35 +95,37 @@ async def register_user(user: RegisterRequest):
     }
     await accounts_collection.insert_one(account_doc)
 
-    rp_id = str(uuid.uuid4())
-    rp_doc = {
-        "role_profile_id": rp_id,
-        "account_id": user_id,
-        "profile_type": role,
-        "created_at": get_utc_now(),
-        "updated_at": get_utc_now(),
-    }
-    if role == ROLE_ATHLETE:
-        rp_doc["athlete_data"] = {"sport": "General Athletics", "weight": 70}
-    elif role == ROLE_COACH:
-        rp_doc["coach_data"] = {"primary_sport": "General Athletics", "specialization": "Head Coach", "years_experience": 5}
-    await role_profiles_collection.insert_one(rp_doc)
+    if role in [ROLE_ATHLETE, ROLE_COACH]:
+        rp_id = str(uuid.uuid4())
+        rp_doc = {
+            "role_profile_id": rp_id,
+            "account_id": user_id,
+            "profile_type": role,
+            "created_at": get_utc_now(),
+            "updated_at": get_utc_now(),
+        }
+        if role == ROLE_ATHLETE:
+            rp_doc["athlete_data"] = {"sport": "General Athletics", "weight": 70}
+        elif role == ROLE_COACH:
+            rp_doc["coach_data"] = {"primary_sport": "General Athletics", "specialization": "Head Coach", "years_experience": 5}
+        await role_profiles_collection.insert_one(rp_doc)
 
-    default_org = await organizations_collection.find_one({"slug": "athlitech-primary"})
-    org_id = default_org["organization_id"] if default_org else "org-default"
+        default_org = await organizations_collection.find_one({"slug": "athlitech-primary"})
+        org_id = default_org["organization_id"] if default_org else "org-default"
 
-    mem_doc = {
-        "membership_id": str(uuid.uuid4()),
-        "account_id": user_id,
-        "organization_id": org_id,
-        "role_profile_id": rp_id,
-        "role": role,
-        "status": ACCOUNT_STATUS_ACTIVE,
-        "teams": ["Default Team"],
-        "created_at": get_utc_now(),
-        "updated_at": get_utc_now(),
-    }
-    await memberships_collection.insert_one(mem_doc)
+        mem_doc = {
+            "membership_id": str(uuid.uuid4()),
+            "account_id": user_id,
+            "organization_id": org_id,
+            "role_profile_id": rp_id,
+            "role": role,
+            "status": ACCOUNT_STATUS_ACTIVE,
+            "teams": ["Default Team"],
+            "created_at": get_utc_now(),
+            "updated_at": get_utc_now(),
+        }
+        await memberships_collection.insert_one(mem_doc)
+
 
     return {
         "message": "User registered successfully",

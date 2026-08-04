@@ -2,9 +2,13 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 from core.config import MONGODB_DATABASE, MONGODB_URI
 
+import asyncio
+
 client = AsyncIOMotorClient(MONGODB_URI)
+client.get_io_loop = asyncio.get_running_loop
 
 db = client[MONGODB_DATABASE]
+
 
 athletes_collection = db["athletes"]
 users_collection = db["users"]

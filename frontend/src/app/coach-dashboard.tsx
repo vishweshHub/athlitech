@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StyleSheet } from 'react-native';
-import { useRouter, Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import CoachDashboardScreen from '@/features/coaches/pages/CoachDashboardScreen';
 import type { AuthUser } from '@/api/auth';
 import { getStoredToken, fetchCurrentUser, clearStoredToken } from '@/api/auth';
+import { useWorkspace } from '@/context/WorkspaceContext';
 
 export default function CoachDashboardRoute() {
   const router = useRouter();
+  const { currentWorkspace, setCurrentWorkspace } = useWorkspace();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -20,10 +22,6 @@ export default function CoachDashboardRoute() {
       }
       try {
         const currentUser = await fetchCurrentUser(storedToken);
-        if (currentUser.role !== 'coach') {
-          router.replace('/dashboard');
-          return;
-        }
         setUser(currentUser);
         setToken(storedToken);
       } catch (err) {
@@ -35,6 +33,9 @@ export default function CoachDashboardRoute() {
     }
     loadSession();
   }, []);
+
+
+
 
   const handleSignOut = async () => {
     await clearStoredToken();

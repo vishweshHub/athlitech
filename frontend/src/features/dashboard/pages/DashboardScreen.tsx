@@ -19,9 +19,11 @@ import {
   fetchCurrentUser,
   getStoredToken,
 } from '@/api/auth';
+import { useWorkspace } from '@/context/WorkspaceContext';
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { currentWorkspace } = useWorkspace();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -41,22 +43,8 @@ export default function DashboardScreen() {
       try {
         const currentUser = await fetchCurrentUser(storedToken);
         if (isMounted) {
-          if (currentUser.role === 'coach') {
-            router.replace('/coach-dashboard' as Href);
-            return;
-          }
-          if (currentUser.role === 'athlete') {
-            router.replace('/athlete-dashboard' as Href);
-            return;
-          }
-          if (currentUser.role === 'admin') {
-            setUser(currentUser);
-            setToken(storedToken);
-          } else {
-            await clearStoredToken();
-            router.replace('/login');
-            return;
-          }
+          setUser(currentUser);
+          setToken(storedToken);
         }
       } catch (currentUserError) {
         await clearStoredToken();
@@ -95,29 +83,35 @@ export default function DashboardScreen() {
     );
   }
 
-  if (user?.role === 'admin' && token) {
-    return (
-      <SafeAreaView style={styles.screen}>
-        <AdminDashboard user={user} token={token} onSignOut={handleSignOut} />
-      </SafeAreaView>
-    );
+  const currentRole = currentWorkspace || user?.role || 'athlete';
+
+
+  if (token && user) {
+    if (currentRole === 'coach') {
+      return (
+        <SafeAreaView style={styles.screen}>
+          <CoachDashboard user={user} token={token} onSignOut={handleSignOut} />
+        </SafeAreaView>
+      );
+    }
+
+    if (currentRole === 'athlete') {
+      return (
+        <SafeAreaView style={styles.screen}>
+          <AthleteDashboard user={user} token={token} onSignOut={handleSignOut} />
+        </SafeAreaView>
+      );
+    }
+
+    if (currentRole === 'organization' || currentRole === 'admin') {
+      return (
+        <SafeAreaView style={styles.screen}>
+          <AdminDashboard user={user} token={token} onSignOut={handleSignOut} />
+        </SafeAreaView>
+      );
+    }
   }
 
-  if (user?.role === 'coach' && token) {
-    return (
-      <SafeAreaView style={styles.screen}>
-        <CoachDashboard user={user} token={token} onSignOut={handleSignOut} />
-      </SafeAreaView>
-    );
-  }
-
-  if (user?.role === 'athlete' && token) {
-    return (
-      <SafeAreaView style={styles.screen}>
-        <AthleteDashboard user={user} token={token} onSignOut={handleSignOut} />
-      </SafeAreaView>
-    );
-  }
 
 
   return (

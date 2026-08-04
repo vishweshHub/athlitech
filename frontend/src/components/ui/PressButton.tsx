@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
+  StyleProp,
   StyleSheet,
   Text,
   TextStyle,
@@ -32,8 +33,9 @@ interface PressButtonProps {
   variant?: Variant;
   loading?: boolean;
   disabled?: boolean;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   textStyle?: TextStyle;
+
   /** Suffix element (e.g. arrow icon) */
   suffix?: React.ReactNode;
   id?: string;

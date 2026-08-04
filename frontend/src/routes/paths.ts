@@ -2,7 +2,15 @@ export const ROUTES = {
   landing: '/landing',
   login: '/',
   register: '/register',
+  roleHub: '/role-hub',
+  exploreRole: '/explore-role',
+  planSelection: '/plan-selection',
+  mockCheckout: '/mock-checkout',
+  planConfirmation: '/plan-confirmation',
   dashboard: '/dashboard',
+
+
+
   athleteDashboard: '/athlete-dashboard',
   athleteDetails: '/athlete-details',
   coachDashboard: '/coach-dashboard',

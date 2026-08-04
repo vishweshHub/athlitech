@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Href } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -42,7 +42,9 @@ import {
   CollectionGrid,
   CollectionGridItem,
 } from '@/components/ui';
+import WorkspaceSwitcher from '@/components/ui/WorkspaceSwitcher';
 import { fetchWorkoutRecommendations, WorkoutRecommendation, fetchMyProfile } from '@/api/profile';
+
 import CoachProfileSummaryCard from '../components/CoachProfileSummaryCard';
 import WorkoutLibraryScreen from '@/features/workouts/pages/WorkoutLibraryScreen';
 import { useThemeColors, RADIUS } from '@/styles/tokens';
@@ -146,9 +148,13 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
 
   // Load dashboard data
   const loadDashboardData = useCallback(async () => {
-    if (!token || !user) return;
+    if (!token || !user) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setError(null);
+
 
     try {
       let coachId = user?.coach_id;
@@ -494,6 +500,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
             <View style={styles.sidebarNav}>
               {[
                 { id: 'dashboard', label: 'Dashboard', icon: 'grid', count: null },
+                { id: 'role-hub', label: 'Role Hub', icon: 'apps', count: null },
                 { id: 'athletes', label: 'My Athletes', icon: 'people', count: totalAthletes },
                 { id: 'workouts', label: 'Workouts', icon: 'fitness', count: totalWorkouts },
                 { id: 'performance', label: 'Performance', icon: 'speedometer', count: null },
@@ -506,7 +513,11 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                     activeTab === item.id && styles.sidebarItemActive,
                   ]}
                   onPress={() => {
-                    setActiveTab(item.id as TabType);
+                    if (item.id === 'role-hub') {
+                      router.push('/role-hub' as Href);
+                    } else {
+                      setActiveTab(item.id as TabType);
+                    }
                     if (!isLargeScreen) setSidebarOpen(false);
                   }}
                 >
@@ -569,21 +580,24 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
             )}
             <View style={styles.headerInfo}>
               <Text style={styles.headerTitle}>
-                {activeTab === 'dashboard' && 'Coach Dashboard'}
-                {activeTab === 'athletes' && 'My Athletes'}
-                {activeTab === 'workouts' && 'Workout Plans'}
-                {activeTab === 'performance' && 'Performance'}
-                {activeTab === 'profile' && 'My Profile'}
+                {activeTab === 'dashboard' ? 'Coach Dashboard' : null}
+                {activeTab === 'athletes' ? 'My Athletes' : null}
+                {activeTab === 'workouts' ? 'Workout Plans' : null}
+                {activeTab === 'performance' ? 'Performance' : null}
+                {activeTab === 'profile' ? 'My Profile' : null}
               </Text>
+
               <Text style={styles.headerSubtitle}>{user?.email || 'Coach'}</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <WorkspaceSwitcher />
               <ThemeToggle />
               <Pressable onPress={loadDashboardData} style={styles.refreshBtn}>
                 <Ionicons name="refresh" size={20} color={colors.textPrimary} />
               </Pressable>
             </View>
           </View>
+
 
           {/* Content Area */}
           <ScrollView
@@ -1806,7 +1820,10 @@ function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boo
       backgroundColor: colors.bgCard,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
+      zIndex: 9999,
+      elevation: 10,
     },
+
     hamburgerBtn: {
       padding: 8,
       borderRadius: 8,

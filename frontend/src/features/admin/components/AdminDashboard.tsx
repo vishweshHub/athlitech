@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Href } from 'expo-router';
+
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -49,6 +50,7 @@ import {
   CollectionGridItem,
   EmptyState,
 } from '@/components/ui';
+import WorkspaceSwitcher from '@/components/ui/WorkspaceSwitcher';
 import { useThemeColors } from '@/styles/tokens';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -115,9 +117,14 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
 
   // Fetch data
   const loadDashboardData = useCallback(async () => {
+    if (!token) {
+      setIsLoadingData(false);
+      return;
+    }
     setIsLoadingData(true);
     setDashboardError(null);
     setIsUsingFallback(false);
+
     try {
       const [fetchedUsers, fetchedRoles, fetchedAthletes, fetchedWorkouts, fetchedPerformances] = await Promise.all([
         fetchAllUsers(token),
@@ -549,6 +556,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
             <View style={styles.sidebarNav}>
               {[
                 { id: 'dashboard', label: 'Dashboard', icon: 'grid', count: null },
+                { id: 'role-hub', label: 'Role Hub', icon: 'apps', count: null },
                 { id: 'users', label: 'Users', icon: 'people', count: totalUsers },
                 { id: 'roles', label: 'Roles', icon: 'shield', count: totalRoles },
                 { id: 'coaches', label: 'Coaches', icon: 'fitness', count: totalCoaches },
@@ -561,7 +569,11 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                     activeTab === item.id && styles.sidebarItemActive,
                   ]}
                   onPress={() => {
-                    setActiveTab(item.id as TabType);
+                    if (item.id === 'role-hub') {
+                      router.push('/role-hub' as Href);
+                    } else {
+                      setActiveTab(item.id as TabType);
+                    }
                     if (!isLargeScreen) {
                       setSidebarOpen(false);
                     }
@@ -624,21 +636,24 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
             )}
             <View style={styles.headerInfo}>
               <Text style={styles.headerTitle}>
-                {activeTab === 'dashboard' && 'Dashboard'}
-                {activeTab === 'users' && 'User Management'}
-                {activeTab === 'roles' && 'Role Management'}
-                {activeTab === 'coaches' && 'Coaches'}
-                {activeTab === 'athletes' && 'Athletes'}
+                {activeTab === 'dashboard' ? 'Dashboard' : null}
+                {activeTab === 'users' ? 'User Management' : null}
+                {activeTab === 'roles' ? 'Role Management' : null}
+                {activeTab === 'coaches' ? 'Coaches' : null}
+                {activeTab === 'athletes' ? 'Athletes' : null}
               </Text>
+
               <Text style={styles.headerSubtitle}>{user?.email || 'Admin'}</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <WorkspaceSwitcher />
               <ThemeToggle />
               <Pressable onPress={loadDashboardData} style={styles.refreshBtn}>
                 <Ionicons name="refresh" size={20} color={colors.textPrimary} />
               </Pressable>
             </View>
           </View>
+
 
           {/* Content */}
           <ScrollView
@@ -1585,7 +1600,10 @@ const getStyles = (colors: any, isLargeScreen: boolean) => StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     gap: 12,
+    zIndex: 9999,
+    elevation: 10,
   },
+
   hamburgerBtn: {
     padding: 8,
     borderRadius: 6,

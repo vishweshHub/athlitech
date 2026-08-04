@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 
 import { ThemeProvider } from '@/theme/ThemeProvider';
 import { useTheme } from '@/theme/useTheme';
+import { WorkspaceProvider } from '@/context/WorkspaceContext';
 import ThemeTransition from '@/components/animations/ThemeTransition';
 
 function LayoutContent() {
@@ -44,6 +45,11 @@ function LayoutContent() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="register" options={{ headerShown: false }} />
+          <Stack.Screen name="role-hub" options={{ headerShown: false }} />
+          <Stack.Screen name="explore-role" options={{ headerShown: false }} />
+          <Stack.Screen name="plan-selection" options={{ headerShown: false }} />
+          <Stack.Screen name="mock-checkout" options={{ headerShown: false }} />
+          <Stack.Screen name="plan-confirmation" options={{ headerShown: false }} />
           <Stack.Screen name="dashboard" options={{ headerShown: false }} />
           <Stack.Screen name="coach-dashboard" options={{ headerShown: false }} />
           <Stack.Screen name="athlete-dashboard" options={{ headerShown: false }} />
@@ -106,8 +112,11 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <LayoutContent />
+      <WorkspaceProvider>
+        <LayoutContent />
+      </WorkspaceProvider>
     </ThemeProvider>
   );
 }
+
 
