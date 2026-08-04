@@ -19,7 +19,13 @@ from core.security import (
     hash_password,
     verify_password,
 )
-from database.mongodb import users_collection
+from database.mongodb import (
+    users_collection,
+    accounts_collection,
+    role_profiles_collection,
+    memberships_collection,
+    organizations_collection,
+)
 from schemas.auth_schema import UserLogin, RegisterRequest
 import uuid
 from datetime import datetime
@@ -70,12 +76,61 @@ async def register_user(user: RegisterRequest):
 
     user_id = str(result.inserted_id)
 
+    # --- Dual-Write: Populate Unified Account Architecture ---
+    account_doc = {
+        "account_id": user_id,
+        "email": email,
+        "hashed_password": hashed_password,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "name": f"{user.first_name} {user.last_name}",
+        "account_status": ACCOUNT_STATUS_ACTIVE,
+        "verification_status": user_doc.get("verification_status", VERIFICATION_STATUS_UNVERIFIED),
+        "profile_completed": False,
+        "onboarding_completed": False,
+        "registration_source": "self",
+        "created_at": get_utc_now(),
+        "updated_at": get_utc_now(),
+    }
+    await accounts_collection.insert_one(account_doc)
+
+    rp_id = str(uuid.uuid4())
+    rp_doc = {
+        "role_profile_id": rp_id,
+        "account_id": user_id,
+        "profile_type": role,
+        "created_at": get_utc_now(),
+        "updated_at": get_utc_now(),
+    }
+    if role == ROLE_ATHLETE:
+        rp_doc["athlete_data"] = {"sport": "General Athletics", "weight": 70}
+    elif role == ROLE_COACH:
+        rp_doc["coach_data"] = {"primary_sport": "General Athletics", "specialization": "Head Coach", "years_experience": 5}
+    await role_profiles_collection.insert_one(rp_doc)
+
+    default_org = await organizations_collection.find_one({"slug": "athlitech-primary"})
+    org_id = default_org["organization_id"] if default_org else "org-default"
+
+    mem_doc = {
+        "membership_id": str(uuid.uuid4()),
+        "account_id": user_id,
+        "organization_id": org_id,
+        "role_profile_id": rp_id,
+        "role": role,
+        "status": ACCOUNT_STATUS_ACTIVE,
+        "teams": ["Default Team"],
+        "created_at": get_utc_now(),
+        "updated_at": get_utc_now(),
+    }
+    await memberships_collection.insert_one(mem_doc)
+
     return {
         "message": "User registered successfully",
         "user_id": user_id,
         "role": role,
         "email": email
     }
+
 
 
 async def login_user(user: UserLogin):
@@ -100,15 +155,19 @@ async def login_user(user: UserLogin):
             detail="Invalid email or password"
         )
 
-    access_token = create_access_token({
-        "sub": email,
-        "role": normalize_role(existing_user.get("role", "athlete"))
-    })
+    user_id = str(existing_user["_id"])
+    mem = await memberships_collection.find_one({"account_id": user_id})
 
-    refresh_token = create_refresh_token({
+    token_claims = {
         "sub": email,
-        "role": normalize_role(existing_user.get("role", "athlete"))
-    })
+        "role": normalize_role(existing_user.get("role", "athlete")),
+        "account_id": user_id,
+        "membership_id": mem.get("membership_id") if mem else None,
+        "organization_id": mem.get("organization_id") if mem else None,
+    }
+
+    access_token = create_access_token(token_claims)
+    refresh_token = create_refresh_token(token_claims)
 
     return {
         "access_token": access_token,
@@ -129,15 +188,19 @@ async def refresh_access_token(refresh_token: str):
             detail="User not found"
         )
 
-    access_token = create_access_token({
-        "sub": email,
-        "role": normalize_role(existing_user.get("role", "athlete"))
-    })
+    user_id = str(existing_user["_id"])
+    mem = await memberships_collection.find_one({"account_id": user_id})
 
-    new_refresh_token = create_refresh_token({
+    token_claims = {
         "sub": email,
-        "role": normalize_role(existing_user.get("role", "athlete"))
-    })
+        "role": normalize_role(existing_user.get("role", "athlete")),
+        "account_id": user_id,
+        "membership_id": mem.get("membership_id") if mem else None,
+        "organization_id": mem.get("organization_id") if mem else None,
+    }
+
+    access_token = create_access_token(token_claims)
+    new_refresh_token = create_refresh_token(token_claims)
 
     return {
         "access_token": access_token,
@@ -159,13 +222,20 @@ async def get_current_user(credentials=Depends(bearer_scheme)):
             detail="User not found"
         )
 
+    user_id = str(user["_id"])
+    mem = await memberships_collection.find_one({"account_id": user_id})
+
     return {
-        "id": str(user["_id"]),
+        "id": user_id,
+        "account_id": user_id,
         "name": user["name"],
         "email": user["email"],
         "role": normalize_role(user.get("role", "athlete")),
         "profile_completed": user.get("profile_completed", False),
+        "membership_id": mem.get("membership_id") if mem else None,
+        "organization_id": mem.get("organization_id") if mem else None,
     }
+
 
 
 async def require_admin(current_user: dict = Depends(get_current_user)):
