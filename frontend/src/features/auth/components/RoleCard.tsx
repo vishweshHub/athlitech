@@ -22,14 +22,19 @@ import {
   MiniOrgPreview,
 } from './MiniDashboardPreviews';
 
+import { RoleStatusInfo } from '@/api/roleHub';
+
 export type RoleCardType = 'athlete' | 'coach' | 'organization';
 
 interface RoleCardProps {
   type: RoleCardType;
   isActive: boolean;
+  roleInfo?: RoleStatusInfo | null;
   isLoading?: boolean;
   onOpenDashboard: () => void;
   onExploreRole: () => void;
+  onReactivateWorkspace?: () => void;
+  onOpenManageSubscription?: () => void;
 }
 
 const CARD_DATA = {
@@ -71,9 +76,12 @@ const CARD_DATA = {
 export default function RoleCard({
   type,
   isActive,
+  roleInfo,
   isLoading = false,
   onOpenDashboard,
   onExploreRole,
+  onReactivateWorkspace,
+  onOpenManageSubscription,
 }: RoleCardProps) {
   const colors = useThemeColors();
   const styles = getStyles(colors);
@@ -82,6 +90,8 @@ export default function RoleCard({
   const translateY = useSharedValue(0);
   const scale = useSharedValue(1);
   const glowOpacity = useSharedValue(0);
+
+  const hasExistingProfile = Boolean(roleInfo?.has_existing_profile || roleInfo?.role_profile_id);
 
   const handleMouseEnter = () => {
     if (Platform.OS === 'web') {
@@ -160,7 +170,7 @@ export default function RoleCard({
               isActive ? styles.textActive : styles.textInactive,
             ]}
           >
-            {isActive ? 'Active' : 'Not Activated'}
+            {isActive ? 'Active' : hasExistingProfile ? 'Deactivated' : 'Not Activated'}
           </Text>
         </View>
       </View>
@@ -186,11 +196,36 @@ export default function RoleCard({
       {/* Action Footer */}
       <View style={styles.cardFooter}>
         {isActive ? (
-          <PressButton
-            label="Open Dashboard"
-            onPress={onOpenDashboard}
-            style={{ width: '100%', backgroundColor: data.accentColor }}
-          />
+          <View style={styles.actionCol}>
+            <PressButton
+              label="Open Dashboard"
+              onPress={onOpenDashboard}
+              style={{ width: '100%', backgroundColor: data.accentColor }}
+            />
+            {onOpenManageSubscription ? (
+              <TouchableOpacity style={styles.subBtnLink} onPress={onOpenManageSubscription}>
+                <Ionicons name="card-outline" size={14} color={colors.textMuted} />
+                <Text style={styles.subBtnLinkText}>Manage Subscription</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : hasExistingProfile ? (
+          <View style={styles.actionCol}>
+            <TouchableOpacity
+              style={[styles.reactivateBtn, { backgroundColor: data.accentColor }]}
+              onPress={onReactivateWorkspace}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="refresh" size={16} color="#FFF" />
+              <Text style={styles.reactivateBtnText}>Reactivate Workspace</Text>
+            </TouchableOpacity>
+            {onOpenManageSubscription ? (
+              <TouchableOpacity style={styles.subBtnLink} onPress={onOpenManageSubscription}>
+                <Ionicons name="card-outline" size={14} color={colors.textMuted} />
+                <Text style={styles.subBtnLinkText}>Subscription & Plan</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         ) : (
           <TouchableOpacity
             style={[styles.actionBtnOutline, { borderColor: colors.border }]}
@@ -321,6 +356,36 @@ const getStyles = (colors: ReturnType<typeof useThemeColors>) =>
 
     cardFooter: {
       marginTop: 'auto',
+    },
+    actionCol: {
+      gap: 10,
+      width: '100%',
+    },
+    subBtnLink: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 6,
+    },
+    subBtnLinkText: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    reactivateBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      borderRadius: RADIUS.md,
+    },
+    reactivateBtnText: {
+      color: '#FFF',
+      fontSize: 14,
+      fontWeight: '800',
     },
     actionBtnOutline: {
       flexDirection: 'row',

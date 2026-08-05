@@ -15,7 +15,7 @@ async def list_users(
     search: str | None = Query(None),
     current_user: dict = Depends(get_current_user)
 ):
-    return await get_all_users(skip=skip, limit=limit, role=role, search=search)
+    return await get_all_users(skip=skip, limit=limit, role=role, search=search, current_user_id=current_user.get("id"))
 
 
 @router.get("/{user_id}")

@@ -16,8 +16,8 @@ async def create_performance(
     perf_data: PerformanceCreate,
     current_user: dict = Depends(get_current_user)
 ):
-    # Only coaches can add performance records
-    if current_user.get("role") != "coach":
+    active_roles = current_user.get("active_roles", set())
+    if "coach" not in active_roles and current_user.get("role") != "coach":
         raise HTTPException(status_code=403, detail="Only coaches can add performance records")
 
     # Resolve coach internal ID
@@ -27,6 +27,7 @@ async def create_performance(
     if not coach_doc:
         raise HTTPException(status_code=404, detail="Coach not found")
     coach_id = coach_doc.get("coach_id") or str(coach_doc["_id"])
+    coach_user_id = str(coach_doc["_id"])
 
     # Verify athlete exists
     athlete = await athlete_repository.find_by_id(perf_data.athlete_id)
@@ -34,7 +35,7 @@ async def create_performance(
         raise HTTPException(status_code=404, detail="Athlete not found")
 
     # Verify athlete assigned to this coach
-    if athlete.get("coach_id") != coach_id:
+    if athlete.get("coach_id") != coach_id and athlete.get("coach_id") != coach_user_id:
         raise HTTPException(status_code=403, detail="Athlete is not assigned to this coach")
 
     # Verify workout exists and is completed (if provided)
@@ -71,22 +72,31 @@ async def get_athlete_performance_history(
     sport_event: str | None = Query(None),
     current_user: dict = Depends(get_current_user)
 ):
-    # Athlete can view own history
-    if current_user.get("role") == "athlete":
-        if current_user.get("id") != athlete_id:
-            raise HTTPException(status_code=403, detail="Athletes can only view their own performance history")
-    # Coach can view assigned athletes
-    elif current_user.get("role") == "coach":
-        if not ObjectId.is_valid(current_user.get("id")):
+    active_roles = current_user.get("active_roles", set())
+    user_role = normalize_role(current_user.get("role", "athlete"))
+    current_id = str(current_user.get("id"))
+    current_account_id = str(current_user.get("account_id") or current_id)
+    is_self = (current_id == athlete_id or current_account_id == athlete_id)
+
+    if ("athlete" in active_roles or user_role == "athlete") and is_self:
+        pass
+    elif "admin" in active_roles or user_role == "admin":
+        pass
+    elif "coach" in active_roles or user_role == "coach":
+        if not ObjectId.is_valid(current_id):
             raise HTTPException(status_code=400, detail="Invalid user ID format")
-        coach_doc = await coach_repository.find_by_id(current_user.get("id"))
+        coach_doc = await coach_repository.find_by_id(current_id)
         if not coach_doc:
             raise HTTPException(status_code=404, detail="Coach not found")
         coach_id = coach_doc.get("coach_id") or str(coach_doc["_id"])
+        coach_user_id = str(coach_doc["_id"])
         athlete = await athlete_repository.find_by_id(athlete_id)
-        if not athlete or athlete.get("coach_id") != coach_id:
+        if not athlete or (athlete.get("coach_id") != coach_id and athlete.get("coach_id") != coach_user_id):
             raise HTTPException(status_code=403, detail="Coaches can only view performances of their assigned athletes")
-    elif current_user.get("role") != "admin":
+    elif "athlete" in active_roles or user_role == "athlete":
+        if not is_self:
+            raise HTTPException(status_code=403, detail="Athletes can only view their own performance history")
+    else:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     records = await get_athlete_performances(athlete_id, skip=skip, limit=limit, sport_event=sport_event)

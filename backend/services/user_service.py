@@ -6,11 +6,30 @@ from repositories.user_repository import user_repository
 from schemas.user_schema import UserRead, UserRoleUpdate
 
 
-async def get_all_users(skip: int = 0, limit: int = 100, role: str | None = None, search: str | None = None):
-    users = await user_repository.get_all_users(skip=skip, limit=limit, role=role, search=search)
+async def get_all_users(
+    skip: int = 0,
+    limit: int = 100,
+    role: str | None = None,
+    search: str | None = None,
+    current_user_id: str | None = None
+):
+    org_user_ids = None
+    if current_user_id:
+        from database.mongodb import organizations_collection, memberships_collection
+        org = await organizations_collection.find_one({"owner_account_id": current_user_id})
+        if not org:
+            mem = await memberships_collection.find_one({"account_id": current_user_id, "status": "active"})
+            if mem and mem.get("organization_id"):
+                org = await organizations_collection.find_one({"organization_id": mem["organization_id"]})
+        if org:
+            org_id = org.get("organization_id") or str(org.get("_id"))
+            mems = await memberships_collection.find({"organization_id": org_id, "status": "active"}).to_list(1000)
+            org_user_ids = [m["account_id"] for m in mems if m.get("account_id")]
+
+    users = await user_repository.get_all_users(skip=skip, limit=limit, role=role, search=search, user_ids=org_user_ids)
     return [
         UserRead(
-            id=str(user["_id"]),
+            id=str(user.get("id") or user.get("_id")),
             name=user["name"],
             email=user["email"],
             role=normalize_role(user.get("role", "athlete")),

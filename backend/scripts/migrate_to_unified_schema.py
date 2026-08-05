@@ -86,6 +86,28 @@ async def run_migration():
 
         role = str(user.get("role", "athlete")).lower()
 
+        # If admin, ensure account owns an Organization
+        if role == "admin":
+            admin_org = await organizations_collection.find_one({"owner_account_id": account_id})
+            if not admin_org:
+                new_org_id = str(uuid.uuid4())
+                admin_org = {
+                    "organization_id": new_org_id,
+                    "name": f"{user.get('name', 'Admin')}'s Organization",
+                    "slug": f"org-admin-{account_id[:8]}",
+                    "owner_account_id": account_id,
+                    "org_type": "Enterprise",
+                    "sport": "General Athletics",
+                    "country": "United States",
+                    "timezone": "UTC",
+                    "plan_tier": "enterprise",
+                    "status": "active",
+                    "created_at": get_utc_now(),
+                    "updated_at": get_utc_now(),
+                }
+                await organizations_collection.insert_one(admin_org)
+                print(f"Migrated Admin Organization for {email}: {admin_org['name']}")
+
         # Create RoleProfile if missing
         existing_rp = await role_profiles_collection.find_one({"account_id": account_id, "profile_type": role})
         if not existing_rp:
@@ -105,6 +127,7 @@ async def run_migration():
                     "weight": athlete_doc.get("weight", 70) if athlete_doc else 70,
                 }
             elif role == "coach":
+                rp_doc["is_complete"] = True
                 rp_doc["coach_data"] = {
                     "primary_sport": "General Athletics",
                     "specialization": "Head Coach",
@@ -121,6 +144,11 @@ async def run_migration():
             migrated_profiles += 1
         else:
             role_profile_id = existing_rp["role_profile_id"]
+            if role == "coach" and "is_complete" not in existing_rp:
+                await role_profiles_collection.update_one(
+                    {"role_profile_id": role_profile_id},
+                    {"$set": {"is_complete": True}}
+                )
 
         # Create Membership
         existing_mem = await memberships_collection.find_one({

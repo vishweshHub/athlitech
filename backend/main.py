@@ -23,6 +23,7 @@ from routes.performance_log_routes import router as performance_log_router
 from routes.activity_feed_routes import router as activity_feed_router
 from routes.athlete_saved_workout_routes import router as athlete_saved_workout_router
 from routes.role_profile_routes import router as role_profile_router
+from routes.organization_routes import router as organization_router
 
 app = FastAPI(
     title="AthliTech API",
@@ -62,6 +63,7 @@ app.include_router(athlete_router)
 app.include_router(user_router)
 app.include_router(role_router)
 app.include_router(role_profile_router)
+app.include_router(organization_router)
 
 app.include_router(workout_router)
 app.include_router(performance_router)

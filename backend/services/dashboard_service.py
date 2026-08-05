@@ -4,16 +4,45 @@ from database.mongodb import (
     athletes_collection,
     workouts_collection,
     performance_collection,
+    organizations_collection,
+    memberships_collection,
 )
 from schemas.dashboard_schema import AdminSummaryRead, CoachSummaryRead, AthleteSummaryRead
+from typing import Optional
 
-async def get_admin_summary() -> AdminSummaryRead:
-    total_users = await users_collection.count_documents({})
-    total_coaches = await users_collection.count_documents({"role": "coach"})
-    total_athletes = await users_collection.count_documents({"role": "athlete"})
-    total_roles = await roles_collection.count_documents({})
-    total_workouts = await workouts_collection.count_documents({})
-    total_performances = await performance_collection.count_documents({})
+async def get_admin_summary(user_id: Optional[str] = None) -> AdminSummaryRead:
+    if not user_id:
+        return AdminSummaryRead(
+            total_users=0, total_coaches=0, total_athletes=0, total_roles=0, total_workouts=0, total_performances=0
+        )
+
+    org = await organizations_collection.find_one({"owner_account_id": user_id})
+    if not org:
+        mem = await memberships_collection.find_one({"account_id": user_id, "status": "active"})
+        if mem and mem.get("organization_id"):
+            org = await organizations_collection.find_one({"organization_id": mem["organization_id"]})
+
+    if not org:
+        return AdminSummaryRead(
+            total_users=0, total_coaches=0, total_athletes=0, total_roles=0, total_workouts=0, total_performances=0
+        )
+
+    org_id = org.get("organization_id") or str(org.get("_id"))
+    org_mems = await memberships_collection.find({"organization_id": org_id, "status": "active"}).to_list(1000)
+    member_account_ids = [m["account_id"] for m in org_mems if m.get("account_id")]
+
+    total_users = len(member_account_ids)
+    total_coaches = sum(1 for m in org_mems if m.get("role") in ["coach", "coaches"])
+    total_athletes = sum(1 for m in org_mems if m.get("role") in ["athlete", "athletes"])
+    total_roles = len(set(m.get("role") for m in org_mems if m.get("role")))
+
+    total_workouts = await workouts_collection.count_documents({"organization_id": org_id})
+    if total_workouts == 0 and member_account_ids:
+        total_workouts = await workouts_collection.count_documents({"coach_id": {"$in": member_account_ids}})
+
+    total_performances = await performance_collection.count_documents({"organization_id": org_id})
+    if total_performances == 0 and member_account_ids:
+        total_performances = await performance_collection.count_documents({"athlete_id": {"$in": member_account_ids}})
 
     return AdminSummaryRead(
         total_users=total_users,

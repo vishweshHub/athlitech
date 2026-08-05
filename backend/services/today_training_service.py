@@ -24,14 +24,16 @@ async def get_today_training(
     athlete_id: Optional[str] = None,
     target_date: Optional[str] = None,
 ) -> TodayTrainingResponse:
-    role = normalize_role(current_user.get("role"))
+    active_roles = current_user.get("active_roles", set())
+    user_role = normalize_role(current_user.get("role", "athlete"))
     user_id = str(current_user.get("id"))
+    account_id = str(current_user.get("account_id") or user_id)
 
-    if role == "athlete":
-        if athlete_id and athlete_id != user_id:
+    if "athlete" in active_roles or user_role == "athlete":
+        if athlete_id and athlete_id != user_id and athlete_id != account_id:
             raise HTTPException(status_code=403, detail="Athletes can only view their own training schedule")
         target_athlete_id = user_id
-    elif role == "coach":
+    elif "coach" in active_roles or user_role == "coach":
         if not athlete_id:
             raise HTTPException(status_code=400, detail="Coaches must specify an athlete_id")
         ath_doc = await athlete_repository.find_by_id(athlete_id)

@@ -38,18 +38,26 @@ class UserRepository:
             limit (int): Max records to return.
             role (Optional[str]): Role filter.
             search (Optional[str]): Case-insensitive search string.
+            user_ids (Optional[List[str]]): List of user IDs to filter by.
 
         Returns:
             List[Dict[str, Any]]: List of matching user documents.
         """
         query: Dict[str, Any] = {}
+        if user_ids is not None:
+            oids = [to_object_id(uid) for uid in user_ids if to_object_id(uid)]
+            query["$or"] = [{"_id": {"$in": oids}}, {"id": {"$in": user_ids}}, {"account_id": {"$in": user_ids}}]
         if role:
             query["role"] = role
         if search:
-            query["$or"] = [
+            search_clause = [
                 {"name": {"$regex": search, "$options": "i"}},
                 {"email": {"$regex": search, "$options": "i"}}
             ]
+            if "$or" in query:
+                query = {"$and": [{"$or": query["$or"]}, {"$or": search_clause}]}
+            else:
+                query["$or"] = search_clause
         cursor = self.collection.find(query)
         return await fetch_cursor_list(cursor, skip, limit)
 

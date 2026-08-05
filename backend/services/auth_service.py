@@ -25,6 +25,7 @@ from database.mongodb import (
     role_profiles_collection,
     memberships_collection,
     organizations_collection,
+    athletes_collection,
 )
 from schemas.auth_schema import UserLogin, RegisterRequest
 import uuid
@@ -32,8 +33,12 @@ from datetime import datetime
 
 
 def _validate_role(current_user: dict, allowed_roles: set[str]):
-    current_role = normalize_role(current_user.get("role"))
-    if current_role not in {normalize_role(role) for role in allowed_roles}:
+    allowed_normalized = {normalize_role(role) for role in allowed_roles}
+    user_roles = current_user.get("active_roles")
+    if not user_roles:
+        user_roles = {normalize_role(current_user.get("role", "athlete"))}
+
+    if not (user_roles & allowed_normalized):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     return current_user
@@ -101,6 +106,8 @@ async def register_user(user: RegisterRequest):
             "role_profile_id": rp_id,
             "account_id": user_id,
             "profile_type": role,
+            "status": ACCOUNT_STATUS_ACTIVE,
+            "active": True,
             "created_at": get_utc_now(),
             "updated_at": get_utc_now(),
         }
@@ -120,11 +127,25 @@ async def register_user(user: RegisterRequest):
             "role_profile_id": rp_id,
             "role": role,
             "status": ACCOUNT_STATUS_ACTIVE,
-            "teams": ["Default Team"],
             "created_at": get_utc_now(),
             "updated_at": get_utc_now(),
         }
         await memberships_collection.insert_one(mem_doc)
+
+        if role == ROLE_ATHLETE:
+            ath_doc = {
+                "athlete_id": user_id,
+                "account_id": user_id,
+                "owner_account_id": user_id,
+                "owner_id": user_id,
+                "name": f"{user.first_name} {user.last_name}",
+                "sport": "General Athletics",
+                "weight": 70,
+                "coach_id": None,
+                "created_at": get_utc_now(),
+                "updated_at": get_utc_now(),
+            }
+            await athletes_collection.insert_one(ath_doc)
 
 
     return {
@@ -228,15 +249,47 @@ async def get_current_user(credentials=Depends(bearer_scheme)):
     user_id = str(user["_id"])
     mem = await memberships_collection.find_one({"account_id": user_id})
 
+    role_profiles = await role_profiles_collection.find({"account_id": user_id}).to_list(length=100)
+    rp_types = {
+        rp.get("profile_type") for rp in role_profiles 
+        if rp.get("profile_type") and rp.get("status") != "inactive" and rp.get("active") is not False
+    }
+    inactive_rps = {
+        rp.get("profile_type") for rp in role_profiles 
+        if rp.get("profile_type") and (rp.get("status") == "inactive" or rp.get("active") is False)
+    }
+
+    memberships = await memberships_collection.find({"account_id": user_id}).to_list(length=100)
+    mem_roles = {
+        m.get("role") for m in memberships 
+        if m.get("role") and m.get("status") != "inactive"
+    }
+
+    active_roles = set()
+    for rp in rp_types:
+        active_roles.add(normalize_role(rp))
+    for mr in mem_roles:
+        if mr in ["owner", "admin"]:
+            active_roles.add("admin")
+            active_roles.add("organization")
+        else:
+            active_roles.add(normalize_role(mr))
+
+    legacy_r = normalize_role(user.get("role", "athlete"))
+    if legacy_r not in inactive_rps:
+        active_roles.add(legacy_r)
+
     return {
         "id": user_id,
         "account_id": user_id,
         "name": user["name"],
         "email": user["email"],
         "role": normalize_role(user.get("role", "athlete")),
+        "active_roles": active_roles,
         "profile_completed": user.get("profile_completed", False),
         "membership_id": mem.get("membership_id") if mem else None,
         "organization_id": mem.get("organization_id") if mem else None,
+        "coach_id": user.get("coach_id") or user_id,
     }
 
 

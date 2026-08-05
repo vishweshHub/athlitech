@@ -17,6 +17,7 @@ from services import workout_service
 router = APIRouter(prefix="/workouts", tags=["Workouts"])
 
 
+@router.post("", response_model=Union[WorkoutResponse, dict])
 @router.post("/", response_model=Union[WorkoutResponse, dict])
 async def create_workout(
     payload: Dict[str, Any] = Body(...),

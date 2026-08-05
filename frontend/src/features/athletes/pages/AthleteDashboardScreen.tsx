@@ -160,15 +160,8 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
       } catch (e) {
         const errMessage = e instanceof Error ? e.message.toLowerCase() : '';
         const is404 = errMessage.includes('404') || errMessage.includes('not found') || errMessage.includes('no athlete');
-        if (is404 && user) {
-          athleteData = {
-            athlete_id: athleteId,
-            name: user.name || 'Athlete User',
-            sport: 'Not specified',
-            weight: 'Not specified',
-            coach_id: '',
-          };
-          setAthlete(athleteData);
+        if (is404) {
+          setAthlete(null);
         } else {
           throw e;
         }
@@ -469,10 +462,10 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
               <Card style={styles.section}>
                 <EmptyState
                   icon="person-outline"
-                  title="Profile not found"
-                  description="Your athlete profile could not be loaded."
-                  actionLabel="Retry"
-                  onActionPress={loadDashboardData}
+                  title="Welcome Athlete"
+                  description="Create your athletic profile to unlock training."
+                  actionLabel="Complete Profile"
+                  onActionPress={() => router.push('/complete-profile')}
                 />
               </Card>
             ) : (

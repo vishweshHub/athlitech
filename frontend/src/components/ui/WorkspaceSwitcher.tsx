@@ -56,7 +56,13 @@ export default function WorkspaceSwitcher() {
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <View style={styles.dropdownMenu}>
+        <>
+          <TouchableOpacity
+            style={styles.backdrop}
+            activeOpacity={1}
+            onPress={() => setIsOpen(false)}
+          />
+          <View style={styles.dropdownMenu}>
           <Text style={styles.menuHeader}>ACTIVATED WORKSPACES</Text>
 
           {activeRoles.length > 0 ? (
@@ -95,6 +101,7 @@ export default function WorkspaceSwitcher() {
             <Text style={styles.exploreText}>Explore & Activate Roles</Text>
           </TouchableOpacity>
         </View>
+        </>
       )}
     </View>
   );
@@ -105,6 +112,14 @@ const getStyles = (colors: ReturnType<typeof useThemeColors>) =>
     container: {
       position: 'relative',
       zIndex: 99999,
+    },
+    backdrop: {
+      position: 'fixed' as any,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 99998,
     },
     switcherBtn: {
       flexDirection: 'row',

@@ -49,3 +49,21 @@ async def test_role_activation_and_status():
     status_res_org = await get_role_profile_status(current_user=current_user)
     assert status_res_org["roles"]["organization"]["active"] is True
     assert "organization" in status_res_org["active_roles"]
+
+    # Test POST /role-profiles/deactivate for coach
+    from routes.role_profile_routes import deactivate_role_profile, DeactivateRoleRequest
+    deact_res = await deactivate_role_profile(body=DeactivateRoleRequest(role="coach"), current_user=current_user)
+    assert deact_res["active"] is False
+
+    status_res_deact = await get_role_profile_status(current_user=current_user)
+    assert status_res_deact["roles"]["coach"]["active"] is False
+    assert status_res_deact["roles"]["coach"]["has_existing_profile"] is True
+    assert "coach" not in status_res_deact["active_roles"]
+
+    # Test Reactivation for coach
+    react_res = await activate_role_profile(body=ActivateRoleRequest(role="coach"), current_user=current_user)
+    assert react_res["active"] is True
+
+    status_res_react = await get_role_profile_status(current_user=current_user)
+    assert status_res_react["roles"]["coach"]["active"] is True
+    assert "coach" in status_res_react["active_roles"]

@@ -99,8 +99,13 @@ class WorkoutRepository:
         limit: int = DEFAULT_PAGE_LIMIT,
         status: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Fetches legacy workouts created by a coach."""
-        query: Dict[str, Any] = {"coach_id": coach_id}
+        if isinstance(coach_id, list):
+            if len(coach_id) == 1:
+                query: Dict[str, Any] = {"coach_id": coach_id[0]}
+            else:
+                query = {"coach_id": {"$in": coach_id}}
+        else:
+            query = {"coach_id": coach_id}
         if status:
             query["status"] = status
         cursor = self.collection.find(query)

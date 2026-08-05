@@ -36,8 +36,17 @@ class AthleteRepository:
         return await fetch_cursor_list(cursor)
 
     async def find_by_id(self, athlete_id: str) -> Optional[Dict[str, Any]]:
-        """Finds athlete by athlete_id string."""
-        return await self.collection.find_one({"athlete_id": athlete_id})
+        """Finds athlete by athlete_id, account_id, owner_account_id, or owner_id string."""
+        ath = await self.collection.find_one({"athlete_id": athlete_id})
+        if ath:
+            return ath
+        ath = await self.collection.find_one({"account_id": athlete_id})
+        if ath:
+            return ath
+        ath = await self.collection.find_one({"owner_account_id": athlete_id})
+        if ath:
+            return ath
+        return await self.collection.find_one({"owner_id": athlete_id})
 
     async def update_weight(self, name: str, weight: int):
         """Updates athlete weight field by name."""

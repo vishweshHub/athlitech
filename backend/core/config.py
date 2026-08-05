@@ -7,13 +7,17 @@ from core.constants import (
     DEFAULT_REFRESH_TOKEN_EXPIRE_DAYS,
 )
 
+from pathlib import Path
+
+env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 load_dotenv()
 
 MONGODB_USERNAME = os.getenv("MONGODB_USERNAME")
 MONGODB_PASSWORD = os.getenv("MONGODB_PASSWORD")
 MONGODB_CLUSTER = os.getenv("MONGODB_CLUSTER")
 MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "athlitech")
-JWT_SECRET = os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY")
+JWT_SECRET = os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY") or "athlitech-secret-key"
 SECRET_KEY = JWT_SECRET
 ALGORITHM = os.getenv("ALGORITHM", DEFAULT_JWT_ALGORITHM)
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES)))

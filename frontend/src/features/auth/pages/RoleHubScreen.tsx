@@ -22,6 +22,9 @@ import ThemeToggle from '@/components/ui/ThemeToggle';
 import { RADIUS, useThemeColors } from '@/styles/tokens';
 import RoleCard from '../components/RoleCard';
 
+import SubscriptionManagementModal, { WorkspaceRole } from '@/components/ui/SubscriptionManagementModal';
+import { activateRole } from '@/api/roleHub';
+
 export default function RoleHubScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -31,6 +34,7 @@ export default function RoleHubScreen() {
 
   const { statusData, refreshWorkspaceStatus, setCurrentWorkspace, clearWorkspaceState, isLoading } = useWorkspace();
   const [error, setError] = useState('');
+  const [subModalRole, setSubModalRole] = useState<WorkspaceRole | null>(null);
 
   useEffect(() => {
     refreshWorkspaceStatus().catch((err) => {
@@ -51,6 +55,15 @@ export default function RoleHubScreen() {
     clearWorkspaceState();
     await clearStoredToken();
     router.replace('/' as Href);
+  };
+
+  const handleReactivateRole = async (role: WorkspaceRole) => {
+    try {
+      await activateRole(role);
+      await refreshWorkspaceStatus();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Failed to reactivate ${role} workspace.`);
+    }
   };
 
   const isAthleteActive = statusData?.roles?.athlete?.active ?? false;
@@ -118,31 +131,51 @@ export default function RoleHubScreen() {
           <RoleCard
             type="athlete"
             isActive={isAthleteActive}
+            roleInfo={statusData?.roles?.athlete ?? null}
             isLoading={isLoading}
             onOpenDashboard={() => setCurrentWorkspace('athlete')}
             onExploreRole={() => router.push({ pathname: '/explore-role', params: { role: 'athlete' } } as Href)}
+            onReactivateWorkspace={() => handleReactivateRole('athlete')}
+            onOpenManageSubscription={() => setSubModalRole('athlete')}
           />
 
           {/* Card 2: Coach */}
           <RoleCard
             type="coach"
             isActive={isCoachActive}
+            roleInfo={statusData?.roles?.coach ?? null}
             isLoading={isLoading}
             onOpenDashboard={() => setCurrentWorkspace('coach')}
             onExploreRole={() => router.push({ pathname: '/explore-role', params: { role: 'coach' } } as Href)}
+            onReactivateWorkspace={() => handleReactivateRole('coach')}
+            onOpenManageSubscription={() => setSubModalRole('coach')}
           />
 
           {/* Card 3: Organization */}
           <RoleCard
             type="organization"
             isActive={isOrgActive}
+            roleInfo={statusData?.roles?.organization ?? null}
             isLoading={isLoading}
             onOpenDashboard={() => setCurrentWorkspace('organization')}
             onExploreRole={() => router.push({ pathname: '/explore-role', params: { role: 'organization' } } as Href)}
+            onReactivateWorkspace={() => handleReactivateRole('organization')}
+            onOpenManageSubscription={() => setSubModalRole('organization')}
           />
 
         </View>
       </ScrollView>
+
+      {/* Subscription Management Modal */}
+      {subModalRole ? (
+        <SubscriptionManagementModal
+          visible={Boolean(subModalRole)}
+          role={subModalRole}
+          roleInfo={statusData?.roles?.[subModalRole] ?? null}
+          onClose={() => setSubModalRole(null)}
+          onStatusUpdated={() => refreshWorkspaceStatus()}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
