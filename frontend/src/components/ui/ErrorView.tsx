@@ -1,6 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { RetryButton } from './RetryButton';
+import { RADIUS, useThemeColors } from '@/styles/tokens';
 
 interface ErrorViewProps {
   message?: string;
@@ -13,10 +15,24 @@ export const ErrorView: React.FC<ErrorViewProps> = ({
   onRetry,
   style,
 }) => {
+  const colors = useThemeColors();
+
   return (
-    <View style={[styles.container, style]}>
-      <Text style={styles.title}>Error</Text>
-      <Text style={styles.message}>{message}</Text>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.errorDim,
+          borderColor: 'rgba(239, 68, 68, 0.25)',
+        },
+        style,
+      ]}
+    >
+      <View style={styles.iconBox}>
+        <Ionicons name="alert-circle" size={28} color={colors.error} />
+      </View>
+      <Text style={[styles.title, { color: colors.error }]}>Something went wrong</Text>
+      <Text style={[styles.message, { color: colors.textSub }]}>{message}</Text>
       {onRetry && <RetryButton onRetry={onRetry} />}
     </View>
   );
@@ -25,24 +41,25 @@ export const ErrorView: React.FC<ErrorViewProps> = ({
 const styles = StyleSheet.create({
   container: {
     padding: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: RADIUS.md,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 12,
+    width: '100%',
+  },
+  iconBox: {
+    marginBottom: 8,
   },
   title: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#F87171',
     marginBottom: 4,
   },
   message: {
     fontSize: 14,
-    color: '#CBD5E1',
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
+    lineHeight: 20,
   },
 });

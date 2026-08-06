@@ -1329,42 +1329,44 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                             onActionPress={() => setShowCreatePerfModal(true)}
                           />
                         ) : (
-                          <Table
-                            headers={['Event', 'Value', 'Date', 'Sprint Time', 'Remarks']}
-                            data={athletePerformances}
-                            renderRow={(item: PerformanceRecord) => {
-                              const valStr = item.value !== undefined
-                                ? `${item.value} ${item.unit || ''}`
-                                : `${item.sprint_time || 0}s`;
-                              return (
-                                <React.Fragment key={item.performance_id}>
-                                  <View style={styles.tableCellMain}>
-                                    <Text style={[styles.tableMainText, { color: colors.textPrimary }]}>
-                                      {item.sport_event || '100m Sprint'}
-                                    </Text>
-                                  </View>
-                                  <View style={styles.tableCell}>
-                                    <Badge label={valStr} variant="info" />
-                                  </View>
-                                  <View style={styles.tableCell}>
-                                    <Text style={[styles.tableCellText, { color: colors.textSub }]}>
-                                      {item.recorded_at || item.date || '—'}
-                                    </Text>
-                                  </View>
-                                  <View style={styles.tableCell}>
-                                    <Text style={[styles.tableCellText, { color: colors.textSub }]}>
-                                      {item.sprint_time ? `${item.sprint_time}s` : '—'}
-                                    </Text>
-                                  </View>
-                                  <View style={styles.tableCellMain}>
-                                    <Text style={[styles.tableCellText, { color: colors.textSub }]} numberOfLines={2}>
-                                      {item.feedback || item.coach_remarks || '—'}
-                                    </Text>
-                                  </View>
-                                </React.Fragment>
-                              );
-                            }}
-                          />
+                          <View style={{ maxHeight: 440, overflow: 'scroll' as any }}>
+                            <Table
+                              headers={['Event', 'Value', 'Date', 'Sprint Time', 'Remarks']}
+                              data={athletePerformances}
+                              renderRow={(item: PerformanceRecord) => {
+                                const valStr = item.value !== undefined
+                                  ? `${item.value} ${item.unit || ''}`
+                                  : `${item.sprint_time || 0}s`;
+                                return (
+                                  <React.Fragment key={item.performance_id}>
+                                    <View style={styles.tableCellMain}>
+                                      <Text style={[styles.tableMainText, { color: colors.textPrimary }]}>
+                                        {item.sport_event || '100m Sprint'}
+                                      </Text>
+                                    </View>
+                                    <View style={styles.tableCell}>
+                                      <Badge label={valStr} variant="info" />
+                                    </View>
+                                    <View style={styles.tableCell}>
+                                      <Text style={[styles.tableCellText, { color: colors.textSub }]}>
+                                        {item.recorded_at || item.date || '—'}
+                                      </Text>
+                                    </View>
+                                    <View style={styles.tableCell}>
+                                      <Text style={[styles.tableCellText, { color: colors.textSub }]}>
+                                        {item.sprint_time ? `${item.sprint_time}s` : '—'}
+                                      </Text>
+                                    </View>
+                                    <View style={styles.tableCellMain}>
+                                      <Text style={[styles.tableCellText, { color: colors.textSub }]} numberOfLines={2}>
+                                        {item.feedback || item.coach_remarks || '—'}
+                                      </Text>
+                                    </View>
+                                  </React.Fragment>
+                                );
+                              }}
+                            />
+                          </View>
                         )}
                       </Card>
                     )}

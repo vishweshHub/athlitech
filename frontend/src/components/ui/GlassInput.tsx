@@ -52,14 +52,16 @@ export default function GlassInput({
 
   const isFocusedValue = useSharedValue(0);
 
-  function handleFocus() {
+  function handleFocus(e: any) {
     setIsFocused(true);
     isFocusedValue.value = withTiming(1, { duration: 220 });
+    if (rest.onFocus) rest.onFocus(e);
   }
 
-  function handleBlur() {
+  function handleBlur(e: any) {
     setIsFocused(false);
     isFocusedValue.value = withTiming(0, { duration: 220 });
+    if (rest.onBlur) rest.onBlur(e);
   }
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -70,16 +72,14 @@ export default function GlassInput({
       shadowColor = colors.error;
       shadowOpacity = isFocusedValue.value === 1 ? 0.45 : 0;
     } else {
-      // interpolate doesn't work with string colors in reanimated out of the box unless specified,
-      // but since we are just doing focus on/off, we can just switch the color using withTiming
-      borderColor = isFocusedValue.value === 1 ? colors.emerald : (colors.border || 'rgba(255,255,255,0.1)');
+      borderColor = isFocusedValue.value === 1 ? colors.emerald : (colors.inputBorder || colors.border);
       shadowColor = colors.emerald;
-      shadowOpacity = isFocusedValue.value === 1 ? 0.45 : 0;
+      shadowOpacity = isFocusedValue.value === 1 ? 0.35 : 0;
     }
 
     return {
       borderColor: withTiming(borderColor, { duration: 220 }),
-      backgroundColor: withTiming(colors.inputBg || 'rgba(255,255,255,0.04)', { duration: 400 }),
+      backgroundColor: withTiming(colors.inputBg, { duration: 400 }),
       shadowColor: withTiming(shadowColor, { duration: 220 }),
       shadowOpacity: withTiming(shadowOpacity, { duration: 220 }),
     };
@@ -107,10 +107,10 @@ export default function GlassInput({
           placeholder={placeholder}
           placeholderTextColor={colors.textMuted}
           secureTextEntry={password && !showPassword}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
           selectionColor={colors.emerald}
           {...rest}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
         />
 
         {password && (
@@ -148,14 +148,17 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderRadius: RADIUS.md,
+    height: 52,
     minHeight: 52,
     overflow: 'hidden',
   },
   input: {
     flex: 1,
+    height: '100%',
+    alignSelf: 'stretch',
+    backgroundColor: 'transparent',
     fontSize: 16,
     paddingHorizontal: 16,
     paddingVertical: 0,
@@ -164,8 +167,9 @@ const styles = StyleSheet.create({
     outlineStyle: 'none',
   } as any,
   toggle: {
+    height: '100%',
+    justifyContent: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 14,
   },
   error: {
     fontSize: 13,

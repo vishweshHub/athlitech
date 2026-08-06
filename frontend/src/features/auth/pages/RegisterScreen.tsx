@@ -24,7 +24,7 @@ import SplitText from '@/components/animations/SplitText';
 import GlassInput from '@/components/ui/GlassInput';
 import PressButton from '@/components/ui/PressButton';
 import ThemeToggle from '@/components/ui/ThemeToggle';
-import { RADIUS, useThemeColors } from '@/styles/tokens';
+import { RADIUS, SHADOW, useThemeColors } from '@/styles/tokens';
 
 const LOGIN_ROUTE = '/login' as Href;
 
@@ -276,7 +276,6 @@ export default function RegisterScreen() {
           </Animated.View>
         )}
 
-        {/* Universal Glass Registration Card */}
         <Animated.View
           style={[
             styles.cardBase,
@@ -284,6 +283,21 @@ export default function RegisterScreen() {
           ]}
         >
           <Reanimated.View style={[StyleSheet.absoluteFill, animatedCardStyle, { borderRadius: 20 }]} />
+
+          {/* Glass blur overlay (web) */}
+          {Platform.OS === 'web' &&
+            React.createElement('div', {
+              'aria-hidden': true,
+              style: {
+                position: 'absolute',
+                inset: 0,
+                borderRadius: 20,
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                pointerEvents: 'none',
+                zIndex: 0,
+              },
+            })}
 
           <View style={styles.cardContent}>
             {!isWide && (
@@ -481,10 +495,16 @@ const getStyles = (colors: ReturnType<typeof useThemeColors>) =>
     cardBase: {
       width: '100%',
       maxWidth: 480,
+      borderWidth: 1,
+      borderColor: 'transparent',
       borderRadius: 20,
+      overflow: 'hidden',
+      zIndex: 5,
+      ...SHADOW.card,
     },
     cardContent: {
       padding: 32,
+      zIndex: 2,
     },
     mobileBrandRow: {
       flexDirection: 'row',
@@ -494,11 +514,13 @@ const getStyles = (colors: ReturnType<typeof useThemeColors>) =>
     },
     headingContainer: {
       marginBottom: 8,
+      flexWrap: 'wrap',
     },
     headingText: {
       color: colors.textPrimary,
       fontSize: 28,
       fontWeight: '800',
+      letterSpacing: -0.8,
     },
     subtitle: {
       color: colors.textMuted,
@@ -507,13 +529,14 @@ const getStyles = (colors: ReturnType<typeof useThemeColors>) =>
       marginBottom: 24,
     },
     form: {
-      gap: 16,
+      gap: 0,
     },
     checkboxRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
       marginTop: 4,
+      marginBottom: 16,
     },
     checkbox: {
       width: 20,
@@ -535,15 +558,19 @@ const getStyles = (colors: ReturnType<typeof useThemeColors>) =>
     },
     errorBox: {
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       gap: 8,
       backgroundColor: colors.errorDim,
-      padding: 12,
+      borderColor: 'rgba(239,68,68,0.25)',
+      borderWidth: 1,
       borderRadius: RADIUS.sm,
+      padding: 12,
+      marginBottom: 16,
     },
     errorText: {
       color: colors.error,
       fontSize: 13,
+      lineHeight: 20,
       flex: 1,
     },
     submitBtn: {

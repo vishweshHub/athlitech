@@ -13,18 +13,19 @@ import ThemeTransition from '@/components/animations/ThemeTransition';
 function LayoutContent() {
   const { theme, colors } = useTheme();
 
-  // Dynamically synchronize web root document background with active theme
+  // Dynamically synchronize web root document background and theme attribute with active theme
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const bgColor = colors.bg;
       document.documentElement.style.backgroundColor = bgColor;
       document.body.style.backgroundColor = bgColor;
+      document.documentElement.setAttribute('data-theme', theme);
       const rootEl = document.getElementById('root');
       if (rootEl) {
         rootEl.style.backgroundColor = bgColor;
       }
     }
-  }, [colors.bg]);
+  }, [colors.bg, theme]);
 
   // Create transparent background for React Navigation so ThemeTransition shows through
   const navTheme = theme === 'dark' ? {
@@ -86,12 +87,25 @@ export default function RootLayout() {
           box-sizing: border-box !important;
         }
 
-        /* Override Chrome Autofill Styles for glass theme inputs */
+        /* Default (Light Theme) Autofill Override */
         input:-webkit-autofill,
         input:-webkit-autofill:hover, 
         input:-webkit-autofill:focus, 
         input:-webkit-autofill:active {
-          -webkit-box-shadow: 0 0 0 1000px #0d1727 inset !important;
+          -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+          box-shadow: 0 0 0 1000px #ffffff inset !important;
+          -webkit-text-fill-color: #0f172a !important;
+          caret-color: #10b981 !important;
+          transition: background-color 5000s ease-in-out 0s !important;
+        }
+
+        /* Dark Theme Autofill Override */
+        [data-theme="dark"] input:-webkit-autofill,
+        [data-theme="dark"] input:-webkit-autofill:hover, 
+        [data-theme="dark"] input:-webkit-autofill:focus, 
+        [data-theme="dark"] input:-webkit-autofill:active {
+          -webkit-box-shadow: 0 0 0 1000px #0d1525 inset !important;
+          box-shadow: 0 0 0 1000px #0d1525 inset !important;
           -webkit-text-fill-color: #f2f7ff !important;
           caret-color: #10b981 !important;
           transition: background-color 5000s ease-in-out 0s !important;

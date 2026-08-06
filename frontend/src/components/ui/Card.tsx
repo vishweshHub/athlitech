@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, ViewStyle, TouchableOpacity, StyleProp } from 'react-native';
-import { useThemeColors } from '@/styles/tokens';
+import { RADIUS, useThemeColors } from '@/styles/tokens';
 
 interface CardProps {
   children: React.ReactNode;
@@ -52,7 +52,7 @@ export default Card;
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: 14,
+    borderRadius: RADIUS.lg,
     padding: 16,
     marginVertical: 6,
   },

@@ -4,7 +4,7 @@ from typing import List, Optional
 from datetime import datetime
 
 import uuid
-from core.permissions import normalize_role
+from core.permissions import normalize_role, has_permission
 from core.utils import get_utc_now
 from repositories.workout_repository import workout_repository
 from repositories.coach_repository import coach_repository
@@ -107,8 +107,8 @@ async def get_workout_template_by_id(workout_id: str, current_user: Optional[dic
 
 async def update_workout_template(workout_id: str, update_data: WorkoutUpdate, current_user: dict) -> WorkoutResponse:
     role = normalize_role(current_user.get("role"))
-    if role not in ["admin", "coach"]:
-        raise HTTPException(status_code=403, detail="Athletes do not have permission to update workouts")
+    if not has_permission(role, "edit_workouts"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions to update workouts")
 
     existing_workout = await workout_repository.find_template_by_id(workout_id)
     if not existing_workout:
@@ -137,8 +137,8 @@ async def update_workout_template(workout_id: str, update_data: WorkoutUpdate, c
 
 async def delete_workout_template(workout_id: str, current_user: dict) -> dict:
     role = normalize_role(current_user.get("role"))
-    if role not in ["admin", "coach"]:
-        raise HTTPException(status_code=403, detail="Athletes do not have permission to delete workouts")
+    if not has_permission(role, "edit_workouts"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions to delete workouts")
 
     existing_workout = await workout_repository.find_template_by_id(workout_id)
     if not existing_workout:
