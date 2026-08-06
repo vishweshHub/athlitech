@@ -71,6 +71,7 @@ async def complete_coach_profile(user_id: str, request: CompleteCoachProfileRequ
 
 
 
+ dev
 async def get_user_profile(user_id: str) -> dict:
     try:
         profile = await profile_repository.get_profile_by_user_id(user_id)
@@ -139,6 +140,9 @@ async def get_user_profile(user_id: str) -> dict:
         return profile
     except Exception as e:
         print(f"[get_user_profile] Fallback on error for {user_id}: {e}")
+
+    if not profile:
+ main
         return {
             "user_id": user_id,
             "role": "athlete",
@@ -147,6 +151,11 @@ async def get_user_profile(user_id: str) -> dict:
             "coach_data": None,
             "visibility": {"bio_is_public": False, "stats_is_public": False},
         }
+ dev
+  
+    profile["profile_completed"] = profile_completed
+    return profile
+ main
 
 
 async def get_workout_recommendations(user_id: str) -> list:

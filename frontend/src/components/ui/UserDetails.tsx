@@ -32,7 +32,6 @@ export interface UserDetailsProps {
   } | null;
   workouts?: any[];
   performances?: any[];
-  performanceLogs?: any[];
   
   // Coach-specific data
   athletes?: any[];
@@ -56,7 +55,6 @@ export default function UserDetails({
   coach = null,
   workouts = [],
   performances = [],
-  performanceLogs = [],
   athletes = [],
   systemStats,
   recentActivities = [],
@@ -121,17 +119,6 @@ export default function UserDetails({
   const athleteCompletionRate = athleteTotalWorkouts > 0 
     ? Math.round((athleteCompletedWorkouts / athleteTotalWorkouts) * 100)
     : 0;
-  // Filter and sort self workouts (newest first) from Dataset B (performanceLogs)
-  const selfWorkouts = (performanceLogs || [])
-    .filter((p) => {
-      const src = (p.source_type || '').toUpperCase();
-      return src === 'SELF_WORKOUT' || src === 'SELF';
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.completed_at || a.recorded_at || a.created_at || a.date || 0).getTime();
-      const dateB = new Date(b.completed_at || b.recorded_at || b.created_at || b.date || 0).getTime();
-      return dateB - dateA;
-    });
 
   // Compile coach metrics
   const coachTotalAthletes = athletes.length;
@@ -418,6 +405,7 @@ export default function UserDetails({
                 </Card>
               </Pressable>
 
+ dev
               {/* Self Workout Performance Section */}
               <Pressable
                 onHoverIn={() => setHoveredCard('selfWorkouts')}
@@ -499,7 +487,9 @@ export default function UserDetails({
                 </Card>
               </Pressable>
 
-              {/* Performance Records & Feedback (Coach Performance) */}
+              {/* Performance Records & Feedback (Coach Performance) */
+              {/* Performance & Feedback History */}
+main
               <Pressable
                 onHoverIn={() => setHoveredCard('performance')}
                 onHoverOut={() => setHoveredCard(null)}

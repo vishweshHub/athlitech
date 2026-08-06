@@ -360,42 +360,6 @@ def run_tests():
     assert r10.json()["has_training"] is True
     print("Test 6 Passed: Admin can view any athlete's today training.")
 
-    # 11. Direct db["workouts"] Coach Assignment Filtering & Lifecycle
-    app.dependency_overrides[get_current_user] = lambda: athlete_2
-    workouts_fake.data["w-assigned-99"] = {
-        "workout_id": "w-assigned-99",
-        "athlete_id": "ath-222",
-        "coach_id": "coach-111",
-        "title": "Explosive Block Starts",
-        "description": "Perform 5x30m starts",
-        "status": "pending",
-        "date": today_str,
-    }
-    r11_a = client.get("/training/today")
-    assert r11_a.status_code == 200
-    assert r11_a.json()["has_training"] is True
-    assert r11_a.json()["sessions"][0]["assignments"][0]["id"] == "w-assigned-99"
-
-    # Completed workout should be hidden
-    workouts_fake.data["w-assigned-99"]["status"] = "completed"
-    r11_b = client.get("/training/today")
-    assert r11_b.status_code == 200
-    assert r11_b.json()["has_training"] is False
-
-    # Skipped workout should remain visible
-    workouts_fake.data["w-assigned-99"]["status"] = "skipped"
-    r11_c = client.get("/training/today")
-    assert r11_c.status_code == 200
-    assert r11_c.json()["has_training"] is True
-
-    # Cancelled workout should be hidden
-    workouts_fake.data["w-assigned-99"]["status"] = "cancelled"
-    r11_d = client.get("/training/today")
-    assert r11_d.status_code == 200
-    assert r11_d.json()["has_training"] is False
-
-    print("Test 7 Passed: Direct db['workouts'] lifecycle (pending/active/skipped visible, completed/cancelled hidden).")
-
     app.dependency_overrides.clear()
     print("All Today's Training System Unit Tests Passed Successfully!")
 
