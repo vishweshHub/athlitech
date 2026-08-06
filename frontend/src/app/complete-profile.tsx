@@ -192,8 +192,6 @@ export default function CompleteProfileScreen() {
               userEmail={user.email}
               profile={existingProfile?.athlete_data}
               onEdit={() => setIsEditing(true)}
-              coachName={existingProfile?.coach_name || existingProfile?.athlete_data?.coach_name}
-              coachEmail={existingProfile?.coach_email || existingProfile?.athlete_data?.coach_email}
             />
           )
         ) : (

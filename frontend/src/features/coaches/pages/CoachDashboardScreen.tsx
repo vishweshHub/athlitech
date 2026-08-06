@@ -19,8 +19,8 @@ import {
 import type { Athlete } from '@/api/admin';
 import { fetchCoachAthletes, fetchCoachById } from '@/api/admin';
 import type { AuthUser } from '@/api/auth';
-import type { Workout, Exercise, WorkoutTemplate } from '@/api/workout';
-import { createWorkout, fetchCoachWorkouts, fetchWorkoutTemplates } from '@/api/workout';
+import type { Workout, Exercise } from '@/api/workout';
+import { createWorkout, fetchCoachWorkouts } from '@/api/workout';
 import type { PerformanceRecord } from '@/api/performance';
 import { fetchAthletePerformances, createPerformance } from '@/api/performance';
 import { completeProfile, CoachProfilePayload } from '@/api/profile';
@@ -45,7 +45,7 @@ import {
 import { fetchWorkoutRecommendations, WorkoutRecommendation, fetchMyProfile } from '@/api/profile';
 import CoachProfileSummaryCard from '../components/CoachProfileSummaryCard';
 import WorkoutLibraryScreen from '@/features/workouts/pages/WorkoutLibraryScreen';
-import { useThemeColors, RADIUS } from '@/styles/tokens';
+import { useThemeColors } from '@/styles/tokens';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 
@@ -83,8 +83,6 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
   const [filteredAthletes, setFilteredAthletes] = useState<Athlete[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [workouts, setWorkouts] = useState<Workout[]>([]);
-  const [masterTemplates, setMasterTemplates] = useState<WorkoutTemplate[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actualCoachId, setActualCoachId] = useState<string | null>(null);
@@ -165,17 +163,15 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
 
       setActualCoachId(coachId);
 
-      const [athletesData, workoutsData, myProfileData, templatesData] = await Promise.all([
+      const [athletesData, workoutsData, myProfileData] = await Promise.all([
         fetchCoachAthletes(token, coachId),
         fetchCoachWorkouts(token, coachId),
         fetchMyProfile(token).catch(() => null),
-        fetchWorkoutTemplates(token).catch(() => []),
       ]);
 
       setAthletes(athletesData);
       setFilteredAthletes(athletesData);
       setWorkouts(workoutsData);
-      setMasterTemplates(templatesData);
       if (myProfileData) {
         setCoachProfile(myProfileData);
       }
@@ -796,18 +792,20 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                 {activeTab === 'athletes' && (
                   <Card style={styles.section}>
                     <View
-                      style={{
-                        flexDirection: isLargeScreen ? 'row' : 'column',
-                        justifyContent: 'space-between',
-                        alignItems: isLargeScreen ? 'center' : 'stretch',
-                        gap: 12,
-                        marginBottom: 20,
-                      }}
+                      style={[
+                        styles.sectionHeader,
+                        {
+                          flexDirection: isLargeScreen ? 'row' : 'column',
+                          alignItems: isLargeScreen ? 'center' : 'stretch',
+                          gap: 12,
+                          marginBottom: 20,
+                        },
+                      ]}
                     >
-                      <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontSize: 20, fontWeight: '800' }]}>
+                      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
                         My Athletes ({filteredAthletes.length})
                       </Text>
-                      <View style={{ width: isLargeScreen ? 320 : '100%' }}>
+                      <View style={{ width: isLargeScreen ? 300 : '100%' }}>
                         <SearchBar
                           value={searchQuery}
                           onChangeText={setSearchQuery}
@@ -823,89 +821,50 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                         description={searchQuery ? 'Try a different search term.' : 'Contact your admin to get athletes assigned.'}
                       />
                     ) : (
-                      <StatsGrid gap={16}>
+                      <CollectionGrid gap={16}>
                         {filteredAthletes.map((athlete) => (
-                          <StatsGridItem minWidth={280} key={athlete.athlete_id}>
+                          <CollectionGridItem itemWidth={320} key={athlete.athlete_id}>
                             <Card
-                              style={{
-                                flex: 1,
-                                padding: 16,
-                                justifyContent: 'space-between',
-                                borderColor: colors.border,
-                              }}
+                              style={styles.athleteCard}
                             >
-                              {/* Top Header Row: Avatar aligned with Name & ID block */}
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                                <View
-                                  style={{
-                                    width: 44,
-                                    height: 44,
-                                    borderRadius: 22,
-                                    backgroundColor: colors.infoDim,
-                                    borderColor: 'rgba(14,165,233,0.3)',
-                                    borderWidth: 1,
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                  }}
-                                >
-                                  <Text style={{ fontSize: 16, fontWeight: '800', color: colors.info }}>
+                              <View style={styles.athleteHeader}>
+                                <View style={[styles.athleteAvatar, { backgroundColor: colors.infoDim, borderColor: 'rgba(14,165,233,0.2)' }]}>
+                                  <Text style={[styles.avatarText, { color: colors.info }]}>
                                     {athlete.name?.charAt(0).toUpperCase() || 'A'}
                                   </Text>
                                 </View>
-                                <View style={{ flex: 1, justifyContent: 'center' }}>
-                                  <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary }} numberOfLines={1}>
+                                <View style={styles.athleteInfo}>
+                                  <Text style={[styles.athleteName, { color: colors.textPrimary }]}>
                                     {athlete.name}
                                   </Text>
-                                  <Text style={{ fontSize: 12, color: colors.textMuted, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', marginTop: 2 }}>
+                                  <Text style={[styles.athleteShortId, { color: colors.textMuted }]}>
                                     ID: {athlete.athlete_id.slice(-8)}
+                                  </Text>
+                                  <Text style={[styles.athleteEmail, { color: colors.textSub }]}>
+                                    {athlete.sport || 'No sport specified'}
                                   </Text>
                                 </View>
                               </View>
-
-                              {/* Middle Info Row: Sport Badge & Weight */}
-                              <View
-                                style={{
-                                  flexDirection: 'row',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  paddingVertical: 8,
-                                  borderTopWidth: 1,
-                                  borderBottomWidth: 1,
-                                  borderColor: colors.borderSubtle,
-                                  marginVertical: 4,
-                                }}
-                              >
-                                <Badge label={athlete.sport || 'General Athletics'} variant="info" />
-                                <Text style={{ fontSize: 12, fontWeight: '500', color: colors.textSub }}>
-                                  Weight: {athlete.weight ? `${athlete.weight} kg` : '—'}
-                                </Text>
-                              </View>
-
-                              {/* Bottom Pinned Button Action Row */}
-                              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                                <Button
-                                  label="Assign Workout"
-                                  onPress={() => {
-                                    setNewWorkoutAthleteId(athlete.athlete_id);
-                                    setShowCreateWorkoutModal(true);
-                                  }}
-                                  variant="primary"
-                                  size="sm"
-                                  style={{ flex: 1, height: 38, justifyContent: 'center' }}
-                                  prefix={<Ionicons name="fitness-outline" size={15} color="#fff" />}
-                                />
+                              <View style={[styles.athleteFooter, { borderTopColor: colors.borderSubtle }]}>
+                                <View style={{ gap: 4 }}>
+                                  <Badge label="Athlete" variant="info" />
+                                  {athlete.weight ? (
+                                    <Text style={[{ fontSize: 12, color: colors.textSub, marginTop: 4 }]}>
+                                      Weight: {athlete.weight} kg
+                                    </Text>
+                                  ) : null}
+                                </View>
                                 <Button
                                   label="View Profile"
                                   onPress={() => router.push(`/athlete-details?athleteId=${athlete.athlete_id}`)}
                                   variant="secondary"
                                   size="sm"
-                                  style={{ flex: 1, height: 38, justifyContent: 'center' }}
                                 />
                               </View>
                             </Card>
-                          </StatsGridItem>
+                          </CollectionGridItem>
                         ))}
-                      </StatsGrid>
+                      </CollectionGrid>
                     )}
                   </Card>
                 )}
@@ -1093,7 +1052,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                   <>
                     {/* Athlete selector */}
                     <Card style={styles.section}>
-                      <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 16 }]}>
+                      <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 16 }]}>
                         Select Athlete to Review
                       </Text>
                       {athletes.length === 0 ? (
@@ -1103,53 +1062,45 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                           description="You need athletes assigned before you can track performance."
                         />
                       ) : (
-                        <StatsGrid gap={16}>
+                        <CollectionGrid gap={16}>
                           {athletes.map((athlete) => {
                             const isSelected = selectedAthleteForPerf?.athlete_id === athlete.athlete_id;
                             return (
-                              <StatsGridItem minWidth={260} key={athlete.athlete_id}>
+                              <CollectionGridItem itemWidth={300} key={athlete.athlete_id}>
                                 <Pressable
                                   onPress={() => {
                                     setSelectedAthleteForPerf(athlete);
                                     setShowCreatePerfModal(false);
                                   }}
-                                  style={({ pressed }) => [
+                                  style={[
+                                    styles.athleteSelectorCard,
                                     {
-                                      flex: 1,
-                                      minHeight: 64,
-                                      padding: 12,
-                                      borderRadius: RADIUS.md,
                                       backgroundColor: isSelected ? colors.emeraldDim : colors.bgCard,
                                       borderColor: isSelected ? colors.emerald : colors.border,
-                                      borderWidth: isSelected ? 2 : 1,
-                                      opacity: pressed ? 0.8 : 1,
-                                      flexDirection: 'row',
-                                      alignItems: 'center',
-                                      gap: 12,
                                     },
                                   ]}
                                 >
-                                  <View style={[styles.athleteAvatar, { width: 40, height: 40, borderRadius: 20, backgroundColor: isSelected ? colors.emerald : colors.infoDim, borderColor: isSelected ? colors.emerald : 'rgba(14,165,233,0.3)', borderWidth: 1, alignItems: 'center', justifyContent: 'center' }]}>
-                                    <Text style={[styles.avatarText, { fontSize: 15, fontWeight: '800', color: isSelected ? '#fff' : colors.info }]}>
+                                  <View style={[styles.athleteAvatar, { backgroundColor: isSelected ? colors.emerald : colors.infoDim, borderColor: isSelected ? colors.emerald : 'rgba(14,165,233,0.2)' }]}>
+                                    <Text style={[styles.avatarText, { color: isSelected ? '#fff' : colors.info }]}>
                                       {athlete.name?.charAt(0).toUpperCase() || 'A'}
                                     </Text>
                                   </View>
-                                  <View style={{ flex: 1, justifyContent: 'center' }}>
-                                    <Text style={[styles.athleteName, { fontSize: 14, fontWeight: '700', color: colors.textPrimary }]} numberOfLines={1}>
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={[styles.athleteName, { color: colors.textPrimary }]}>
                                       {athlete.name}
                                     </Text>
-                                    <Text style={[styles.athleteEmail, { fontSize: 12, color: colors.textSub, marginTop: 2 }]} numberOfLines={1}>
-                                      {athlete.sport || 'General Athletics'}
+                                    <Text style={[styles.athleteEmail, { color: colors.textSub }]}>
+                                      {athlete.sport || 'General'}
                                     </Text>
                                   </View>
                                   {isSelected && (
-                                    <Ionicons name="checkmark-circle" size={22} color={colors.emerald} />
+                                    <Ionicons name="checkmark-circle" size={20} color={colors.emerald} />
                                   )}
                                 </Pressable>
-                              </StatsGridItem>
+                              </CollectionGridItem>
                             );
                           })}
-                        </StatsGrid>
+                        </CollectionGrid>
                       )}
                     </Card>
 
@@ -1342,59 +1293,12 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
               )}
 
               <View style={styles.formFields}>
-                {/* Master Workout Template Selector */}
-                {masterTemplates.length > 0 && (
-                  <View style={{ gap: 8, marginBottom: 8 }}>
-                    <Text style={[{ fontSize: 13, fontWeight: '700', color: colors.textPrimary }]}>
-                      Select Master Workout Template (Optional)
-                    </Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-                      {masterTemplates.map((tmpl) => {
-                        const isSelected = selectedTemplateId === tmpl.id;
-                        return (
-                          <Pressable
-                            key={tmpl.id}
-                            onPress={() => {
-                              setSelectedTemplateId(tmpl.id);
-                              setNewWorkoutTitle(tmpl.title);
-                              setNewWorkoutDescription(tmpl.instructions || tmpl.description || '');
-                              setNewWorkoutExercises([
-                                { name: `${tmpl.title} - Main Focus`, sets: 4, reps: 10, duration: `${tmpl.duration_minutes}m` },
-                                { name: 'Warmup & Mobility Drills', sets: 3, reps: 12, duration: '10m' },
-                              ]);
-                            }}
-                            style={{
-                              backgroundColor: isSelected ? colors.emeraldDim : colors.bgMid,
-                              borderColor: isSelected ? colors.emerald : colors.border,
-                              paddingHorizontal: 12,
-                              paddingVertical: 8,
-                              borderRadius: RADIUS.md,
-                              borderWidth: 1,
-                            }}
-                          >
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <Ionicons name="book-outline" size={14} color={isSelected ? colors.emerald : colors.textSub} />
-                              <Text style={{ fontSize: 13, fontWeight: isSelected ? '700' : '500', color: isSelected ? colors.emerald : colors.textPrimary }}>
-                                {tmpl.title}
-                              </Text>
-                              <Badge label={tmpl.sport} variant="neutral" />
-                            </View>
-                          </Pressable>
-                        );
-                      })}
-                    </ScrollView>
-                  </View>
-                )}
-
                 <TextInput
                   style={[styles.formInput, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
                   placeholder="Workout Title *"
                   placeholderTextColor={colors.textMuted}
                   value={newWorkoutTitle}
-                  onChangeText={(t) => {
-                    setNewWorkoutTitle(t);
-                    setSelectedTemplateId(null);
-                  }}
+                  onChangeText={setNewWorkoutTitle}
                 />
                 <TextInput
                   style={[styles.formInput, styles.formTextArea, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}

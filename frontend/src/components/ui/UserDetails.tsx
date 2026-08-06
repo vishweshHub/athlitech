@@ -32,7 +32,6 @@ export interface UserDetailsProps {
   } | null;
   workouts?: any[];
   performances?: any[];
-  performanceLogs?: any[];
   
   // Coach-specific data
   athletes?: any[];
@@ -56,7 +55,6 @@ export default function UserDetails({
   coach = null,
   workouts = [],
   performances = [],
-  performanceLogs = [],
   athletes = [],
   systemStats,
   recentActivities = [],
@@ -121,17 +119,6 @@ export default function UserDetails({
   const athleteCompletionRate = athleteTotalWorkouts > 0 
     ? Math.round((athleteCompletedWorkouts / athleteTotalWorkouts) * 100)
     : 0;
-  // Filter and sort self workouts (newest first) from Dataset B (performanceLogs)
-  const selfWorkouts = (performanceLogs || [])
-    .filter((p) => {
-      const src = (p.source_type || '').toUpperCase();
-      return src === 'SELF_WORKOUT' || src === 'SELF';
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.completed_at || a.recorded_at || a.created_at || a.date || 0).getTime();
-      const dateB = new Date(b.completed_at || b.recorded_at || b.created_at || b.date || 0).getTime();
-      return dateB - dateA;
-    });
 
   // Compile coach metrics
   const coachTotalAthletes = athletes.length;
@@ -425,86 +412,7 @@ export default function UserDetails({
                 </Card>
               </Pressable>
 
-              {/* Self Workout Performance Section */}
-              <Pressable
-                onHoverIn={() => setHoveredCard('selfWorkouts')}
-                onHoverOut={() => setHoveredCard(null)}
-                style={{ width: '100%', marginBottom: 24 }}
-              >
-                <Card style={hoveredCard === 'selfWorkouts' && { borderColor: colors.emerald }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Self Workout Performance</Text>
-                    <Badge label={`${selfWorkouts.length} Sessions`} variant="info" />
-                  </View>
-
-                  {selfWorkouts.length === 0 ? (
-                    <EmptyState
-                      title="No independent workouts completed yet."
-                      description="This athlete has not logged any self-directed training sessions yet."
-                      icon="fitness-outline"
-                    />
-                  ) : (
-                    <Table
-                      headers={['Workout Name', 'Completion Date', 'Duration', 'RPE & Rating', 'Notes']}
-                      data={selfWorkouts}
-                      renderRow={(perf) => {
-                        const wName = perf.workout_name || perf.workout_title || perf.activity_label || 'Self Workout';
-                        const dateStr = perf.completed_at || perf.recorded_at || perf.created_at || perf.date || '—';
-                        const durationStr = perf.duration_minutes !== undefined && perf.duration_minutes !== null
-                          ? `${perf.duration_minutes}m` 
-                          : perf.duration 
-                          ? String(perf.duration) 
-                          : '—';
-                        
-                        const perceivedEffort = perf.perceived_effort !== undefined ? perf.perceived_effort : perf.rpe;
-                        const rpeStr = perceivedEffort !== undefined && perceivedEffort !== null
-                          ? `RPE: ${perceivedEffort}/10` 
-                          : 'RPE: —';
-
-                        const completionRating = perf.completion_rating !== undefined ? perf.completion_rating : perf.rating;
-                        const ratingStr = completionRating !== undefined && completionRating !== null
-                          ? `Rating: ${completionRating}/5 ⭐` 
-                          : 'Rating: —';
-
-                        const notesStr = perf.notes || perf.athlete_notes || '—';
-
-                        return (
-                          <React.Fragment key={perf.id || perf.performance_id || Math.random().toString()}>
-                            <View style={styles.cellWide}>
-                              <Text style={[styles.tableMainText, { color: colors.textPrimary }]}>
-                                {wName}
-                              </Text>
-                            </View>
-                            <View style={styles.cellDate}>
-                              <Text style={[styles.tableSubText, { color: colors.textMuted }]}>
-                                {dateStr}
-                              </Text>
-                            </View>
-                            <View style={styles.cellBadge}>
-                              <Badge label={durationStr} variant="neutral" />
-                            </View>
-                            <View style={styles.cellBadge}>
-                              <Text style={[{ fontSize: 12, fontWeight: '600', color: colors.emerald }]}>
-                                {rpeStr}
-                              </Text>
-                              <Text style={[{ fontSize: 11, color: colors.textSub, marginTop: 2 }]}>
-                                {ratingStr}
-                              </Text>
-                            </View>
-                            <View style={styles.cellFeedback}>
-                              <Text style={[styles.feedbackText, { color: colors.textSub }]} numberOfLines={2}>
-                                {notesStr}
-                              </Text>
-                            </View>
-                          </React.Fragment>
-                        );
-                      }}
-                    />
-                  )}
-                </Card>
-              </Pressable>
-
-              {/* Performance Records & Feedback (Coach Performance) */}
+              {/* Performance & Feedback History */}
               <Pressable
                 onHoverIn={() => setHoveredCard('performance')}
                 onHoverOut={() => setHoveredCard(null)}
