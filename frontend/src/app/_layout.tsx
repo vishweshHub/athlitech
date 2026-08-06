@@ -43,7 +43,8 @@ function LayoutContent() {
           headerShown: false, 
           contentStyle: { backgroundColor: 'transparent' } 
         }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="landing" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="register" options={{ headerShown: false }} />
           <Stack.Screen name="role-hub" options={{ headerShown: false }} />
@@ -58,7 +59,6 @@ function LayoutContent() {
           <Stack.Screen name="workout-library" options={{ headerShown: false }} />
           <Stack.Screen name="coach-details" options={{ title: 'Coach Details' }} />
           <Stack.Screen name="athlete-details" options={{ title: 'Athlete Details' }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           <Stack.Screen name="showcase" options={{ title: 'Component Showcase', headerShown: false }} />
         </Stack>
       </ThemeTransition>

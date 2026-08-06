@@ -112,15 +112,21 @@ export const RADIUS = {
 
 export const BORDER_RADIUS = RADIUS;
 
+import { Platform } from 'react-native';
+
 export const SHADOW = {
-  emerald: {
+  emerald: Platform.OS === 'web' ? ({
+    boxShadow: '0px 8px 20px rgba(16, 185, 129, 0.4)',
+  } as any) : {
     shadowColor: '#10b981',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 20,
     elevation: 10,
   },
-  card: {
+  card: Platform.OS === 'web' ? ({
+    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.3)',
+  } as any) : {
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,

@@ -140,7 +140,7 @@ export default function CoachDetailsScreen({ user: propUser, token: propToken, o
       propOnSignOut();
     } else {
       await clearStoredToken();
-      router.replace('/');
+      router.replace('/login');
     }
   };
 

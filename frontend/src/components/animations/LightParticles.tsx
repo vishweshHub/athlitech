@@ -74,7 +74,7 @@ export default function LightParticles() {
   }, []);
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' as any }]}>
       {particles.map((particle) => (
         <Particle key={particle.id} initialTop={particle.top} initialLeft={particle.left} size={particle.size} delay={particle.delay} />
       ))}

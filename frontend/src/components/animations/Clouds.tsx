@@ -62,7 +62,7 @@ export default function Clouds() {
   }, []);
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' as any }]}>
       {clouds.map((cloud) => (
         <Cloud key={cloud.id} {...cloud} />
       ))}

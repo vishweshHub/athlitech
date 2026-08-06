@@ -101,7 +101,7 @@ export default function RoleHubScreen() {
         {/* Banner Section */}
         <View style={styles.bannerContainer}>
           <SplitText
-            text="Welcome to AthliTech Workspace"
+            text="AthliTech Workspace Center"
             textStyle={styles.headingText}
             containerStyle={styles.headingContainer}
             initialDelay={100}
@@ -109,7 +109,7 @@ export default function RoleHubScreen() {
             duration={400}
           />
           <Text style={styles.subheading}>
-            Select your active platform role or explore new capabilities to activate your specialized workspace.
+            Manage, activate, and switch between your specialized athletic, coaching, and organizational environments from one central control panel.
           </Text>
         </View>
 
@@ -124,10 +124,10 @@ export default function RoleHubScreen() {
           </View>
         ) : null}
 
-        {/* Role Cards Grid */}
-        <View style={[styles.grid, isWide ? styles.gridWide : styles.gridNarrow]}>
+        {/* Full-Width Workspace Sections */}
+        <View style={styles.grid}>
           
-          {/* Card 1: Athlete */}
+          {/* Section 1: Athlete Workspace */}
           <RoleCard
             type="athlete"
             isActive={isAthleteActive}
@@ -139,7 +139,7 @@ export default function RoleHubScreen() {
             onOpenManageSubscription={() => setSubModalRole('athlete')}
           />
 
-          {/* Card 2: Coach */}
+          {/* Section 2: Coach Platform */}
           <RoleCard
             type="coach"
             isActive={isCoachActive}
@@ -151,7 +151,7 @@ export default function RoleHubScreen() {
             onOpenManageSubscription={() => setSubModalRole('coach')}
           />
 
-          {/* Card 3: Organization */}
+          {/* Section 3: Organization Hub */}
           <RoleCard
             type="organization"
             isActive={isOrgActive}

@@ -32,6 +32,7 @@ export type WorkoutTemplate = {
   duration_minutes: number;
   equipment: string[];
   instructions?: string;
+  exercises?: Exercise[];
   created_by: string;
   created_by_role: string;
   is_public: boolean;

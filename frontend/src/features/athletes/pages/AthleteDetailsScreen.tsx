@@ -18,7 +18,7 @@ import { getStoredToken, fetchCurrentUser, clearStoredToken } from '@/api/auth';
 import type { Workout } from '@/api/workout';
 import { fetchAthleteWorkouts } from '@/api/workout';
 import type { PerformanceRecord } from '@/api/performance';
-import { fetchAthletePerformances } from '@/api/performance';
+import { fetchAthletePerformances, fetchAthletePerformanceLogs } from '@/api/performance';
 import { Ionicons } from '@expo/vector-icons';
 import { UserDetails, ScreenContainer } from '@/components/ui';
 import { useThemeColors } from '@/styles/tokens';
@@ -45,6 +45,7 @@ export default function AthleteDetailsScreen({ user: propUser, token: propToken,
   const [isCoachLoading, setIsCoachLoading] = useState(false);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [performances, setPerformances] = useState<PerformanceRecord[]>([]);
+  const [performanceLogs, setPerformanceLogs] = useState<any[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,17 +119,26 @@ export default function AthleteDetailsScreen({ user: propUser, token: propToken,
           return [];
         });
 
-        const [userData, coachData, workoutsData, performancesData] = await Promise.all([
+        const [userData, workoutsData, performancesData, performanceLogsData] = await Promise.all([
           userPromise,
-          coachPromise,
           workoutsPromise,
           performancesPromise,
+          fetchAthletePerformanceLogs(token as string, athleteId).catch(() => []),
         ]);
+
+        const targetCoachId = athleteData?.coach_id || userData?.coach_id;
+        const coachData = targetCoachId
+          ? await fetchCoachById(token as string, targetCoachId).catch((err) => {
+              console.warn('Failed to fetch coach details:', err);
+              return null;
+            })
+          : null;
 
         setAthleteUser(userData);
         setCoach(coachData);
         setWorkouts(workoutsData);
         setPerformances(performancesData);
+        setPerformanceLogs(performanceLogsData);
         setIsCoachLoading(false);
         setIsHistoryLoading(false);
       } catch (e) {
@@ -148,7 +158,7 @@ export default function AthleteDetailsScreen({ user: propUser, token: propToken,
       propOnSignOut();
     } else {
       await clearStoredToken();
-      router.replace('/');
+      router.replace('/login');
     }
   };
 
@@ -204,6 +214,7 @@ export default function AthleteDetailsScreen({ user: propUser, token: propToken,
         coach={coach}
         workouts={workouts}
         performances={performances}
+        performanceLogs={performanceLogs}
         onBack={() => router.back()}
       />
     </ScreenContainer>

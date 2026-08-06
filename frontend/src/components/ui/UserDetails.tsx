@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import Card from './Card';
+import { RADIUS, useThemeColors } from '@/styles/tokens';
 import Badge from './Badge';
+import Card from './Card';
+import EmptyState from './EmptyState';
+import { ResponsiveGrid, ResponsiveGridItem } from './ResponsiveGrid';
 import StatCard from './StatCard';
 import Table from './Table';
-import EmptyState from './EmptyState';
-import { StatsGrid, StatsGridItem, ResponsiveGrid, ResponsiveGridItem } from './ResponsiveGrid';
-import { useThemeColors, RADIUS } from '@/styles/tokens';
 
 export interface UserDetailsProps {
   profile: {
@@ -32,6 +32,7 @@ export interface UserDetailsProps {
   } | null;
   workouts?: any[];
   performances?: any[];
+  performanceLogs?: any[];
   
   // Coach-specific data
   athletes?: any[];
@@ -55,6 +56,7 @@ export default function UserDetails({
   coach = null,
   workouts = [],
   performances = [],
+  performanceLogs = [],
   athletes = [],
   systemStats,
   recentActivities = [],
@@ -67,7 +69,7 @@ export default function UserDetails({
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   const role = profile?.role?.toLowerCase() || 'athlete';
-  
+
   const handleBack = () => {
     if (onBack) {
       onBack();
@@ -119,6 +121,18 @@ export default function UserDetails({
   const athleteCompletionRate = athleteTotalWorkouts > 0 
     ? Math.round((athleteCompletedWorkouts / athleteTotalWorkouts) * 100)
     : 0;
+
+  // Filter and sort self workouts (newest first) from Dataset B (performanceLogs)
+  const selfWorkouts = (performanceLogs || [])
+    .filter((p: any) => {
+      const src = (p.source_type || '').toUpperCase();
+      return src === 'SELF_WORKOUT' || src === 'SELF';
+    })
+    .sort((a: any, b: any) => {
+      const dateA = new Date(a.completed_at || a.recorded_at || a.created_at || a.date || 0).getTime();
+      const dateB = new Date(b.completed_at || b.recorded_at || b.created_at || b.date || 0).getTime();
+      return dateB - dateA;
+    });
 
   // Compile coach metrics
   const coachTotalAthletes = athletes.length;
@@ -405,7 +419,6 @@ export default function UserDetails({
                 </Card>
               </Pressable>
 
- dev
               {/* Self Workout Performance Section */}
               <Pressable
                 onHoverIn={() => setHoveredCard('selfWorkouts')}
@@ -487,9 +500,9 @@ export default function UserDetails({
                 </Card>
               </Pressable>
 
-              {/* Performance Records & Feedback (Coach Performance) */
+              {/* Performance Records & Feedback (Coach Performance) */}
               {/* Performance & Feedback History */}
-main
+
               <Pressable
                 onHoverIn={() => setHoveredCard('performance')}
                 onHoverOut={() => setHoveredCard(null)}

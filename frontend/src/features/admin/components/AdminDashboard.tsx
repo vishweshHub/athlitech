@@ -48,6 +48,7 @@ import {
   StatsGridItem,
   CollectionGrid,
   CollectionGridItem,
+  EmptyState,
 } from '@/components/ui';
 import WorkspaceSwitcher from '@/components/ui/WorkspaceSwitcher';
 import { useThemeColors } from '@/styles/tokens';
