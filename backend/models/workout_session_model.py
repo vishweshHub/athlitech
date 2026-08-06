@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field
+from core.utils import get_utc_now
 
 
 class WorkoutSession(BaseModel):
@@ -18,5 +19,6 @@ class WorkoutSession(BaseModel):
     total_duration_seconds: int = 0
     completion_percentage: float = 0.0
     session_notes: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=get_utc_now)
+    updated_at: datetime = Field(default_factory=get_utc_now)
+

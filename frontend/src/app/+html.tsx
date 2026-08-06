@@ -13,7 +13,7 @@ export default function Root({ children }: { children: React.ReactNode }) {
         {/* Expo ScrollView Style Reset */}
         <ScrollViewStyleReset />
 
-        {/* Global HTML Root CSS Reset & Background Configuration */}
+        {/* Global HTML Root CSS Reset */}
         <style dangerouslySetInnerHTML={{ __html: `
           html, body, #root, #root > div, [data-contents="true"] {
             margin: 0 !important;
@@ -22,7 +22,12 @@ export default function Root({ children }: { children: React.ReactNode }) {
             height: 100% !important;
             min-height: 100vh !important;
             box-sizing: border-box !important;
-            background-color: #02050a;
+          }
+
+          /* Input reset for web browser rendering */
+          input, textarea, select {
+            outline: none !important;
+            -webkit-tap-highlight-color: transparent !important;
           }
         ` }} />
       </head>

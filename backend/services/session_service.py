@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import List
 from fastapi import HTTPException
 
+from core.utils import get_utc_now
 from repositories.session_repository import session_repository
 from repositories.training_plan_repository import training_plan_repository
 from services.training_plan_service import _verify_plan_access
@@ -22,8 +23,8 @@ def _format_session_response(s: dict) -> SessionResponse:
         order=int(s.get("order", 1)),
         start_time=s.get("start_time"),
         end_time=s.get("end_time"),
-        created_at=s.get("created_at") if isinstance(s.get("created_at"), datetime) else datetime.utcnow(),
-        updated_at=s.get("updated_at") if isinstance(s.get("updated_at"), datetime) else datetime.utcnow(),
+        created_at=s.get("created_at") if isinstance(s.get("created_at"), datetime) else get_utc_now(),
+        updated_at=s.get("updated_at") if isinstance(s.get("updated_at"), datetime) else get_utc_now(),
     )
 
 
@@ -57,8 +58,8 @@ async def create_session(payload: SessionCreate, current_user: dict) -> SessionR
         "order": payload.order,
         "start_time": payload.start_time,
         "end_time": payload.end_time,
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
+        "created_at": get_utc_now(),
+        "updated_at": get_utc_now(),
     }
 
     created = await session_repository.create_session(session_doc)
@@ -100,7 +101,7 @@ async def update_session(session_id: str, payload: SessionUpdate, current_user: 
                 detail=f"Session with order {changes['order']} already exists for this Training Day"
             )
 
-    changes["updated_at"] = datetime.utcnow()
+    changes["updated_at"] = get_utc_now()
     updated = await session_repository.update_session(session_id, changes)
     return _format_session_response(updated)
 

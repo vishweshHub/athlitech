@@ -4,7 +4,8 @@ from typing import List, Optional
 from datetime import datetime
 
 import uuid
-from core.permissions import normalize_role
+from core.permissions import normalize_role, has_permission
+from core.utils import get_utc_now
 from repositories.workout_repository import workout_repository
 from repositories.coach_repository import coach_repository
 from repositories.athlete_repository import athlete_repository
@@ -28,19 +29,20 @@ def _format_workout_response(w: dict) -> WorkoutResponse:
     workout_id = w.get("id") or w.get("workout_id") or str(w.get("_id", ""))
     return WorkoutResponse(
         id=str(workout_id),
+        workout_id=str(workout_id),
         title=w.get("title", ""),
         description=w.get("description"),
         sport=w.get("sport", "General"),
         category=w.get("category", "General"),
         difficulty=w.get("difficulty", "Beginner"),
-        duration_minutes=w.get("duration_minutes", 30),
+        duration_minutes=int(w.get("duration_minutes") or 0),
         equipment=w.get("equipment") or [],
         instructions=w.get("instructions"),
-        created_by=str(w.get("created_by") or w.get("coach_id", "")),
-        created_by_role=str(w.get("created_by_role", "coach")),
-        is_public=w.get("is_public", True),
-        created_at=w.get("created_at") if isinstance(w.get("created_at"), datetime) else datetime.utcnow(),
-        updated_at=w.get("updated_at") if isinstance(w.get("updated_at"), datetime) else datetime.utcnow(),
+        created_by=w.get("created_by") or "system",
+        created_by_role=w.get("created_by_role") or "admin",
+        is_public=bool(w.get("is_public", True)),
+        created_at=w.get("created_at") if isinstance(w.get("created_at"), datetime) else get_utc_now(),
+        updated_at=w.get("updated_at") if isinstance(w.get("updated_at"), datetime) else get_utc_now(),
     )
 
 
@@ -48,9 +50,11 @@ def _format_workout_response(w: dict) -> WorkoutResponse:
 
 async def create_workout_template(workout_data: WorkoutCreate, current_user: dict) -> WorkoutResponse:
     role = normalize_role(current_user.get("role"))
-    if role not in ["admin", "coach"]:
-        raise HTTPException(status_code=403, detail="Athletes do not have permission to create workouts")
-
+    if role not in {"admin", "coach"}:
+        raise HTTPException(
+            status_code=403,
+            detail="Only coaches or admins can create workout templates"
+        )
 
     new_workout = Workout(
         title=workout_data.title,
@@ -64,11 +68,12 @@ async def create_workout_template(workout_data: WorkoutCreate, current_user: dic
         created_by=current_user.get("id"),
         created_by_role=role,
         is_public=workout_data.is_public,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=get_utc_now(),
+        updated_at=get_utc_now(),
     )
 
-    created_doc = await workout_repository.create_template(new_workout.dict())
+
+    created_doc = await workout_repository.create_template(new_workout.model_dump())
     return _format_workout_response(created_doc)
 
 
@@ -102,8 +107,8 @@ async def get_workout_template_by_id(workout_id: str, current_user: Optional[dic
 
 async def update_workout_template(workout_id: str, update_data: WorkoutUpdate, current_user: dict) -> WorkoutResponse:
     role = normalize_role(current_user.get("role"))
-    if role not in ["admin", "coach"]:
-        raise HTTPException(status_code=403, detail="Athletes do not have permission to update workouts")
+    if not has_permission(role, "edit_workouts"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions to update workouts")
 
     existing_workout = await workout_repository.find_template_by_id(workout_id)
     if not existing_workout:
@@ -121,7 +126,7 @@ async def update_workout_template(workout_id: str, update_data: WorkoutUpdate, c
     if "difficulty" in changes and changes["difficulty"] is not None:
         changes["difficulty"] = changes["difficulty"].value
 
-    changes["updated_at"] = datetime.utcnow()
+    changes["updated_at"] = get_utc_now()
 
     updated_doc = await workout_repository.update_template(workout_id, changes)
     if not updated_doc:
@@ -132,8 +137,8 @@ async def update_workout_template(workout_id: str, update_data: WorkoutUpdate, c
 
 async def delete_workout_template(workout_id: str, current_user: dict) -> dict:
     role = normalize_role(current_user.get("role"))
-    if role not in ["admin", "coach"]:
-        raise HTTPException(status_code=403, detail="Athletes do not have permission to delete workouts")
+    if not has_permission(role, "edit_workouts"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions to delete workouts")
 
     existing_workout = await workout_repository.find_template_by_id(workout_id)
     if not existing_workout:
@@ -154,54 +159,67 @@ async def delete_workout_template(workout_id: str, current_user: dict) -> dict:
 # Legacy Service Functions (for backward compatibility)
 
 async def create_workout(workout_data: WorkoutCreateLegacy, current_user: dict):
-    if current_user.get("role") != "coach":
-        raise HTTPException(status_code=403, detail="Only coaches can create workouts")
+    active_roles = current_user.get("active_roles", set())
+    is_coach = "coach" in active_roles or current_user.get("role") in ["coach", "admin"]
+    if not is_coach:
+        raise HTTPException(status_code=403, detail="Only coaches or admins can assign workouts")
 
-    if not ObjectId.is_valid(current_user.get("id")):
-        raise HTTPException(status_code=400, detail="Invalid user ID format")
+    user_id = current_user.get("id")
+    coach_id = user_id
 
-    coach = await coach_repository.find_by_id(current_user.get("id"))
-    if not coach:
-        raise HTTPException(status_code=404, detail="Coach not found")
+    from database.mongodb import users_collection
+    user_doc = await users_collection.find_one({"email": current_user.get("email")})
+    if user_doc:
+        coach_id = user_doc.get("coach_id") or str(user_doc["_id"])
 
-    coach_id = coach.get("coach_id") or str(coach["_id"])
+    if "admin" not in active_roles and current_user.get("role") != "admin":
+        athlete = await athlete_repository.find_by_id(workout_data.athlete_id)
+        if athlete and athlete.get("coach_id"):
+            ath_coach = athlete.get("coach_id")
+            if ath_coach != coach_id and ath_coach != user_id:
+                raise HTTPException(status_code=403, detail="Athlete is not assigned to this coach")
 
-    athlete = await athlete_repository.find_by_id(workout_data.athlete_id)
-    if not athlete:
-        raise HTTPException(status_code=404, detail="Athlete not found")
+    new_workout = {
+        "workout_id": str(uuid.uuid4()),
+        "workout_template_id": workout_data.workout_template_id,
+        "title": workout_data.title,
+        "description": workout_data.description,
+        "coach_id": coach_id,
+        "athlete_id": workout_data.athlete_id,
+        "exercises": [dict(ex) for ex in workout_data.exercises],
+        "date": workout_data.date,
+        "status": workout_data.status or "pending",
+        "created_at": get_utc_now(),
+        "updated_at": get_utc_now(),
+    }
 
-    if athlete.get("coach_id") != coach_id:
-        raise HTTPException(status_code=403, detail="Athlete is not assigned to this coach")
-
-    new_workout = Workout(
-        workout_template_id=workout_data.workout_template_id,
-        title=workout_data.title,
-        description=workout_data.description,
-        coach_id=coach_id,
-        athlete_id=workout_data.athlete_id,
-        exercises=[dict(ex) for ex in workout_data.exercises],
-        date=workout_data.date,
-        status=workout_data.status
-    )
-
-    await workout_repository.create(new_workout.dict())
-    return {"message": "Workout plan created successfully", "workout_id": new_workout.workout_id or new_workout.id}
+    created_doc = await workout_repository.create(new_workout)
+    return {"message": "Workout assigned successfully", "workout_id": created_doc.get("workout_id") or str(created_doc.get("_id", ""))}
 
 
 async def get_coach_workouts(
     coach_id: str, current_user: dict, skip: int = 0, limit: int = 100, status: str | None = None
 ) -> List[WorkoutRead]:
-    if current_user.get("role") == "coach":
-        if not ObjectId.is_valid(current_user.get("id")):
-            raise HTTPException(status_code=400, detail="Invalid user ID format")
-        coach = await coach_repository.find_by_id(current_user.get("id"))
-        user_coach_id = coach.get("coach_id") or str(coach["_id"]) if coach else None
-        if not coach or user_coach_id != coach_id:
-            raise HTTPException(status_code=403, detail="Coaches can only view their own workouts")
-    elif current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    active_roles = current_user.get("active_roles", set())
+    from database.mongodb import users_collection
+    user_id = current_user.get("id")
+    user_doc = await users_collection.find_one({"email": current_user.get("email")})
+    user_coach_id = user_doc.get("coach_id") if user_doc else None
 
-    workouts = await workout_repository.get_by_coach(coach_id, skip=skip, limit=limit, status=status)
+    coach_doc = await coach_repository.find_by_id(user_id) if user_id else None
+    repo_coach_id = coach_doc.get("coach_id") if coach_doc else None
+
+    allowed_ids = {user_id, user_coach_id, repo_coach_id}
+    allowed_ids.discard(None)
+
+    if "admin" not in active_roles and current_user.get("role") != "admin":
+        if "coach" not in active_roles and current_user.get("role") != "coach":
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        if coach_id not in allowed_ids:
+            raise HTTPException(status_code=403, detail="Coaches can only view their own workouts")
+
+    coach_ids_to_query = list(allowed_ids | {coach_id})
+    workouts = await workout_repository.get_by_coach(coach_ids_to_query, skip=skip, limit=limit, status=status)
 
     from database import mongodb
     users_coll = getattr(mongodb, "users_collection", None)
@@ -240,7 +258,7 @@ async def get_coach_workouts(
             completed_at=w.get("completed_at"),
             completion_percentage=w.get("completion_percentage"),
             athlete_notes=w.get("athlete_notes"),
-            created_at=w.get("created_at") if isinstance(w.get("created_at"), datetime) else datetime.utcnow()
+            created_at=w.get("created_at") if isinstance(w.get("created_at"), datetime) else get_utc_now()
         )
         for w in valid_workouts
     ]
@@ -249,20 +267,31 @@ async def get_coach_workouts(
 async def get_athlete_workouts(
     athlete_id: str, current_user: dict, skip: int = 0, limit: int = 100, status: str | None = None
 ) -> List[WorkoutRead]:
-    if current_user.get("role") == "athlete":
-        if current_user.get("id") != athlete_id:
-            raise HTTPException(status_code=403, detail="Athletes can only view their own workouts")
-    elif current_user.get("role") == "coach":
-        if not ObjectId.is_valid(current_user.get("id")):
+    active_roles = current_user.get("active_roles", set())
+    user_role = normalize_role(current_user.get("role", "athlete"))
+    user_id = str(current_user.get("id"))
+    account_id = str(current_user.get("account_id") or user_id)
+
+    is_self = (athlete_id == user_id or athlete_id == account_id)
+
+    if ("athlete" in active_roles or user_role == "athlete") and is_self:
+        pass
+    elif "admin" in active_roles or user_role == "admin":
+        pass
+    elif "coach" in active_roles or user_role == "coach":
+        if not ObjectId.is_valid(user_id):
             raise HTTPException(status_code=400, detail="Invalid user ID format")
-        coach = await coach_repository.find_by_id(current_user.get("id"))
+        coach = await coach_repository.find_by_id(user_id)
         if not coach:
             raise HTTPException(status_code=404, detail="Coach not found")
         coach_id = coach.get("coach_id") or str(coach["_id"])
         athlete = await athlete_repository.find_by_id(athlete_id)
         if not athlete or athlete.get("coach_id") != coach_id:
             raise HTTPException(status_code=403, detail="Coaches can only view workouts for their assigned athletes")
-    elif current_user.get("role") != "admin":
+    elif "athlete" in active_roles or user_role == "athlete":
+        if not is_self:
+            raise HTTPException(status_code=403, detail="Athletes can only view their own workouts")
+    else:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     workouts = await workout_repository.get_by_athlete(athlete_id, skip=skip, limit=limit, status=status)
@@ -280,7 +309,7 @@ async def get_athlete_workouts(
             completed_at=w.get("completed_at"),
             completion_percentage=w.get("completion_percentage"),
             athlete_notes=w.get("athlete_notes"),
-            created_at=w.get("created_at") if isinstance(w.get("created_at"), datetime) else datetime.utcnow()
+            created_at=w.get("created_at") if isinstance(w.get("created_at"), datetime) else get_utc_now()
         )
         for w in workouts
     ]
@@ -311,7 +340,6 @@ async def get_workout_metadata() -> dict:
 
 
 async def update_workout_status(workout_id: str, status_update: WorkoutUpdateStatus, current_user: dict):
-    print(f"[RUNTIME_TRACE] Step 4: Entering WorkoutService.update_workout_status for workout_id={workout_id}, status={status_update.status}", flush=True)
     if current_user.get("role") != "athlete":
         raise HTTPException(status_code=403, detail="Only athletes can update workout status")
 
@@ -342,7 +370,7 @@ async def update_workout_status(workout_id: str, status_update: WorkoutUpdateSta
         ws_id = f"assigned_{workout_id}"
         ws = await workout_session_repository.find_workout_session_by_id(ws_id)
         if not ws:
-            now = datetime.utcnow()
+            now = get_utc_now()
             athlete_id = str(current_user.get("id"))
             session_doc = {
                 "id": ws_id,
@@ -371,7 +399,6 @@ async def update_workout_status(workout_id: str, status_update: WorkoutUpdateSta
                 completion_rating=5,
                 notes=status_update.athlete_notes,
             )
-            print(f"[RUNTIME_TRACE] Step 6: Invoking create_performance_log for assigned workout {workout_id} with ws_id={ws_id}", flush=True)
             await create_performance_log(log_payload, current_user)
 
     return {

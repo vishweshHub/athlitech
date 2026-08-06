@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Href } from 'expo-router';
+
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -48,8 +49,19 @@ import {
   CollectionGrid,
   CollectionGridItem,
 } from '@/components/ui';
+import WorkspaceSwitcher from '@/components/ui/WorkspaceSwitcher';
 import { useThemeColors } from '@/styles/tokens';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+
+import {
+  fetchMyOrganization,
+  createOrganization,
+  updateOrganizationPlan,
+  fetchOrganizationInvitations,
+  createOrganizationInvitation,
+  OrganizationData,
+  OrganizationInvitationsResponse,
+} from '@/api/organization';
 
 interface AdminDashboardProps {
   user: AuthUser | null;
@@ -57,7 +69,7 @@ interface AdminDashboardProps {
   onSignOut: () => void;
 }
 
-type TabType = 'dashboard' | 'users' | 'roles' | 'coaches' | 'athletes';
+type TabType = 'dashboard' | 'users' | 'roles' | 'coaches' | 'athletes' | 'invitations';
 
 const isWeb = Platform.OS === 'web';
 
@@ -112,64 +124,71 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
   const [athleteCoachMessage, setAthleteCoachMessage] = useState<{ [athleteId: string]: { text: string; isError: boolean } }>({});
   const [openCoachDropdownAthleteId, setOpenCoachDropdownAthleteId] = useState<string | null>(null);
 
+  // Organization state
+  const [organization, setOrganization] = useState<OrganizationData | null>(null);
+  const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
+  const [isCreatingOrg, setIsCreatingOrg] = useState(false);
+  const [orgFormError, setOrgFormError] = useState<string | null>(null);
+
+  // Form states for Organization Creation
+  const [newOrgName, setNewOrgName] = useState('');
+  const [newOrgType, setNewOrgType] = useState('Club');
+  const [newOrgSport, setNewOrgSport] = useState('General Athletics');
+  const [newOrgCountry, setNewOrgCountry] = useState('United States');
+  const [newOrgState, setNewOrgState] = useState('');
+  const [newOrgLogo, setNewOrgLogo] = useState('');
+  const [newOrgTimezone, setNewOrgTimezone] = useState('UTC');
+  const [newOrgPlan, setNewOrgPlan] = useState<'club' | 'academy' | 'enterprise'>('club');
+
+  // Invitation system state
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('coach');
+  const [isGeneratingInvite, setIsGeneratingInvite] = useState(false);
+  const [inviteLinkResult, setInviteLinkResult] = useState<string | null>(null);
+  const [invitationsData, setInvitationsData] = useState<OrganizationInvitationsResponse | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [invitationTab, setInvitationTab] = useState<'pending' | 'requests' | 'accepted' | 'expired'>('pending');
+
   // Fetch data
   const loadDashboardData = useCallback(async () => {
+    if (!token) {
+      setIsLoadingData(false);
+      return;
+    }
     setIsLoadingData(true);
     setDashboardError(null);
-    setIsUsingFallback(false);
+
     try {
-      const [fetchedUsers, fetchedRoles, fetchedAthletes, fetchedWorkouts, fetchedPerformances] = await Promise.all([
-        fetchAllUsers(token),
-        fetchAllRoles(token),
-        fetchAllAthletes(token).catch((e: any) => {
-          console.warn('Failed to fetch athletes list:', e);
-          return [];
-        }),
-        fetchAllWorkouts(token).catch((e: any) => {
-          console.warn('Failed to fetch workouts list:', e);
-          return [];
-        }),
-        fetchAllPerformances(token).catch((e: any) => {
-          console.warn('Failed to fetch performances list:', e);
-          return [];
-        }),
-      ]);
-      setUsers(fetchedUsers);
-      setRoles(fetchedRoles);
-      setAthletesData(fetchedAthletes);
-      setWorkouts(fetchedWorkouts);
-      setPerformances(fetchedPerformances);
+      const myOrg = await fetchMyOrganization(token);
+      setOrganization(myOrg);
+
+      if (myOrg) {
+        const [fetchedUsers, fetchedRoles, fetchedAthletes, fetchedWorkouts, fetchedPerformances, fetchedInvs] = await Promise.all([
+          fetchAllUsers(token).catch(() => []),
+          fetchAllRoles(token).catch(() => []),
+          fetchAllAthletes(token).catch(() => []),
+          fetchAllWorkouts(token).catch(() => []),
+          fetchAllPerformances(token).catch(() => []),
+          fetchOrganizationInvitations(token).catch(() => null),
+        ]);
+        setUsers(fetchedUsers);
+        setRoles(fetchedRoles);
+        setAthletesData(fetchedAthletes);
+        setWorkouts(fetchedWorkouts);
+        setPerformances(fetchedPerformances);
+        if (fetchedInvs) setInvitationsData(fetchedInvs);
+      } else {
+        setUsers([]);
+        setRoles([]);
+        setAthletesData([]);
+        setWorkouts([]);
+        setPerformances([]);
+      }
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Unable to load dashboard data.';
-      console.warn('Backend API connection failed:', e);
+      const message = e instanceof Error ? e.message : 'Unable to load organization data.';
+      console.warn('Backend API error:', e);
       setDashboardError(message);
-      setIsUsingFallback(true);
-      // Local fallback mock data for testing
-      setUsers([
-        { id: '1', name: 'Admin User', email: 'admin@athlitech.com', role: 'admin' },
-        { id: '2', name: 'Coach Smith', email: 'coach.smith@athlitech.com', role: 'coach' },
-        { id: '3', name: 'Coach Davis', email: 'coach.davis@athlitech.com', role: 'coach' },
-        { id: '4', name: 'Alex Johnson', email: 'alex@athlete.com', role: 'athlete' },
-        { id: '5', name: 'Emma Wilson', email: 'emma@athlete.com', role: 'athlete' },
-        { id: '6', name: 'Ryan Miller', email: 'ryan@athlete.com', role: 'athlete' },
-      ]);
-      setRoles([
-        { id: 'r1', name: 'admin', permissions: ['read:all', 'write:all', 'delete:all'] },
-        { id: 'r2', name: 'coach', permissions: ['read:athlete', 'write:workout', 'write:performance'] },
-        { id: 'r3', name: 'athlete', permissions: ['read:workout', 'read:performance'] },
-      ]);
-      setAthletesData([
-        { athlete_id: '4', name: 'Alex Johnson', sport: 'Sprinting', weight: '72', coach_id: '2' },
-        { athlete_id: '5', name: 'Emma Wilson', sport: 'Sprinting', weight: '64', coach_id: '2' },
-        { athlete_id: '6', name: 'Ryan Miller', sport: 'Hurdles', weight: '76', coach_id: '' },
-      ]);
-      setWorkouts([
-        { workout_id: 'w1', athlete_id: '4', coach_id: 'c1', title: '100m Interval Sprints', status: 'completed', exercises: [], date: '2026-07-10', created_at: '2026-07-10', completed_at: '2026-07-10' },
-        { workout_id: 'w2', athlete_id: '5', coach_id: 'c1', title: 'Start Block Acceleration', status: 'pending', exercises: [], date: '2026-07-14', created_at: '2026-07-14' },
-      ]);
-      setPerformances([
-        { performance_id: 'p1', athlete_id: '4', coach_id: 'c1', sport_event: '100m Sprint', value: 10.45, unit: 's', recorded_at: '2026-07-10', created_at: '2026-07-10' },
-      ]);
     } finally {
       setIsLoadingData(false);
     }
@@ -192,6 +211,79 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
       : hasDashboardData
         ? null
         : 'No dashboard data is available yet.';
+
+  // Handlers for Organization & Invitations
+  const handleCreateOrganizationSubmit = async () => {
+    setOrgFormError(null);
+    if (!newOrgName.trim()) {
+      setOrgFormError('Organization name is required');
+      return;
+    }
+
+    setIsCreatingOrg(true);
+    try {
+      const createdOrg = await createOrganization(token, {
+        name: newOrgName.trim(),
+        org_type: newOrgType,
+        sport: newOrgSport,
+        country: newOrgCountry,
+        state: newOrgState.trim() || undefined,
+        logo_url: newOrgLogo.trim() || undefined,
+        timezone: newOrgTimezone,
+        plan_tier: newOrgPlan,
+      });
+
+      setOrganization(createdOrg);
+      setShowCreateOrgModal(false);
+      await loadDashboardData();
+    } catch (err: any) {
+      setOrgFormError(err.message || 'Failed to create organization');
+    } finally {
+      setIsCreatingOrg(false);
+    }
+  };
+
+  const handleUpdateOrgPlan = async (planTier: 'club' | 'academy' | 'enterprise') => {
+    if (!token || !organization) return;
+    try {
+      await updateOrganizationPlan(token, planTier);
+      setOrganization({ ...organization, plan_tier: planTier });
+      Alert.alert('Plan Updated', `Organization updated to ${planTier.toUpperCase()} Plan.`);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to update plan tier.');
+    }
+  };
+
+  const handleGenerateInvite = async () => {
+    if (!inviteEmail.trim() || !token) return;
+    setIsGeneratingInvite(true);
+    try {
+      const inv = await createOrganizationInvitation(token, {
+        email: inviteEmail.trim(),
+        role: inviteRole,
+      });
+      setInviteLinkResult(inv.invite_link);
+      setInvitationsData((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          pending_invitations: [inv, ...prev.pending_invitations],
+        };
+      });
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to generate invitation');
+    } finally {
+      setIsGeneratingInvite(false);
+    }
+  };
+
+  const handleCopyInviteLink = (link: string) => {
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(link);
+    }
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
 
   // Handlers
   const handleCreateRole = async () => {
@@ -547,12 +639,16 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
 
             <View style={styles.sidebarNav}>
               {[
-                { id: 'dashboard', label: 'Dashboard', icon: 'grid', count: null },
-                { id: 'users', label: 'Users', icon: 'people', count: totalUsers },
-                { id: 'roles', label: 'Roles', icon: 'shield', count: totalRoles },
-                { id: 'coaches', label: 'Coaches', icon: 'fitness', count: totalCoaches },
-                { id: 'athletes', label: 'Athletes', icon: 'walk', count: totalAthletes },
-              ].map((item) => (
+                { id: 'dashboard', label: 'Dashboard', icon: 'grid', count: null, requiresOrg: false },
+                { id: 'role-hub', label: 'Role Hub', icon: 'apps', count: null, requiresOrg: false },
+                { id: 'invitations', label: 'Invitations', icon: 'mail-unread-outline', count: invitationsData?.pending_invitations?.length || null, requiresOrg: true },
+                { id: 'users', label: 'Users', icon: 'people', count: totalUsers, requiresOrg: true },
+                { id: 'roles', label: 'Roles', icon: 'shield', count: totalRoles, requiresOrg: true },
+                { id: 'coaches', label: 'Coaches', icon: 'fitness', count: totalCoaches, requiresOrg: true },
+                { id: 'athletes', label: 'Athletes', icon: 'walk', count: totalAthletes, requiresOrg: true },
+              ]
+                .filter((item) => !item.requiresOrg || Boolean(organization))
+                .map((item) => (
                 <Pressable
                   key={item.id}
                   style={[
@@ -560,7 +656,11 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                     activeTab === item.id && styles.sidebarItemActive,
                   ]}
                   onPress={() => {
-                    setActiveTab(item.id as TabType);
+                    if (item.id === 'role-hub') {
+                      router.push('/role-hub' as Href);
+                    } else {
+                      setActiveTab(item.id as TabType);
+                    }
                     if (!isLargeScreen) {
                       setSidebarOpen(false);
                     }
@@ -623,21 +723,24 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
             )}
             <View style={styles.headerInfo}>
               <Text style={styles.headerTitle}>
-                {activeTab === 'dashboard' && 'Dashboard'}
-                {activeTab === 'users' && 'User Management'}
-                {activeTab === 'roles' && 'Role Management'}
-                {activeTab === 'coaches' && 'Coaches'}
-                {activeTab === 'athletes' && 'Athletes'}
+                {activeTab === 'dashboard' ? 'Dashboard' : null}
+                {activeTab === 'users' ? 'User Management' : null}
+                {activeTab === 'roles' ? 'Role Management' : null}
+                {activeTab === 'coaches' ? 'Coaches' : null}
+                {activeTab === 'athletes' ? 'Athletes' : null}
               </Text>
+
               <Text style={styles.headerSubtitle}>{user?.email || 'Admin'}</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <WorkspaceSwitcher />
               <ThemeToggle />
               <Pressable onPress={loadDashboardData} style={styles.refreshBtn}>
                 <Ionicons name="refresh" size={20} color={colors.textPrimary} />
               </Pressable>
             </View>
           </View>
+
 
           {/* Content */}
           <ScrollView
@@ -652,21 +755,76 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                 <ActivityIndicator size="large" color={colors.emerald} />
                 <Text style={styles.loaderText}>Loading dashboard...</Text>
               </View>
+            ) : !organization ? (
+              <Card style={styles.section}>
+                <EmptyState
+                  icon="business-outline"
+                  title="Welcome to Organization Hub"
+                  description="Create your first organization."
+                  actionLabel="Create Organization"
+                  onActionPress={() => setShowCreateOrgModal(true)}
+                />
+              </Card>
             ) : (
               <>
-                {/* Dashboard Tab */}
+                {/* ── DASHBOARD TAB ── */}
                 {activeTab === 'dashboard' && (
                   <>
+                    {/* Organization Banner & Active Subscription Plan Card */}
+                    <Card style={[styles.section, { marginBottom: 24 }]}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                          <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: colors.infoDim, alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name="business" size={24} color={colors.info} />
+                          </View>
+                          <View>
+                            <Text style={[{ fontSize: 18, fontWeight: '800', color: colors.textPrimary }]}>{organization.name}</Text>
+                            <Text style={[{ fontSize: 13, color: colors.textSub }]}>
+                              {organization.org_type} • {organization.sport} • {organization.country}{organization.state ? `, ${organization.state}` : ''}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Organization Subscription Plan Selector */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textSub }}>PLAN:</Text>
+                          {(['club', 'academy', 'enterprise'] as const).map((plan) => (
+                            <Pressable
+                              key={plan}
+                              onPress={() => handleUpdateOrgPlan(plan)}
+                              style={{
+                                paddingHorizontal: 12,
+                                paddingVertical: 6,
+                                borderRadius: 6,
+                                borderWidth: 1,
+                                backgroundColor: organization.plan_tier === plan ? colors.emeraldDim : colors.bgMid,
+                                borderColor: organization.plan_tier === plan ? colors.emerald : colors.border,
+                              }}
+                            >
+                              <Text style={{
+                                fontSize: 12,
+                                fontWeight: '700',
+                                color: organization.plan_tier === plan ? colors.emerald : colors.textSub,
+                                textTransform: 'uppercase'
+                              }}>
+                                {plan}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      </View>
+                    </Card>
+
                     {/* Stat Cards Row */}
                     <StatsGrid gap={16} style={{ marginBottom: 24 }}>
                       <StatsGridItem minWidth={300}>
                         <SummaryCard
-                          title="Dashboard Summary"
+                          title="Organization Summary"
                           iconName="stats-chart-outline"
                           metrics={[
-                            { label: 'Total Users', value: totalUsers },
-                            { label: 'Coaches', value: totalCoaches },
-                            { label: 'Athletes', value: totalAthletes },
+                            { label: 'Total Members', value: totalUsers },
+                            { label: organization.plan_tier === 'club' ? 'Coaches (Max 5)' : 'Coaches', value: totalCoaches },
+                            { label: organization.plan_tier === 'club' ? 'Athletes (Max 100)' : 'Athletes', value: totalAthletes },
                             { label: 'Roles', value: totalRoles },
                           ]}
                         />
@@ -820,6 +978,84 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                         </StatsGridItem>
                       </StatsGrid>
                     </View>
+
+                    {/* Organization Subscription Plan Feature Capabilities Grid */}
+                    <Card style={[styles.section, { marginTop: 16 }]}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Organization Subscription ({organization.plan_tier.toUpperCase()} PLAN)</Text>
+                        <Badge label={`Active: ${organization.plan_tier.toUpperCase()}`} variant="info" />
+                      </View>
+
+                      <View style={{ gap: 12 }}>
+                        {/* Club Plan Features */}
+                        <View style={{ padding: 12, borderRadius: 8, backgroundColor: colors.bgMid, borderWidth: 1, borderColor: colors.border }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <Text style={{ fontWeight: '800', color: colors.textPrimary }}>Club Plan Capabilities</Text>
+                            <Badge label="Unlocked" variant="success" />
+                          </View>
+                          <Text style={{ fontSize: 13, color: colors.textSub }}>
+                            • Organization dashboard & 1 organization{'\n'}
+                            • Up to 5 coaches & Up to 100 athletes{'\n'}
+                            • Basic member management & Invite members{'\n'}
+                            • Membership approval & Basic reports
+                          </Text>
+                        </View>
+
+                        {/* Academy Plan Features */}
+                        <View style={{
+                          padding: 12,
+                          borderRadius: 8,
+                          backgroundColor: organization.plan_tier === 'club' ? 'rgba(0,0,0,0.02)' : colors.bgMid,
+                          borderWidth: 1,
+                          borderColor: organization.plan_tier === 'club' ? colors.borderSubtle : colors.border,
+                          opacity: organization.plan_tier === 'club' ? 0.7 : 1,
+                        }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <Text style={{ fontWeight: '800', color: colors.textPrimary }}>Academy Plan Capabilities</Text>
+                            {organization.plan_tier === 'club' ? (
+                              <Pressable onPress={() => handleUpdateOrgPlan('academy')} style={{ backgroundColor: colors.emerald, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4 }}>
+                                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Upgrade to Academy</Text>
+                              </Pressable>
+                            ) : (
+                              <Badge label="Unlocked" variant="success" />
+                            )}
+                          </View>
+                          <Text style={{ fontSize: 13, color: organization.plan_tier === 'club' ? colors.textMuted : colors.textSub }}>
+                            • Multiple coaches & Departments{'\n'}
+                            • Team management & Attendance tracking{'\n'}
+                            • Athlete assignments & Performance analytics{'\n'}
+                            • Custom Branding & CSV export
+                          </Text>
+                        </View>
+
+                        {/* Enterprise Plan Features */}
+                        <View style={{
+                          padding: 12,
+                          borderRadius: 8,
+                          backgroundColor: organization.plan_tier !== 'enterprise' ? 'rgba(0,0,0,0.02)' : colors.bgMid,
+                          borderWidth: 1,
+                          borderColor: organization.plan_tier !== 'enterprise' ? colors.borderSubtle : colors.border,
+                          opacity: organization.plan_tier !== 'enterprise' ? 0.7 : 1,
+                        }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <Text style={{ fontWeight: '800', color: colors.textPrimary }}>Enterprise Plan Capabilities</Text>
+                            {organization.plan_tier !== 'enterprise' ? (
+                              <Pressable onPress={() => handleUpdateOrgPlan('enterprise')} style={{ backgroundColor: colors.info, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4 }}>
+                                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Upgrade to Enterprise</Text>
+                              </Pressable>
+                            ) : (
+                              <Badge label="Unlocked" variant="success" />
+                            )}
+                          </View>
+                          <Text style={{ fontSize: 13, color: organization.plan_tier !== 'enterprise' ? colors.textMuted : colors.textSub }}>
+                            • Unlimited members & Multi-organization support{'\n'}
+                            • Custom RBAC & Billing management{'\n'}
+                            • API integrations & Audit logs{'\n'}
+                            • White labeling & Dedicated analytics
+                          </Text>
+                        </View>
+                      </View>
+                    </Card>
                   </>
                 )}
 
@@ -1391,11 +1627,316 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
                     </CollectionGrid>
                   </View>
                 )}
+
+                {/* ── INVITATIONS TAB (UI ONLY) ── */}
+                {activeTab === 'invitations' && (
+                  <Card style={styles.section}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+                      <View>
+                        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Invitation & Member Management</Text>
+                        <Text style={{ fontSize: 13, color: colors.textSub }}>Invite coaches, athletes, and staff to join your organization.</Text>
+                      </View>
+                      <Button
+                        label="Invite Member"
+                        prefix={<Ionicons name="person-add-outline" size={14} color="#fff" />}
+                        onPress={() => {
+                          setInviteLinkResult(null);
+                          setShowInviteModal(true);
+                        }}
+                        variant="primary"
+                        size="sm"
+                      />
+                    </View>
+
+                    {/* Sub-Tabs for Invitations */}
+                    <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border, marginBottom: 16 }}>
+                      {[
+                        { key: 'pending', label: `Pending (${invitationsData?.pending_invitations?.length || 0})` },
+                        { key: 'requests', label: `Requests (${invitationsData?.member_requests?.length || 0})` },
+                        { key: 'accepted', label: `Members (${invitationsData?.accepted_members?.length || 0})` },
+                        { key: 'expired', label: `Expired (${invitationsData?.expired_invitations?.length || 0})` },
+                      ].map((t) => (
+                        <Pressable
+                          key={t.key}
+                          onPress={() => setInvitationTab(t.key as any)}
+                          style={{
+                            paddingVertical: 10,
+                            paddingHorizontal: 14,
+                            borderBottomWidth: invitationTab === t.key ? 2 : 0,
+                            borderBottomColor: colors.emerald,
+                          }}
+                        >
+                          <Text style={{
+                            fontSize: 13,
+                            fontWeight: invitationTab === t.key ? '700' : '500',
+                            color: invitationTab === t.key ? colors.emerald : colors.textSub
+                          }}>
+                            {t.label}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+
+                    {/* Pending Invitations Table */}
+                    {invitationTab === 'pending' && (
+                      <Table
+                        headers={['Recipient Email', 'Role', 'Status', 'Invite Link', 'Actions']}
+                        data={invitationsData?.pending_invitations || []}
+                        renderRow={(item: any) => (
+                          <View key={item.invitation_id} style={styles.tableRow}>
+                            <Text style={styles.tableTextBold}>{item.email}</Text>
+                            <Badge label={item.role} variant="info" />
+                            <Badge label={item.status} variant="warning" />
+                            <Pressable
+                              onPress={() => handleCopyInviteLink(item.invite_link)}
+                              style={{ backgroundColor: colors.bgMid, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4 }}
+                            >
+                              <Text style={{ fontSize: 12, color: colors.info, fontWeight: '600' }}>
+                                {copiedLink ? 'Copied!' : 'Copy Invite Link'}
+                              </Text>
+                            </Pressable>
+                            <Text style={{ fontSize: 12, color: colors.textMuted }}>Expires {item.expires_at ? String(item.expires_at).substring(0, 10) : 'Soon'}</Text>
+                          </View>
+                        )}
+                      />
+                    )}
+
+                    {/* Member Requests Table */}
+                    {invitationTab === 'requests' && (
+                      <Table
+                        headers={['Name', 'Email', 'Role', 'Date Requested', 'Actions']}
+                        data={invitationsData?.member_requests || []}
+                        renderRow={(item: any) => (
+                          <View key={item.request_id} style={styles.tableRow}>
+                            <Text style={styles.tableTextBold}>{item.name}</Text>
+                            <Text style={styles.tableTextSub}>{item.email}</Text>
+                            <Badge label={item.role} variant="info" />
+                            <Text style={styles.tableTextSub}>{item.requested_at}</Text>
+                            <Button label="Approve" variant="primary" size="sm" onPress={() => Alert.alert('Approved', `Approved member request for ${item.name}`)} />
+                          </View>
+                        )}
+                      />
+                    )}
+
+                    {/* Accepted Members Table */}
+                    {invitationTab === 'accepted' && (
+                      <Table
+                        headers={['Member Name', 'Email', 'Organization Role', 'Joined Date']}
+                        data={invitationsData?.accepted_members || []}
+                        renderRow={(item: any) => (
+                          <View key={item.member_id} style={styles.tableRow}>
+                            <Text style={styles.tableTextBold}>{item.name}</Text>
+                            <Text style={styles.tableTextSub}>{item.email}</Text>
+                            <Badge label={item.role} variant="success" />
+                            <Text style={styles.tableTextSub}>{item.joined_at}</Text>
+                          </View>
+                        )}
+                      />
+                    )}
+
+                    {/* Expired Invitations Table */}
+                    {invitationTab === 'expired' && (
+                      <EmptyState
+                        icon="time-outline"
+                        title="No Expired Invitations"
+                        description="There are currently no expired invitations."
+                      />
+                    )}
+                  </Card>
+                )}
               </>
             )}
           </ScrollView>
         </View>
       </View>
+
+      {/* ── CREATE ORGANIZATION MODAL ── */}
+      {showCreateOrgModal && (
+        <Modal
+          visible={showCreateOrgModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowCreateOrgModal(false)}
+        >
+          <Pressable style={styles.overlay} onPress={() => setShowCreateOrgModal(false)}>
+            <Pressable style={[styles.modalCard, { backgroundColor: colors.bgMid, borderColor: colors.border, maxWidth: 500, width: '90%', alignSelf: 'center', marginVertical: 'auto', padding: 24, borderRadius: 12 }]} onPress={(e) => e.stopPropagation()}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary }}>Create Organization</Text>
+                <Pressable onPress={() => setShowCreateOrgModal(false)}>
+                  <Ionicons name="close" size={24} color={colors.textSub} />
+                </Pressable>
+              </View>
+
+              {orgFormError ? (
+                <Text style={{ color: colors.error, fontSize: 13, marginBottom: 12 }}>{orgFormError}</Text>
+              ) : null}
+
+              <ScrollView style={{ maxHeight: 400 }}>
+                <View style={{ gap: 12 }}>
+                  <Input
+                    label="Organization Name *"
+                    value={newOrgName}
+                    onChangeText={setNewOrgName}
+                    placeholder="e.g. Apex Performance Club"
+                  />
+                  <Input
+                    label="Organization Type"
+                    value={newOrgType}
+                    onChangeText={setNewOrgType}
+                    placeholder="Club, Academy, School, Enterprise..."
+                  />
+                  <Input
+                    label="Sport"
+                    value={newOrgSport}
+                    onChangeText={setNewOrgSport}
+                    placeholder="General Athletics, Track & Field..."
+                  />
+                  <Input
+                    label="Country"
+                    value={newOrgCountry}
+                    onChangeText={setNewOrgCountry}
+                    placeholder="United States, Canada..."
+                  />
+                  <Input
+                    label="State / Province"
+                    value={newOrgState}
+                    onChangeText={setNewOrgState}
+                    placeholder="California, Ontario..."
+                  />
+                  <Input
+                    label="Timezone"
+                    value={newOrgTimezone}
+                    onChangeText={setNewOrgTimezone}
+                    placeholder="UTC, America/New_York..."
+                  />
+                  <Input
+                    label="Logo URL (optional)"
+                    value={newOrgLogo}
+                    onChangeText={setNewOrgLogo}
+                    placeholder="https://..."
+                  />
+
+                  <View style={{ marginTop: 4 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textSub, marginBottom: 6 }}>Subscription Plan Tier</Text>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      {(['club', 'academy', 'enterprise'] as const).map((tier) => (
+                        <Pressable
+                          key={tier}
+                          onPress={() => setNewOrgPlan(tier)}
+                          style={{
+                            flex: 1,
+                            paddingVertical: 8,
+                            alignItems: 'center',
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            backgroundColor: newOrgPlan === tier ? colors.emeraldDim : colors.bgMid,
+                            borderColor: newOrgPlan === tier ? colors.emerald : colors.border,
+                          }}
+                        >
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: newOrgPlan === tier ? colors.emerald : colors.textSub, textTransform: 'capitalize' }}>
+                            {tier}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+              </ScrollView>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 20 }}>
+                <Button label="Cancel" variant="secondary" onPress={() => setShowCreateOrgModal(false)} />
+                <Button
+                  label={isCreatingOrg ? 'Creating...' : 'Create Organization'}
+                  variant="primary"
+                  onPress={handleCreateOrganizationSubmit}
+                  disabled={isCreatingOrg}
+                />
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+
+      {/* ── INVITE MEMBER MODAL ── */}
+      {showInviteModal && (
+        <Modal
+          visible={showInviteModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowInviteModal(false)}
+        >
+          <Pressable style={styles.overlay} onPress={() => setShowInviteModal(false)}>
+            <Pressable style={[styles.modalCard, { backgroundColor: colors.bgMid, borderColor: colors.border, maxWidth: 480, width: '90%', alignSelf: 'center', marginVertical: 'auto', padding: 24, borderRadius: 12 }]} onPress={(e) => e.stopPropagation()}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Text style={{ fontSize: 20, fontWeight: '800', color: colors.textPrimary }}>Invite Organization Member</Text>
+                <Pressable onPress={() => setShowInviteModal(false)}>
+                  <Ionicons name="close" size={24} color={colors.textSub} />
+                </Pressable>
+              </View>
+
+              <View style={{ gap: 12 }}>
+                <Input
+                  label="Member Email *"
+                  value={inviteEmail}
+                  onChangeText={setInviteEmail}
+                  placeholder="coach.name@athlitech-org.com"
+                  autoCapitalize="none"
+                />
+
+                <View>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textSub, marginBottom: 6 }}>Target Role</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {(['coach', 'athlete', 'admin'] as const).map((r) => (
+                      <Pressable
+                        key={r}
+                        onPress={() => setInviteRole(r)}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 8,
+                          alignItems: 'center',
+                          borderRadius: 6,
+                          borderWidth: 1,
+                          backgroundColor: inviteRole === r ? colors.infoDim : colors.bgMid,
+                          borderColor: inviteRole === r ? colors.info : colors.border,
+                        }}
+                      >
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: inviteRole === r ? colors.info : colors.textSub, textTransform: 'capitalize' }}>
+                          {r}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+
+                {inviteLinkResult && (
+                  <View style={{ marginTop: 12, padding: 12, borderRadius: 6, backgroundColor: colors.emeraldDim, borderWidth: 1, borderColor: colors.borderEmerald }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: colors.emerald, marginBottom: 4 }}>Invitation Link Generated!</Text>
+                    <Text style={{ fontSize: 11, color: colors.textPrimary, marginBottom: 8 }} numberOfLines={2}>{inviteLinkResult}</Text>
+                    <Button
+                      label={copiedLink ? 'Copied to Clipboard!' : 'Copy Invite Link'}
+                      variant="primary"
+                      size="sm"
+                      onPress={() => handleCopyInviteLink(inviteLinkResult)}
+                    />
+                  </View>
+                )}
+              </View>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 20 }}>
+                <Button label="Close" variant="secondary" onPress={() => setShowInviteModal(false)} />
+                {!inviteLinkResult && (
+                  <Button
+                    label={isGeneratingInvite ? 'Generating...' : 'Generate Invite Link'}
+                    variant="primary"
+                    onPress={handleGenerateInvite}
+                    disabled={isGeneratingInvite || !inviteEmail.trim()}
+                  />
+                )}
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
 
       {/* Sidebar Overlay (Mobile & Tablet) */}
       {!isLargeScreen && sidebarOpen && (
@@ -1539,7 +2080,10 @@ const getStyles = (colors: any, isLargeScreen: boolean) => StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     gap: 12,
+    zIndex: 9999,
+    elevation: 10,
   },
+
   hamburgerBtn: {
     padding: 8,
     borderRadius: 6,
@@ -2060,5 +2604,30 @@ const getStyles = (colors: any, isLargeScreen: boolean) => StyleSheet.create({
     inset: 0,
     backgroundColor: 'rgba(0,0,0,0.5)',
     zIndex: 999,
+  },
+  modalCard: {
+    backgroundColor: colors.bgMid,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 24,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+    gap: 12,
+  },
+  tableTextBold: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  tableTextSub: {
+    fontSize: 12,
+    color: colors.textSub,
   },
 });

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Href } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -42,7 +42,9 @@ import {
   CollectionGrid,
   CollectionGridItem,
 } from '@/components/ui';
+import WorkspaceSwitcher from '@/components/ui/WorkspaceSwitcher';
 import { fetchWorkoutRecommendations, WorkoutRecommendation, fetchMyProfile } from '@/api/profile';
+
 import CoachProfileSummaryCard from '../components/CoachProfileSummaryCard';
 import WorkoutLibraryScreen from '@/features/workouts/pages/WorkoutLibraryScreen';
 import { useThemeColors } from '@/styles/tokens';
@@ -87,6 +89,9 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
   const [error, setError] = useState<string | null>(null);
   const [actualCoachId, setActualCoachId] = useState<string | null>(null);
   const [coachProfile, setCoachProfile] = useState<any>(null);
+  const [coachPlan, setCoachPlan] = useState<'starter' | 'professional' | 'elite'>('starter');
+
+  const isProfileComplete = Boolean(user?.profile_completed || coachProfile?.coach_data || coachProfile?.profile_completed);
 
   // Performance state
   const [selectedAthleteForPerf, setSelectedAthleteForPerf] = useState<Athlete | null>(null);
@@ -144,9 +149,13 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
 
   // Load dashboard data
   const loadDashboardData = useCallback(async () => {
-    if (!token || !user) return;
+    if (!token || !user) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setError(null);
+
 
     try {
       let coachId = user?.coach_id;
@@ -277,6 +286,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
     setIsSavingWorkout(true);
     try {
       await createWorkout(token, {
+        ...(selectedTemplateId ? { workout_template_id: selectedTemplateId } : {}),
         title: newWorkoutTitle.trim(),
         description: newWorkoutDescription.trim() || undefined,
         athlete_id: newWorkoutAthleteId,
@@ -490,6 +500,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
             <View style={styles.sidebarNav}>
               {[
                 { id: 'dashboard', label: 'Dashboard', icon: 'grid', count: null },
+                { id: 'role-hub', label: 'Role Hub', icon: 'apps', count: null },
                 { id: 'athletes', label: 'My Athletes', icon: 'people', count: totalAthletes },
                 { id: 'workouts', label: 'Workouts', icon: 'fitness', count: totalWorkouts },
                 { id: 'performance', label: 'Performance', icon: 'speedometer', count: null },
@@ -502,7 +513,11 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                     activeTab === item.id && styles.sidebarItemActive,
                   ]}
                   onPress={() => {
-                    setActiveTab(item.id as TabType);
+                    if (item.id === 'role-hub') {
+                      router.push('/role-hub' as Href);
+                    } else {
+                      setActiveTab(item.id as TabType);
+                    }
                     if (!isLargeScreen) setSidebarOpen(false);
                   }}
                 >
@@ -565,21 +580,24 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
             )}
             <View style={styles.headerInfo}>
               <Text style={styles.headerTitle}>
-                {activeTab === 'dashboard' && 'Coach Dashboard'}
-                {activeTab === 'athletes' && 'My Athletes'}
-                {activeTab === 'workouts' && 'Workout Plans'}
-                {activeTab === 'performance' && 'Performance'}
-                {activeTab === 'profile' && 'My Profile'}
+                {activeTab === 'dashboard' ? 'Coach Dashboard' : null}
+                {activeTab === 'athletes' ? 'My Athletes' : null}
+                {activeTab === 'workouts' ? 'Workout Plans' : null}
+                {activeTab === 'performance' ? 'Performance' : null}
+                {activeTab === 'profile' ? 'My Profile' : null}
               </Text>
+
               <Text style={styles.headerSubtitle}>{user?.email || 'Coach'}</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <WorkspaceSwitcher />
               <ThemeToggle />
               <Pressable onPress={loadDashboardData} style={styles.refreshBtn}>
                 <Ionicons name="refresh" size={20} color={colors.textPrimary} />
               </Pressable>
             </View>
           </View>
+
 
           {/* Content Area */}
           <ScrollView
@@ -602,23 +620,63 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                   <Button label="Retry" onPress={loadDashboardData} variant="primary" />
                 </View>
               </Card>
+            ) : !isProfileComplete && activeTab !== 'profile' ? (
+              <Card style={styles.section}>
+                <EmptyState
+                  icon="clipboard-outline"
+                  title="Welcome Coach"
+                  description="Build your coaching identity before managing athletes."
+                  actionLabel="Complete Coach Profile"
+                  onActionPress={() => {
+                    setActiveTab('profile');
+                    setIsEditingProfile(true);
+                  }}
+                />
+              </Card>
             ) : (
               <>
                 {/* ── DASHBOARD TAB ── */}
                 {activeTab === 'dashboard' && (
-
                   <>
-                    <OnboardingBanner
-                      isVisible={!user?.profile_completed}
-                      title="Welcome to AthliTech! 👋"
-                      description="Your account has been created successfully. Complete your profile to unlock your full coaching experience."
-                      buttonLabel="Complete Profile"
-                      onAction={() => {
-                        setActiveTab('profile');
-                        setIsEditingProfile(true);
-                      }}
-                    />
+                    {/* Subscription Plan Tier Selector */}
+                    <Card style={[styles.section, { marginBottom: 24 }]}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Ionicons name="ribbon-outline" size={22} color={colors.emerald} />
+                          <View>
+                            <Text style={[{ fontSize: 16, fontWeight: '800', color: colors.textPrimary }]}>Coach Subscription Plan</Text>
+                            <Text style={[{ fontSize: 13, color: colors.textSub }]}>Active Tier: {coachPlan.toUpperCase()}</Text>
+                          </View>
+                        </View>
 
+                        {/* Plan Tier Selector Chips */}
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          {(['starter', 'professional', 'elite'] as const).map((plan) => (
+                            <Pressable
+                              key={plan}
+                              onPress={() => setCoachPlan(plan)}
+                              style={{
+                                paddingHorizontal: 12,
+                                paddingVertical: 6,
+                                borderRadius: 6,
+                                borderWidth: 1,
+                                backgroundColor: coachPlan === plan ? colors.emeraldDim : colors.bgMid,
+                                borderColor: coachPlan === plan ? colors.emerald : colors.border,
+                              }}
+                            >
+                              <Text style={{
+                                fontSize: 12,
+                                fontWeight: '700',
+                                color: coachPlan === plan ? colors.emerald : colors.textSub,
+                                textTransform: 'capitalize'
+                              }}>
+                                {plan}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      </View>
+                    </Card>
 
                     {/* Stat Cards Row */}
                     <StatsGrid gap={16} style={{ marginBottom: 24 }}>
@@ -627,7 +685,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                           title="Dashboard Summary"
                           iconName="stats-chart-outline"
                           metrics={[
-                            { label: 'My Athletes', value: totalAthletes },
+                            { label: coachPlan === 'starter' ? 'My Athletes (Max 10)' : 'My Athletes', value: totalAthletes },
                             { label: 'Total Workouts', value: totalWorkouts },
                             { label: 'Completed', value: completedWorkouts },
                             { label: 'Completion Rate', value: completionRate, suffix: '%' },
@@ -785,6 +843,83 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                         </StatsGridItem>
                       </StatsGrid>
                     </View>
+
+                    {/* Subscription Plan Feature Capabilities Grid */}
+                    <Card style={[styles.section, { marginTop: 16 }]}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Subscription Features ({coachPlan.toUpperCase()})</Text>
+                        <Badge label={coachPlan === 'elite' ? 'Full Access' : `Active: ${coachPlan}`} variant={coachPlan === 'elite' ? 'success' : 'info'} />
+                      </View>
+
+                      <View style={{ gap: 12 }}>
+                        {/* Starter Features */}
+                        <View style={{ padding: 12, borderRadius: 8, backgroundColor: colors.bgMid, borderWidth: 1, borderColor: colors.border }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <Text style={{ fontWeight: '800', color: colors.textPrimary }}>Starter Coach Capabilities</Text>
+                            <Badge label="Unlocked" variant="success" />
+                          </View>
+                          <Text style={{ fontSize: 13, color: colors.textSub }}>
+                            • Coach Dashboard & Profile{'\n'}
+                            • Up to 10 athletes (Current: {totalAthletes}/10){'\n'}
+                            • Assign workouts & Workout calendar{'\n'}
+                            • Progress monitoring
+                          </Text>
+                        </View>
+
+                        {/* Professional Features */}
+                        <View style={{
+                          padding: 12,
+                          borderRadius: 8,
+                          backgroundColor: coachPlan === 'starter' ? 'rgba(0,0,0,0.02)' : colors.bgMid,
+                          borderWidth: 1,
+                          borderColor: coachPlan === 'starter' ? colors.borderSubtle : colors.border,
+                          opacity: coachPlan === 'starter' ? 0.7 : 1,
+                        }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <Text style={{ fontWeight: '800', color: colors.textPrimary }}>Professional Coach Capabilities</Text>
+                            {coachPlan === 'starter' ? (
+                              <Pressable onPress={() => setCoachPlan('professional')} style={{ backgroundColor: colors.emerald, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4 }}>
+                                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Upgrade to Pro</Text>
+                              </Pressable>
+                            ) : (
+                              <Badge label="Unlocked" variant="success" />
+                            )}
+                          </View>
+                          <Text style={{ fontSize: 13, color: coachPlan === 'starter' ? colors.textMuted : colors.textSub }}>
+                            • Unlimited Athletes roster{'\n'}
+                            • Multi-week training plans & Team insights{'\n'}
+                            • Analytics & Performance comparison{'\n'}
+                            • Export reports
+                          </Text>
+                        </View>
+
+                        {/* Elite Features */}
+                        <View style={{
+                          padding: 12,
+                          borderRadius: 8,
+                          backgroundColor: coachPlan !== 'elite' ? 'rgba(0,0,0,0.02)' : colors.bgMid,
+                          borderWidth: 1,
+                          borderColor: coachPlan !== 'elite' ? colors.borderSubtle : colors.border,
+                          opacity: coachPlan !== 'elite' ? 0.7 : 1,
+                        }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <Text style={{ fontWeight: '800', color: colors.textPrimary }}>Elite Coach Capabilities</Text>
+                            {coachPlan !== 'elite' ? (
+                              <Pressable onPress={() => setCoachPlan('elite')} style={{ backgroundColor: colors.info, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4 }}>
+                                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Upgrade to Elite</Text>
+                              </Pressable>
+                            ) : (
+                              <Badge label="Unlocked" variant="success" />
+                            )}
+                          </View>
+                          <Text style={{ fontSize: 13, color: coachPlan !== 'elite' ? colors.textMuted : colors.textSub }}>
+                            • AI training recommendations & Recovery monitoring{'\n'}
+                            • Video review & Custom KPI dashboards{'\n'}
+                            • Assistant coaches management & Priority support
+                          </Text>
+                        </View>
+                      </View>
+                    </Card>
                   </>
                 )}
 
@@ -1145,42 +1280,44 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                             onActionPress={() => setShowCreatePerfModal(true)}
                           />
                         ) : (
-                          <Table
-                            headers={['Event', 'Value', 'Date', 'Sprint Time', 'Remarks']}
-                            data={athletePerformances}
-                            renderRow={(item: PerformanceRecord) => {
-                              const valStr = item.value !== undefined
-                                ? `${item.value} ${item.unit || ''}`
-                                : `${item.sprint_time || 0}s`;
-                              return (
-                                <React.Fragment key={item.performance_id}>
-                                  <View style={styles.tableCellMain}>
-                                    <Text style={[styles.tableMainText, { color: colors.textPrimary }]}>
-                                      {item.sport_event || '100m Sprint'}
-                                    </Text>
-                                  </View>
-                                  <View style={styles.tableCell}>
-                                    <Badge label={valStr} variant="info" />
-                                  </View>
-                                  <View style={styles.tableCell}>
-                                    <Text style={[styles.tableCellText, { color: colors.textSub }]}>
-                                      {item.recorded_at || item.date || '—'}
-                                    </Text>
-                                  </View>
-                                  <View style={styles.tableCell}>
-                                    <Text style={[styles.tableCellText, { color: colors.textSub }]}>
-                                      {item.sprint_time ? `${item.sprint_time}s` : '—'}
-                                    </Text>
-                                  </View>
-                                  <View style={styles.tableCellMain}>
-                                    <Text style={[styles.tableCellText, { color: colors.textSub }]} numberOfLines={2}>
-                                      {item.feedback || item.coach_remarks || '—'}
-                                    </Text>
-                                  </View>
-                                </React.Fragment>
-                              );
-                            }}
-                          />
+                          <View style={{ maxHeight: 440, overflow: 'scroll' as any }}>
+                            <Table
+                              headers={['Event', 'Value', 'Date', 'Sprint Time', 'Remarks']}
+                              data={athletePerformances}
+                              renderRow={(item: PerformanceRecord) => {
+                                const valStr = item.value !== undefined
+                                  ? `${item.value} ${item.unit || ''}`
+                                  : `${item.sprint_time || 0}s`;
+                                return (
+                                  <React.Fragment key={item.performance_id}>
+                                    <View style={styles.tableCellMain}>
+                                      <Text style={[styles.tableMainText, { color: colors.textPrimary }]}>
+                                        {item.sport_event || '100m Sprint'}
+                                      </Text>
+                                    </View>
+                                    <View style={styles.tableCell}>
+                                      <Badge label={valStr} variant="info" />
+                                    </View>
+                                    <View style={styles.tableCell}>
+                                      <Text style={[styles.tableCellText, { color: colors.textSub }]}>
+                                        {item.recorded_at || item.date || '—'}
+                                      </Text>
+                                    </View>
+                                    <View style={styles.tableCell}>
+                                      <Text style={[styles.tableCellText, { color: colors.textSub }]}>
+                                        {item.sprint_time ? `${item.sprint_time}s` : '—'}
+                                      </Text>
+                                    </View>
+                                    <View style={styles.tableCellMain}>
+                                      <Text style={[styles.tableCellText, { color: colors.textSub }]} numberOfLines={2}>
+                                        {item.feedback || item.coach_remarks || '—'}
+                                      </Text>
+                                    </View>
+                                  </React.Fragment>
+                                );
+                              }}
+                            />
+                          </View>
                         )}
                       </Card>
                     )}
@@ -1710,7 +1847,10 @@ function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boo
       backgroundColor: colors.bgCard,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
+      zIndex: 9999,
+      elevation: 10,
     },
+
     hamburgerBtn: {
       padding: 8,
       borderRadius: 8,

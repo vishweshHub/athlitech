@@ -41,8 +41,10 @@ import {
   OnboardingBanner,
   WorkoutSuccessModal,
 } from '@/components/ui';
+import WorkspaceSwitcher from '@/components/ui/WorkspaceSwitcher';
 import RecommendedWorkoutsCard from '../components/RecommendedWorkoutsCard';
 import WorkoutLibraryScreen from '@/features/workouts/pages/WorkoutLibraryScreen';
+
 import TodayTrainingSection from '@/features/training/components/TodayTrainingSection';
 import { useSavedWorkouts } from '@/hooks/useSavedWorkouts';
 import { Href } from 'expo-router';
@@ -130,9 +132,13 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
   }, [token]);
 
   const loadDashboardData = useCallback(async () => {
-    if (!athleteId || !token) return;
+    if (!athleteId || !token) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setError(null);
+
 
     try {
       let athleteData: Athlete;
@@ -151,15 +157,8 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
       } catch (e) {
         const errMessage = e instanceof Error ? e.message.toLowerCase() : '';
         const is404 = errMessage.includes('404') || errMessage.includes('not found') || errMessage.includes('no athlete');
-        if (is404 && user) {
-          athleteData = {
-            athlete_id: athleteId,
-            name: user.name || 'Athlete User',
-            sport: 'Not specified',
-            weight: 'Not specified',
-            coach_id: '',
-          };
-          setAthlete(athleteData);
+        if (is404) {
+          setAthlete(null);
         } else {
           throw e;
         }
@@ -329,12 +328,14 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
             <View style={styles.sidebarNav}>
               {[
                 { id: 'dashboard', label: 'Dashboard', icon: 'grid', count: null, requiresProfile: false },
+                { id: 'role-hub', label: 'Role Hub', icon: 'apps', count: null, requiresProfile: false },
                 { id: 'my-workouts', label: 'My Workouts', icon: 'bookmark', count: null, requiresProfile: true },
                 { id: 'library', label: 'Workout Library', icon: 'book', count: null, requiresProfile: true },
                 { id: 'workouts', label: 'Assigned Workouts', icon: 'fitness', count: totalWorkouts, requiresProfile: true },
                 { id: 'performance', label: 'Performance', icon: 'speedometer', count: null, requiresProfile: true },
                 { id: 'profile', label: 'My Profile', icon: 'person', count: null, requiresProfile: false },
               ].map((item) => {
+
                 const isLocked = item.requiresProfile && !user?.profile_completed;
                 return (
                   <Pressable
@@ -349,7 +350,9 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                         router.push('/complete-profile');
                         return;
                       }
-                      if (item.id === 'my-workouts') {
+                      if (item.id === 'role-hub') {
+                        router.push('/role-hub' as Href);
+                      } else if (item.id === 'my-workouts') {
                         router.push('/my-workouts');
                       } else if (item.id === 'profile') {
                         router.push('/complete-profile');
@@ -368,6 +371,7 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                       style={[
                         styles.sidebarItemLabel,
                         activeTab === item.id && styles.sidebarItemLabelActive,
+                        isLocked && { color: colors.textMuted },
                       ]}
                     >
                       {item.label}
@@ -411,17 +415,18 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
             )}
             <View style={styles.headerInfo}>
               <Text style={styles.headerTitle}>
-                {activeTab === 'dashboard' && 'My Dashboard'}
-                {activeTab === 'library' && 'Workout Library'}
-                {activeTab === 'workouts' && 'Assigned Workouts'}
-                {activeTab === 'performance' && 'My Performance'}
-                {activeTab === 'profile' && 'My Profile'}
-
+                {activeTab === 'dashboard' ? 'My Dashboard' : null}
+                {activeTab === 'library' ? 'Workout Library' : null}
+                {activeTab === 'workouts' ? 'Assigned Workouts' : null}
+                {activeTab === 'performance' ? 'My Performance' : null}
+                {activeTab === 'profile' ? 'My Profile' : null}
               </Text>
+
               <Text style={styles.headerSubtitle}>{user?.email || 'Athlete'}</Text>
             </View>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <WorkspaceSwitcher />
               <ThemeToggle />
               <Pressable onPress={loadDashboardData} style={styles.refreshBtn}>
                 <Ionicons name="refresh" size={20} color={colors.textPrimary} />
@@ -454,10 +459,10 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
               <Card style={styles.section}>
                 <EmptyState
                   icon="person-outline"
-                  title="Profile not found"
-                  description="Your athlete profile could not be loaded."
-                  actionLabel="Retry"
-                  onActionPress={loadDashboardData}
+                  title="Welcome Athlete"
+                  description="Create your athletic profile to unlock training."
+                  actionLabel="Complete Profile"
+                  onActionPress={() => router.push('/complete-profile')}
                 />
               </Card>
             ) : (
@@ -1205,7 +1210,10 @@ function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boo
       backgroundColor: colors.bgCard,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
+      zIndex: 9999,
+      elevation: 10,
     },
+
     hamburgerBtn: {
       padding: 8,
       borderRadius: 8,

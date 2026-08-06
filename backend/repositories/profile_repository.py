@@ -1,30 +1,45 @@
+"""
+AthliTech Profile Repository.
+
+Provides data access methods for managing user profiles collection.
+"""
+
+from typing import Optional, Dict, Any
 from database.mongodb import db
-from datetime import datetime
+from core.utils import get_utc_now
+from core.constants import ROLE_ATHLETE
+from database.utils import serialize_doc
 
 profiles_collection = db["profiles"]
 
+
 class ProfileRepository:
+    """Repository handling CRUD operations for user profiles."""
+
     @property
     def collection(self):
         return profiles_collection
 
-    def _format_doc(self, doc: dict | None) -> dict | None:
+    def _format_doc(self, doc: Optional[dict]) -> Optional[dict]:
         if not doc:
             return None
-        if "_id" in doc:
-            doc["id"] = str(doc.pop("_id"))
-        return doc
+        formatted = dict(doc)
+        if "_id" in formatted:
+            formatted["id"] = str(formatted.pop("_id"))
+        return formatted
 
-    async def get_profile_by_user_id(self, user_id: str) -> dict | None:
+    async def get_profile_by_user_id(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieves profile document formatted with string id by user_id."""
         doc = await self.collection.find_one({"user_id": user_id})
         return self._format_doc(doc)
 
-    async def save_profile(self, user_id: str, role: str, profile_data: dict) -> dict:
-        now = datetime.utcnow()
+    async def save_profile(self, user_id: str, role: str, profile_data: dict) -> Dict[str, Any]:
+        """Creates or updates a profile document for an athlete or coach."""
+        now = get_utc_now()
         existing = await self.get_profile_by_user_id(user_id)
-        
-        doc_key = "athlete_data" if role == "athlete" else "coach_data"
-        
+
+        doc_key = "athlete_data" if role == ROLE_ATHLETE else "coach_data"
+
         if existing:
             update_fields = {
                 doc_key: profile_data,
@@ -53,4 +68,5 @@ class ProfileRepository:
 
 
 profile_repository = ProfileRepository()
+
 

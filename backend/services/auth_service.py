@@ -1,6 +1,15 @@
 from fastapi import Depends, HTTPException
 
 from core.permissions import normalize_role
+from core.utils import get_utc_now
+from core.constants import (
+    ROLE_ADMIN,
+    ROLE_COACH,
+    ROLE_ATHLETE,
+    ACCOUNT_STATUS_ACTIVE,
+    VERIFICATION_STATUS_UNVERIFIED,
+    TOKEN_TYPE_BEARER,
+)
 from core.security import (
     bearer_scheme,
     create_access_token,
@@ -10,15 +19,26 @@ from core.security import (
     hash_password,
     verify_password,
 )
-from database.mongodb import users_collection
+from database.mongodb import (
+    users_collection,
+    accounts_collection,
+    role_profiles_collection,
+    memberships_collection,
+    organizations_collection,
+    athletes_collection,
+)
 from schemas.auth_schema import UserLogin, RegisterRequest
 import uuid
 from datetime import datetime
 
 
 def _validate_role(current_user: dict, allowed_roles: set[str]):
-    current_role = normalize_role(current_user.get("role"))
-    if current_role not in {normalize_role(role) for role in allowed_roles}:
+    allowed_normalized = {normalize_role(role) for role in allowed_roles}
+    user_roles = current_user.get("active_roles")
+    if not user_roles:
+        user_roles = {normalize_role(current_user.get("role", "athlete"))}
+
+    if not (user_roles & allowed_normalized):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     return current_user
@@ -37,28 +57,96 @@ async def register_user(user: RegisterRequest):
 
     hashed_password = hash_password(user.password)
 
-    role = user.role
+    role = user.role or "none"
     user_doc = {
         "name": f"{user.first_name} {user.last_name}",
         "first_name": user.first_name,
         "last_name": user.last_name,
         "email": email,
+        "phone": getattr(user, "phone", None),
         "hashed_password": hashed_password,
         "role": role,
-        "account_status": "active",
+        "account_status": ACCOUNT_STATUS_ACTIVE,
         "profile_completed": False,
         "onboarding_completed": False,
         "registration_source": "self",
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
+        "created_at": get_utc_now(),
+        "updated_at": get_utc_now(),
     }
 
-    if role == "coach":
-        user_doc["verification_status"] = "unverified"
+    if role == ROLE_COACH:
+        user_doc["verification_status"] = VERIFICATION_STATUS_UNVERIFIED
         user_doc["coach_id"] = str(uuid.uuid4())
 
     result = await users_collection.insert_one(user_doc)
     user_id = str(result.inserted_id)
+
+    # --- Dual-Write: Populate Unified Account Architecture ---
+    account_doc = {
+        "account_id": user_id,
+        "email": email,
+        "phone": getattr(user, "phone", None),
+        "hashed_password": hashed_password,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "name": f"{user.first_name} {user.last_name}",
+        "account_status": ACCOUNT_STATUS_ACTIVE,
+        "verification_status": user_doc.get("verification_status", VERIFICATION_STATUS_UNVERIFIED),
+        "profile_completed": False,
+        "onboarding_completed": False,
+        "registration_source": "self",
+        "created_at": get_utc_now(),
+        "updated_at": get_utc_now(),
+    }
+    await accounts_collection.insert_one(account_doc)
+
+    if role in [ROLE_ATHLETE, ROLE_COACH]:
+        rp_id = str(uuid.uuid4())
+        rp_doc = {
+            "role_profile_id": rp_id,
+            "account_id": user_id,
+            "profile_type": role,
+            "status": ACCOUNT_STATUS_ACTIVE,
+            "active": True,
+            "created_at": get_utc_now(),
+            "updated_at": get_utc_now(),
+        }
+        if role == ROLE_ATHLETE:
+            rp_doc["athlete_data"] = {"sport": "General Athletics", "weight": 70}
+        elif role == ROLE_COACH:
+            rp_doc["coach_data"] = {"primary_sport": "General Athletics", "specialization": "Head Coach", "years_experience": 5}
+        await role_profiles_collection.insert_one(rp_doc)
+
+        default_org = await organizations_collection.find_one({"slug": "athlitech-primary"})
+        org_id = default_org["organization_id"] if default_org else "org-default"
+
+        mem_doc = {
+            "membership_id": str(uuid.uuid4()),
+            "account_id": user_id,
+            "organization_id": org_id,
+            "role_profile_id": rp_id,
+            "role": role,
+            "status": ACCOUNT_STATUS_ACTIVE,
+            "created_at": get_utc_now(),
+            "updated_at": get_utc_now(),
+        }
+        await memberships_collection.insert_one(mem_doc)
+
+        if role == ROLE_ATHLETE:
+            ath_doc = {
+                "athlete_id": user_id,
+                "account_id": user_id,
+                "owner_account_id": user_id,
+                "owner_id": user_id,
+                "name": f"{user.first_name} {user.last_name}",
+                "sport": "General Athletics",
+                "weight": 70,
+                "coach_id": None,
+                "created_at": get_utc_now(),
+                "updated_at": get_utc_now(),
+            }
+            await athletes_collection.insert_one(ath_doc)
+
 
     return {
         "message": "User registered successfully",
@@ -66,6 +154,7 @@ async def register_user(user: RegisterRequest):
         "role": role,
         "email": email
     }
+
 
 
 async def login_user(user: UserLogin):
@@ -90,15 +179,19 @@ async def login_user(user: UserLogin):
             detail="Invalid email or password"
         )
 
-    access_token = create_access_token({
-        "sub": email,
-        "role": normalize_role(existing_user.get("role", "athlete"))
-    })
+    user_id = str(existing_user["_id"])
+    mem = await memberships_collection.find_one({"account_id": user_id})
 
-    refresh_token = create_refresh_token({
+    token_claims = {
         "sub": email,
-        "role": normalize_role(existing_user.get("role", "athlete"))
-    })
+        "role": normalize_role(existing_user.get("role", "athlete")),
+        "account_id": user_id,
+        "membership_id": mem.get("membership_id") if mem else None,
+        "organization_id": mem.get("organization_id") if mem else None,
+    }
+
+    access_token = create_access_token(token_claims)
+    refresh_token = create_refresh_token(token_claims)
 
     return {
         "access_token": access_token,
@@ -119,15 +212,19 @@ async def refresh_access_token(refresh_token: str):
             detail="User not found"
         )
 
-    access_token = create_access_token({
-        "sub": email,
-        "role": normalize_role(existing_user.get("role", "athlete"))
-    })
+    user_id = str(existing_user["_id"])
+    mem = await memberships_collection.find_one({"account_id": user_id})
 
-    new_refresh_token = create_refresh_token({
+    token_claims = {
         "sub": email,
-        "role": normalize_role(existing_user.get("role", "athlete"))
-    })
+        "role": normalize_role(existing_user.get("role", "athlete")),
+        "account_id": user_id,
+        "membership_id": mem.get("membership_id") if mem else None,
+        "organization_id": mem.get("organization_id") if mem else None,
+    }
+
+    access_token = create_access_token(token_claims)
+    new_refresh_token = create_refresh_token(token_claims)
 
     return {
         "access_token": access_token,
@@ -149,13 +246,52 @@ async def get_current_user(credentials=Depends(bearer_scheme)):
             detail="User not found"
         )
 
+    user_id = str(user["_id"])
+    mem = await memberships_collection.find_one({"account_id": user_id})
+
+    role_profiles = await role_profiles_collection.find({"account_id": user_id}).to_list(length=100)
+    rp_types = {
+        rp.get("profile_type") for rp in role_profiles 
+        if rp.get("profile_type") and rp.get("status") != "inactive" and rp.get("active") is not False
+    }
+    inactive_rps = {
+        rp.get("profile_type") for rp in role_profiles 
+        if rp.get("profile_type") and (rp.get("status") == "inactive" or rp.get("active") is False)
+    }
+
+    memberships = await memberships_collection.find({"account_id": user_id}).to_list(length=100)
+    mem_roles = {
+        m.get("role") for m in memberships 
+        if m.get("role") and m.get("status") != "inactive"
+    }
+
+    active_roles = set()
+    for rp in rp_types:
+        active_roles.add(normalize_role(rp))
+    for mr in mem_roles:
+        if mr in ["owner", "admin"]:
+            active_roles.add("admin")
+            active_roles.add("organization")
+        else:
+            active_roles.add(normalize_role(mr))
+
+    legacy_r = normalize_role(user.get("role", "athlete"))
+    if legacy_r not in inactive_rps:
+        active_roles.add(legacy_r)
+
     return {
-        "id": str(user["_id"]),
+        "id": user_id,
+        "account_id": user_id,
         "name": user["name"],
         "email": user["email"],
         "role": normalize_role(user.get("role", "athlete")),
+        "active_roles": active_roles,
         "profile_completed": user.get("profile_completed", False),
+        "membership_id": mem.get("membership_id") if mem else None,
+        "organization_id": mem.get("organization_id") if mem else None,
+        "coach_id": user.get("coach_id") or user_id,
     }
+
 
 
 async def require_admin(current_user: dict = Depends(get_current_user)):

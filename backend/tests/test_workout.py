@@ -53,7 +53,11 @@ class FakeCollection:
         for v in self.data.values():
             match = True
             for k, val in query.items():
-                if v.get(k) != val:
+                if isinstance(val, dict) and "$in" in val:
+                    if v.get(k) not in val["$in"]:
+                        match = False
+                        break
+                elif v.get(k) != val:
                     match = False
                     break
             if match:

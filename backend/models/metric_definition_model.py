@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field
+from core.utils import get_utc_now
 
 
 class MetricDefinition(BaseModel):
@@ -11,5 +12,6 @@ class MetricDefinition(BaseModel):
     data_type: str = "float"
     better_direction: str = "higher"  # "higher", "lower", "equal"
     sport: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=get_utc_now)
+    updated_at: datetime = Field(default_factory=get_utc_now)
+

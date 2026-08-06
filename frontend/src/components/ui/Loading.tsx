@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, ActivityIndicator, Text, ViewStyle } from 'react-native';
+import { useThemeColors } from '@/styles/tokens';
 
 interface LoadingProps {
   message?: string;
@@ -11,13 +12,16 @@ interface LoadingProps {
 export const Loading: React.FC<LoadingProps> = ({
   message,
   size = 'large',
-  color = '#38BDF8',
+  color,
   style,
 }) => {
+  const colors = useThemeColors();
+  const activeColor = color || colors.emerald;
+
   return (
     <View style={[styles.container, style]}>
-      <ActivityIndicator size={size} color={color} />
-      {message && <Text style={styles.text}>{message}</Text>}
+      <ActivityIndicator size={size} color={activeColor} />
+      {message && <Text style={[styles.text, { color: colors.textMuted }]}>{message}</Text>}
     </View>
   );
 };
@@ -33,6 +37,5 @@ const styles = StyleSheet.create({
   text: {
     marginTop: 10,
     fontSize: 14,
-    color: '#94A3B8',
   },
 });

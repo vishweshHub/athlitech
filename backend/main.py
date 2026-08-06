@@ -22,6 +22,8 @@ from routes.metric_definition_routes import router as metric_definition_router
 from routes.performance_log_routes import router as performance_log_router
 from routes.activity_feed_routes import router as activity_feed_router
 from routes.athlete_saved_workout_routes import router as athlete_saved_workout_router
+from routes.role_profile_routes import router as role_profile_router
+from routes.organization_routes import router as organization_router
 
 app = FastAPI(
     title="AthliTech API",
@@ -29,6 +31,7 @@ app = FastAPI(
         {"name": "Authentication"},
         {"name": "Users"},
         {"name": "Roles"},
+        {"name": "Role Profiles"},
         {"name": "Coaches"},
         {"name": "Athletes"},
         {"name": "Performance"},
@@ -59,6 +62,9 @@ app.include_router(auth_router)
 app.include_router(athlete_router)
 app.include_router(user_router)
 app.include_router(role_router)
+app.include_router(role_profile_router)
+app.include_router(organization_router)
+
 app.include_router(workout_router)
 app.include_router(performance_router)
 app.include_router(dashboard_router)
@@ -73,21 +79,11 @@ app.include_router(performance_log_router)
 app.include_router(activity_feed_router)
 app.include_router(athlete_saved_workout_router)
 
-
-
-
-
-
-
-
-
 @app.on_event("startup")
 async def startup_event():
     await seed_default_roles()
     await seed_demo_users()
     await seed_demo_workouts()
-
-
 
 @app.get("/")
 def home():

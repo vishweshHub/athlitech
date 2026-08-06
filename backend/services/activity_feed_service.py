@@ -3,6 +3,7 @@ from typing import List, Optional
 from fastapi import HTTPException
 
 from core.permissions import normalize_role
+from core.utils import get_utc_now
 from repositories.workout_session_repository import workout_session_repository
 from repositories.performance_log_repository import performance_log_repository
 from repositories.metric_definition_repository import metric_definition_repository
@@ -86,7 +87,7 @@ async def get_athlete_activity_feed(
         if isinstance(started_at, datetime):
             date_str = started_at.strftime("%Y-%m-%d")
         else:
-            date_str = datetime.utcnow().strftime("%Y-%m-%d")
+            date_str = get_utc_now().strftime("%Y-%m-%d")
 
         if date_str not in day_groups_dict:
             day_groups_dict[date_str] = []

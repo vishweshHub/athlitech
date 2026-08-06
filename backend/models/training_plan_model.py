@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field
+from core.utils import get_utc_now
+from core.constants import STATUS_DRAFT
 
 class TrainingPlan(BaseModel):
     id: str
@@ -12,9 +14,9 @@ class TrainingPlan(BaseModel):
     owner_type: str = "self"  # "self", "coach", "system"
     start_date: str
     end_date: str
-    status: str = "draft"     # "draft", "active", "completed", "archived"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    status: str = STATUS_DRAFT     # "draft", "active", "completed", "archived"
+    created_at: datetime = Field(default_factory=get_utc_now)
+    updated_at: datetime = Field(default_factory=get_utc_now)
 
 class TrainingWeek(BaseModel):
     id: str
@@ -32,3 +34,4 @@ class TrainingDay(BaseModel):
     day_name: str
     day_type: str             # "Training", "Recovery", "Rest"
     notes: Optional[str] = None
+

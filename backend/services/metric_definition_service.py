@@ -4,6 +4,8 @@ from typing import List
 from fastapi import HTTPException
 
 from core.permissions import normalize_role
+from core.utils import get_utc_now
+from core.constants import ROLE_ADMIN
 from repositories.metric_definition_repository import metric_definition_repository
 from schemas.metric_definition_schema import (
     MetricDefinitionCreate,
@@ -21,8 +23,8 @@ def _format_metric_definition_response(m: dict) -> MetricDefinitionResponse:
         data_type=str(m.get("data_type", "float")),
         better_direction=str(m.get("better_direction", "higher")),
         sport=m.get("sport"),
-        created_at=m.get("created_at") if isinstance(m.get("created_at"), datetime) else datetime.utcnow(),
-        updated_at=m.get("updated_at") if isinstance(m.get("updated_at"), datetime) else datetime.utcnow(),
+        created_at=m.get("created_at") if isinstance(m.get("created_at"), datetime) else get_utc_now(),
+        updated_at=m.get("updated_at") if isinstance(m.get("updated_at"), datetime) else get_utc_now(),
     )
 
 
@@ -30,7 +32,7 @@ async def create_metric_definition(
     payload: MetricDefinitionCreate, current_user: dict
 ) -> MetricDefinitionResponse:
     role = normalize_role(current_user.get("role"))
-    if role != "admin":
+    if role != ROLE_ADMIN:
         raise HTTPException(status_code=403, detail="Metric Definition creation is Admin only")
 
     existing = await metric_definition_repository.find_metric_definition_by_key(payload.metric_key)
@@ -40,7 +42,7 @@ async def create_metric_definition(
             detail=f"Metric definition with key '{payload.metric_key}' already exists"
         )
 
-    now = datetime.utcnow()
+    now = get_utc_now()
     doc = {
         "id": str(uuid.uuid4()),
         "metric_key": payload.metric_key,
@@ -55,6 +57,7 @@ async def create_metric_definition(
 
     created = await metric_definition_repository.create_metric_definition(doc)
     return _format_metric_definition_response(created)
+
 
 
 async def get_all_metric_definitions() -> List[MetricDefinitionResponse]:

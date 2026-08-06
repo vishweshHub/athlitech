@@ -1,11 +1,17 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, StyleProp, ViewStyle } from 'react-native';
-
-import { useThemeColors, RADIUS } from '@/styles/tokens';
+import React, { useEffect } from 'react';
+import { StyleSheet, View, ViewStyle, StyleProp } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
+import { RADIUS, useThemeColors } from '@/styles/tokens';
 
 interface SkeletonLoaderProps {
-  width?: number | string;
-  height?: number | string;
+  width?: number | `${number}%`;
+  height?: number;
   borderRadius?: number;
   variant?: 'rect' | 'circle' | 'text';
   style?: StyleProp<ViewStyle>;
@@ -19,48 +25,36 @@ export default function SkeletonLoader({
   style,
 }: SkeletonLoaderProps) {
   const colors = useThemeColors();
-  const pulseAnim = useRef(new Animated.Value(0.4)).current;
+  const opacity = useSharedValue(0.3);
 
   useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 0.85,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0.4,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
+    opacity.value = withRepeat(
+      withTiming(0.8, { duration: 800, easing: Easing.inOut(Easing.quad) }),
+      -1,
+      true
     );
-    animation.start();
-    return () => animation.stop();
-  }, [pulseAnim]);
+  }, [opacity]);
 
-  const resolvedRadius =
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  const calculatedRadius =
     borderRadius !== undefined
       ? borderRadius
       : variant === 'circle'
-      ? 999
+      ? 9999
       : variant === 'text'
-      ? RADIUS.xs
+      ? 4
       : RADIUS.sm;
 
-  return (
-    <Animated.View
-      style={[
-        {
-          width: width as any,
-          height: height as any,
-          borderRadius: resolvedRadius,
-          backgroundColor: colors.skeletonBg,
-          opacity: pulseAnim,
-        },
-        style,
-      ]}
-    />
-  );
+  const bgStyle: ViewStyle = {
+    width: width as any,
+    height,
+    borderRadius: calculatedRadius,
+    backgroundColor: colors.border || 'rgba(255, 255, 255, 0.08)',
+  };
+
+  return <Animated.View style={[bgStyle, animatedStyle, style]} />;
 }
+

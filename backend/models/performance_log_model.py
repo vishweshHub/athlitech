@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field
+from core.utils import get_utc_now
 
 
 class PerformanceLog(BaseModel):
@@ -13,6 +14,7 @@ class PerformanceLog(BaseModel):
     source_type: str = "manual"
     notes: Optional[str] = None
     is_personal_record: bool = False
-    recorded_at: datetime = Field(default_factory=datetime.utcnow)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    recorded_at: datetime = Field(default_factory=get_utc_now)
+    created_at: datetime = Field(default_factory=get_utc_now)
+    updated_at: datetime = Field(default_factory=get_utc_now)
+

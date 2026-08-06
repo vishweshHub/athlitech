@@ -35,22 +35,24 @@ export default function Input({
   // Animate border color: 0 = unfocused, 1 = focused
   const focusAnim = useRef(new Animated.Value(0)).current;
 
-  function handleFocus() {
+  function handleFocus(e: any) {
     setIsFocused(true);
     Animated.timing(focusAnim, {
       toValue: 1,
       duration: 200,
       useNativeDriver: false, // must be false for color interpolation
     }).start();
+    if (rest.onFocus) rest.onFocus(e);
   }
 
-  function handleBlur() {
+  function handleBlur(e: any) {
     setIsFocused(false);
     Animated.timing(focusAnim, {
       toValue: 0,
       duration: 200,
       useNativeDriver: false,
     }).start();
+    if (rest.onBlur) rest.onBlur(e);
   }
 
   const borderColor = focusAnim.interpolate({
@@ -91,10 +93,10 @@ export default function Input({
           placeholder={placeholder}
           placeholderTextColor={colors.textMuted}
           secureTextEntry={password && !showPassword}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
           selectionColor={colors.emerald}
           {...rest}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
         />
 
         {password && (
@@ -134,19 +136,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: RADIUS.md,
+    height: 52,
     minHeight: 52,
     overflow: 'hidden',
   },
   input: {
     flex: 1,
+    height: '100%',
+    alignSelf: 'stretch',
+    backgroundColor: 'transparent',
     fontSize: 16,
     paddingHorizontal: 16,
     paddingVertical: 0,
     outlineWidth: 0, // for web
+    outlineStyle: 'none',
   } as any,
   toggle: {
+    height: '100%',
+    justifyContent: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 14,
   },
   error: {
     fontSize: 13,

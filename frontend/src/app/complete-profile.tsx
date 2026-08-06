@@ -13,11 +13,14 @@ import {
 } from '@/features/profile';
 import { useThemeColors } from '@/styles/tokens';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useWorkspace } from '@/context/WorkspaceContext';
 
 export default function CompleteProfileScreen() {
   const router = useRouter();
   const colors = useThemeColors();
   const scheme = useColorScheme();
+  const { currentWorkspace, setCurrentWorkspace } = useWorkspace();
+
 
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -156,10 +159,9 @@ export default function CompleteProfileScreen() {
               if (isEditing) {
                 setIsEditing(false);
               } else {
-                if (role === 'coach') router.replace('/coach-dashboard');
-                else if (role === 'admin') router.replace('/dashboard');
-                else router.replace('/athlete-dashboard');
+                setCurrentWorkspace(currentWorkspace || 'athlete');
               }
+
             }}
             style={({ pressed }) => [
               styles.backBtn,

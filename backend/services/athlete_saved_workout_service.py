@@ -3,6 +3,8 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 from fastapi import HTTPException, status
 
+from core.utils import get_utc_now
+from core.constants import ROLE_ATHLETE
 from repositories.athlete_saved_workout_repository import athlete_saved_workout_repository
 from repositories.workout_repository import workout_repository
 from schemas.athlete_saved_workout_schema import (
@@ -24,8 +26,9 @@ async def save_workout_for_athlete(
     payload: AthleteSavedWorkoutCreate,
     current_user: dict,
 ) -> AthleteSavedWorkoutResponse:
+    active_roles = current_user.get("active_roles", set())
     user_role = current_user.get("role")
-    if user_role != "athlete":
+    if "athlete" not in active_roles and user_role != ROLE_ATHLETE:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only athletes can save workouts to their personal collection.",
@@ -54,7 +57,7 @@ async def save_workout_for_athlete(
         )
 
     doc_id = str(uuid4())
-    now = datetime.utcnow()
+    now = get_utc_now()
     doc = {
         "id": doc_id,
         "athlete_id": athlete_id,
@@ -79,24 +82,25 @@ async def get_saved_workouts_for_athlete(
     current_user: dict,
     target_athlete_id: Optional[str] = None,
 ) -> List[AthleteSavedWorkoutResponse]:
+    active_roles = current_user.get("active_roles", set())
     user_role = current_user.get("role")
     current_id = current_user.get("id") or str(current_user.get("_id"))
+    account_id = str(current_user.get("account_id") or current_id)
 
-    if user_role == "coach":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Coaches do not have access to athlete saved workout collections.",
-        )
-
-    if user_role == "athlete":
-        if target_athlete_id and target_athlete_id != current_id:
+    if "admin" in active_roles or user_role == "admin":
+        athlete_id = target_athlete_id or current_id
+    elif "athlete" in active_roles or user_role == "athlete":
+        if target_athlete_id and target_athlete_id != current_id and target_athlete_id != account_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Athletes can only view their own saved workouts.",
             )
         athlete_id = current_id
-    elif user_role == "admin":
-        athlete_id = target_athlete_id or current_id
+    elif "coach" in active_roles or user_role == "coach":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Coaches do not have access to athlete saved workout collections.",
+        )
     else:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -128,8 +132,9 @@ async def remove_saved_workout_for_athlete(
     workout_template_id: str,
     current_user: dict,
 ) -> dict:
+    active_roles = current_user.get("active_roles", set())
     user_role = current_user.get("role")
-    if user_role != "athlete":
+    if "athlete" not in active_roles and user_role != "athlete":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only athletes can remove workouts from their personal collection.",

@@ -201,54 +201,11 @@ export default function UserDetails({
         </Card>
       </Pressable>
 
-      {/* Role-Specific Metric Summary Cards */}
-      {role === 'athlete' && (
-        <StatsGrid gap={16} style={{ marginBottom: 24 }}>
-          <StatsGridItem minWidth={220}>
-            <StatCard label="Assigned Workouts" value={athleteTotalWorkouts} suffix="total" trend="+12%" trendDirection="up" />
-          </StatsGridItem>
-          <StatsGridItem minWidth={220}>
-            <StatCard label="Completed Workouts" value={athleteCompletedWorkouts} suffix="completed" trend="+8%" trendDirection="up" />
-          </StatsGridItem>
-          <StatsGridItem minWidth={220}>
-            <StatCard label="Completion Rate" value={athleteCompletionRate} suffix="%" trend="+5%" trendDirection="up" />
-          </StatsGridItem>
-        </StatsGrid>
-      )}
-
-      {role === 'coach' && (
-        <StatsGrid gap={16} style={{ marginBottom: 24 }}>
-          <StatsGridItem minWidth={220}>
-            <StatCard label="Assigned Athletes" value={coachTotalAthletes} suffix="athletes" />
-          </StatsGridItem>
-          <StatsGridItem minWidth={220}>
-            <StatCard label="Workouts Assigned" value={coachTotalWorkouts} suffix="workouts" />
-          </StatsGridItem>
-          <StatsGridItem minWidth={220}>
-            <StatCard label="Workouts Completed" value={coachCompletedWorkouts} suffix="completed" />
-          </StatsGridItem>
-        </StatsGrid>
-      )}
-
-      {role === 'admin' && (
-        <StatsGrid gap={16} style={{ marginBottom: 24 }}>
-          <StatsGridItem minWidth={220}>
-            <StatCard label="System Users" value={systemStats?.totalUsers ?? 12} suffix="total" />
-          </StatsGridItem>
-          <StatsGridItem minWidth={220}>
-            <StatCard label="Coaches Registered" value={systemStats?.totalCoaches ?? 4} suffix="coaches" />
-          </StatsGridItem>
-          <StatsGridItem minWidth={220}>
-            <StatCard label="Athletes Registered" value={systemStats?.totalAthletes ?? 8} suffix="athletes" />
-          </StatsGridItem>
-        </StatsGrid>
-      )}
-
       {/* Main Content Layout Grid */}
       <ResponsiveGrid gap={24}>
         
-        {/* Left Column - Personal and Relational Details */}
-        <ResponsiveGridItem minWidth={300} flex={1}>
+        {/* Left Column - Personal Details, Metrics Summary, and Relations */}
+        <ResponsiveGridItem minWidth={320} flex={1}>
           
           {/* Profile Card */}
           <Pressable
@@ -283,7 +240,7 @@ export default function UserDetails({
                   <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
                   <View style={styles.infoField}>
                     <Text style={[styles.fieldLabel, { color: colors.textSub }]}>Sport Focus</Text>
-                    <Text style={[styles.fieldValue, { color: colors.textPrimary }]}>{profile.sport || 'Not Specified'}</Text>
+                    <Text style={[styles.fieldValue, { color: colors.textPrimary }]}>{profile.sport || 'General Athletics'}</Text>
                   </View>
                   <View style={[styles.divider, { backgroundColor: colors.borderSubtle }]} />
                   <View style={styles.infoField}>
@@ -296,6 +253,40 @@ export default function UserDetails({
               )}
             </Card>
           </Pressable>
+
+          {/* Role-Specific Metric Summary Inside Left Column */}
+          {role === 'athlete' && (
+            <Card style={{ marginBottom: 24 }}>
+              <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: 16 }]}>Training Summary</Text>
+              <View style={{ gap: 12 }}>
+                <StatCard label="Assigned Workouts" value={athleteTotalWorkouts} suffix="total" trend="+12%" trendDirection="up" />
+                <StatCard label="Completed Workouts" value={athleteCompletedWorkouts} suffix="completed" trend="+8%" trendDirection="up" />
+                <StatCard label="Completion Rate" value={athleteCompletionRate} suffix="%" trend="+5%" trendDirection="up" />
+              </View>
+            </Card>
+          )}
+
+          {role === 'coach' && (
+            <Card style={{ marginBottom: 24 }}>
+              <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: 16 }]}>Coaching Metrics</Text>
+              <View style={{ gap: 12 }}>
+                <StatCard label="Assigned Athletes" value={coachTotalAthletes} suffix="athletes" />
+                <StatCard label="Workouts Assigned" value={coachTotalWorkouts} suffix="workouts" />
+                <StatCard label="Workouts Completed" value={coachCompletedWorkouts} suffix="completed" />
+              </View>
+            </Card>
+          )}
+
+          {role === 'admin' && (
+            <Card style={{ marginBottom: 24 }}>
+              <Text style={[styles.cardTitle, { color: colors.textPrimary, marginBottom: 16 }]}>System Stats</Text>
+              <View style={{ gap: 12 }}>
+                <StatCard label="System Users" value={systemStats?.totalUsers ?? 12} suffix="total" />
+                <StatCard label="Coaches Registered" value={systemStats?.totalCoaches ?? 4} suffix="coaches" />
+                <StatCard label="Athletes Registered" value={systemStats?.totalAthletes ?? 8} suffix="athletes" />
+              </View>
+            </Card>
+          )}
 
           {/* Athlete role -> Assigned Coach Card */}
           {role === 'athlete' && (
@@ -360,7 +351,7 @@ export default function UserDetails({
         </ResponsiveGridItem>
 
         {/* Right Column - Workouts, Athletes, Logs Table Sections */}
-        <ResponsiveGridItem minWidth={340} flex={2}>
+        <ResponsiveGridItem minWidth={480} flex={2}>
           
           {/* Athlete view content: Workouts & Performance tables */}
           {role === 'athlete' && (
@@ -381,38 +372,124 @@ export default function UserDetails({
                       icon="barbell-outline"
                     />
                   ) : (
-                    <Table
-                      headers={['Workout Title', 'Status', 'Assigned Date']}
-                      data={workouts}
-                      renderRow={(w) => (
-                        <React.Fragment key={w.workout_id}>
-                          <View style={styles.cellWide}>
-                            <Text style={[styles.tableMainText, { color: colors.textPrimary }]}>{w.title}</Text>
-                            {w.description ? (
-                              <Text style={[styles.tableSubText, { color: colors.textSub }]} numberOfLines={1}>
-                                {w.description}
+                    <View style={{ maxHeight: 320, overflow: 'scroll' as any }}>
+                      <Table
+                        headers={['Workout Title', 'Status', 'Assigned Date']}
+                        data={workouts}
+                        renderRow={(w) => (
+                          <React.Fragment key={w.workout_id}>
+                            <View style={styles.cellWide}>
+                              <Text style={[styles.tableMainText, { color: colors.textPrimary }]}>{w.title}</Text>
+                              {w.description ? (
+                                <Text style={[styles.tableSubText, { color: colors.textSub }]} numberOfLines={1}>
+                                  {w.description}
+                                </Text>
+                              ) : null}
+                            </View>
+                            <View style={styles.cellBadge}>
+                              <Badge
+                                label={w.status.toUpperCase()}
+                                variant={w.status === 'completed' ? 'success' : 'warning'}
+                              />
+                            </View>
+                            <View style={styles.cellDate}>
+                              <Text style={[styles.tableSubText, { color: colors.textMuted }]}>
+                                {w.completed_at || w.date}
                               </Text>
-                            ) : null}
-                          </View>
-                          <View style={styles.cellBadge}>
-                            <Badge
-                              label={w.status.toUpperCase()}
-                              variant={w.status === 'completed' ? 'success' : 'warning'}
-                            />
-                          </View>
-                          <View style={styles.cellDate}>
-                            <Text style={[styles.tableSubText, { color: colors.textMuted }]}>
-                              {w.completed_at || w.date}
-                            </Text>
-                          </View>
-                        </React.Fragment>
-                      )}
-                    />
+                            </View>
+                          </React.Fragment>
+                        )}
+                      />
+                    </View>
                   )}
                 </Card>
               </Pressable>
 
+ dev
+              {/* Self Workout Performance Section */}
+              <Pressable
+                onHoverIn={() => setHoveredCard('selfWorkouts')}
+                onHoverOut={() => setHoveredCard(null)}
+                style={{ width: '100%', marginBottom: 24 }}
+              >
+                <Card style={hoveredCard === 'selfWorkouts' && { borderColor: colors.emerald }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Self Workout Performance</Text>
+                    <Badge label={`${selfWorkouts.length} Sessions`} variant="info" />
+                  </View>
+
+                  {selfWorkouts.length === 0 ? (
+                    <EmptyState
+                      title="No independent workouts completed yet."
+                      description="This athlete has not logged any self-directed training sessions yet."
+                      icon="fitness-outline"
+                    />
+                  ) : (
+                    <View style={{ maxHeight: 340, overflow: 'scroll' as any }}>
+                      <Table
+                        headers={['Workout Name', 'Completion Date', 'Duration', 'RPE & Rating', 'Notes']}
+                        data={selfWorkouts}
+                        renderRow={(perf) => {
+                          const wName = perf.workout_name || perf.workout_title || perf.activity_label || 'Self Workout';
+                          const dateStr = perf.completed_at || perf.recorded_at || perf.created_at || perf.date || '—';
+                          const durationStr = perf.duration_minutes !== undefined && perf.duration_minutes !== null
+                            ? `${perf.duration_minutes}m` 
+                            : perf.duration 
+                            ? String(perf.duration) 
+                            : '—';
+                          
+                          const perceivedEffort = perf.perceived_effort !== undefined ? perf.perceived_effort : perf.rpe;
+                          const rpeStr = perceivedEffort !== undefined && perceivedEffort !== null
+                            ? `RPE: ${perceivedEffort}/10` 
+                            : 'RPE: —';
+
+                          const completionRating = perf.completion_rating !== undefined ? perf.completion_rating : perf.rating;
+                          const ratingStr = completionRating !== undefined && completionRating !== null
+                            ? `Rating: ${completionRating}/5 ⭐` 
+                            : 'Rating: —';
+
+                          const notesStr = perf.notes || perf.athlete_notes || '—';
+
+                          return (
+                            <React.Fragment key={perf.id || perf.performance_id || Math.random().toString()}>
+                              <View style={styles.cellWide}>
+                                <Text style={[styles.tableMainText, { color: colors.textPrimary }]}>
+                                  {wName}
+                                </Text>
+                              </View>
+                              <View style={styles.cellDate}>
+                                <Text style={[styles.tableSubText, { color: colors.textMuted }]}>
+                                  {dateStr}
+                                </Text>
+                              </View>
+                              <View style={styles.cellBadge}>
+                                <Badge label={durationStr} variant="neutral" />
+                              </View>
+                              <View style={styles.cellBadge}>
+                                <Text style={[{ fontSize: 12, fontWeight: '600', color: colors.emerald }]}>
+                                  {rpeStr}
+                                </Text>
+                                <Text style={[{ fontSize: 11, color: colors.textSub, marginTop: 2 }]}>
+                                  {ratingStr}
+                                </Text>
+                              </View>
+                              <View style={styles.cellFeedback}>
+                                <Text style={[styles.feedbackText, { color: colors.textSub }]} numberOfLines={2}>
+                                  {notesStr}
+                                </Text>
+                              </View>
+                            </React.Fragment>
+                          );
+                        }}
+                      />
+                    </View>
+                  )}
+                </Card>
+              </Pressable>
+
+              {/* Performance Records & Feedback (Coach Performance) */
               {/* Performance & Feedback History */}
+main
               <Pressable
                 onHoverIn={() => setHoveredCard('performance')}
                 onHoverOut={() => setHoveredCard(null)}
@@ -428,36 +505,36 @@ export default function UserDetails({
                       icon="analytics-outline"
                     />
                   ) : (
-                    <Table
-                      headers={['Event Focus', 'Recorded Value', 'Remarks & Feedback']}
-                      data={performances}
-                      renderRow={(perf) => {
-                        const valStr = perf.value !== undefined ? `${perf.value} ${perf.unit || ''}` : `${perf.sprint_time || 0}s`;
-                        const feedbackStr = perf.feedback || perf.coach_remarks || 'No remarks provided';
-                        return (
-                          <React.Fragment key={perf.performance_id}>
-                            <View style={styles.cellWide}>
-                              <Text style={[styles.tableMainText, { color: colors.textPrimary }]}>
-                                {perf.sport_event || 'Sprint Time'}
-                              </Text>
-                              <Text style={[styles.tableSubText, { color: colors.textMuted }]}>
-                                {perf.recorded_at || perf.date || 'N/A'}
-                              </Text>
-                            </View>
-                            <View style={styles.cellValue}>
-                              <View style={[styles.valueTag, { backgroundColor: colors.bgMid, borderColor: colors.border }]}>
-                                <Text style={[styles.valueTagText, { color: colors.emerald }]}>{valStr}</Text>
+                    <View style={{ maxHeight: 340, overflow: 'scroll' as any }}>
+                      <Table
+                        headers={['Event Focus', 'Recorded Value', 'Remarks & Feedback']}
+                        data={performances}
+                        renderRow={(perf) => {
+                          const valStr = perf.value !== undefined ? `${perf.value} ${perf.unit || ''}` : `${perf.sprint_time || 0}s`;
+                          const feedbackStr = perf.feedback || perf.coach_remarks || 'No remarks provided';
+                          return (
+                            <React.Fragment key={perf.performance_id}>
+                              <View style={styles.cellWide}>
+                                <Text style={[styles.tableMainText, { color: colors.textPrimary }]}>
+                                  {perf.sport_event || 'Sprint Time'}
+                                </Text>
+                                <Text style={[styles.tableSubText, { color: colors.textMuted }]}>
+                                  {perf.recorded_at || perf.date || 'N/A'}
+                                </Text>
                               </View>
-                            </View>
-                            <View style={styles.cellFeedback}>
-                              <Text style={[styles.feedbackText, { color: colors.textSub }]} numberOfLines={2}>
-                                {feedbackStr}
-                              </Text>
-                            </View>
-                          </React.Fragment>
-                        );
-                      }}
-                    />
+                              <View style={styles.cellBadge}>
+                                <Badge label={valStr} variant="info" />
+                              </View>
+                              <View style={styles.cellFeedback}>
+                                <Text style={[styles.feedbackText, { color: colors.textSub }]} numberOfLines={2}>
+                                  {feedbackStr}
+                                </Text>
+                              </View>
+                            </React.Fragment>
+                          );
+                        }}
+                      />
+                    </View>
                   )}
                 </Card>
               </Pressable>

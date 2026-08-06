@@ -10,9 +10,11 @@ class RegisterRequest(BaseModel):
     first_name: str = Field(..., min_length=1, max_length=50)
     last_name: str = Field(..., min_length=1, max_length=50)
     email: EmailStr
+    phone: Optional[str] = None
     password: str = Field(..., min_length=8, max_length=20)
     confirm_password: str = Field(..., min_length=8, max_length=20)
-    role: str = Field("athlete", pattern="^(athlete|coach)$")
+    role: Optional[str] = Field("athlete", pattern="^(athlete|coach|none|user)$")
+
 
     @field_validator("password")
     @classmethod

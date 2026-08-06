@@ -1,35 +1,32 @@
-from bson import ObjectId
+"""
+AthliTech Coach Repository.
+
+Provides data access methods for querying coach documents.
+"""
+
+from typing import Optional, Dict, Any
 from database import mongodb
+from database.utils import to_object_id
+
 
 class CoachRepository:
+    """Repository handling CRUD operations for coach user records."""
+
     @property
     def collection(self):
-        try:
-            from routes import workout_routes
-            if hasattr(workout_routes, "users_collection"):
-                return workout_routes.users_collection
-        except ImportError:
-            pass
-        try:
-            from routes import performance_routes
-            if hasattr(performance_routes, "users_collection"):
-                return performance_routes.users_collection
-        except ImportError:
-            pass
-        try:
-            from services import athlete_service
-            if hasattr(athlete_service, "users_collection"):
-                return athlete_service.users_collection
-        except ImportError:
-            pass
         return mongodb.users_collection
 
-    async def find_by_coach_id(self, coach_id: str) -> dict | None:
+    async def find_by_coach_id(self, coach_id: str) -> Optional[Dict[str, Any]]:
+        """Finds coach user by unique coach_id string."""
         return await self.collection.find_one({"coach_id": coach_id})
 
-    async def find_by_id(self, user_id: str) -> dict | None:
-        if not ObjectId.is_valid(user_id):
+    async def find_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Finds coach user by user ObjectId string."""
+        oid = to_object_id(user_id)
+        if not oid:
             return None
-        return await self.collection.find_one({"_id": ObjectId(user_id)})
+        return await self.collection.find_one({"_id": oid})
+
 
 coach_repository = CoachRepository()
+

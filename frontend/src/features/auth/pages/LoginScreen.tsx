@@ -16,12 +16,14 @@ import Reanimated, { useAnimatedStyle, withTiming } from 'react-native-reanimate
 import { Ionicons } from '@expo/vector-icons';
 
 import { fetchCurrentUser, getStoredToken, login, storeToken } from '@/api/auth';
+import { useWorkspace } from '@/context/WorkspaceContext';
 import GridMotion from '@/components/animations/GridMotion';
 import SplitText from '@/components/animations/SplitText';
 import GlassInput from '@/components/ui/GlassInput';
 import PressButton from '@/components/ui/PressButton';
 import { RADIUS, SHADOW, useThemeColors } from '@/styles/tokens';
 import ThemeToggle from '@/components/ui/ThemeToggle';
+
 const DASHBOARD_ROUTE = '/dashboard' as Href;
 const REGISTER_ROUTE = '/register' as Href;
 
@@ -70,9 +72,7 @@ export default function LoginScreen() {
       try {
         const currentUser = await fetchCurrentUser(token);
         if (isMounted) {
-          if (currentUser.role === 'coach') router.replace('/coach-dashboard' as Href);
-          else if (currentUser.role === 'athlete') router.replace('/athlete-dashboard' as Href);
-          else router.replace(DASHBOARD_ROUTE);
+          router.replace('/role-hub' as Href);
         }
       } catch {
         if (isMounted) setIsCheckingSession(false);
@@ -105,12 +105,15 @@ export default function LoginScreen() {
     }
   }, [isCheckingSession]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const { refreshWorkspaceStatus, setCurrentWorkspace } = useWorkspace();
+
   async function handleLogin() {
     setError('');
     if (!email.trim() || !password) {
       setError('Enter your email and password.');
       return;
     }
+
     const passwordError = validatePassword(password);
     if (passwordError) {
       setError(passwordError);
@@ -120,10 +123,15 @@ export default function LoginScreen() {
     try {
       const result = await login(email.trim(), password);
       await storeToken(result.access_token);
-      const currentUser = await fetchCurrentUser(result.access_token);
-      if (currentUser.role === 'coach') router.replace('/coach-dashboard' as Href);
-      else if (currentUser.role === 'athlete') router.replace('/athlete-dashboard' as Href);
-      else router.replace(DASHBOARD_ROUTE);
+      await fetchCurrentUser(result.access_token);
+
+      const status = await refreshWorkspaceStatus();
+      if (status?.active_roles && status.active_roles.length > 0) {
+        const primaryRole = (status.active_roles[0] || 'athlete') as any;
+        setCurrentWorkspace(primaryRole);
+      } else {
+        router.replace('/role-hub' as Href);
+      }
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : 'Login failed.');
     } finally {

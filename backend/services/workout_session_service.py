@@ -1,9 +1,10 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from fastapi import HTTPException, status
 
 from core.permissions import normalize_role
+from core.utils import get_utc_now
 from repositories.workout_session_repository import workout_session_repository
 from repositories.session_repository import session_repository
 from repositories.training_plan_repository import training_plan_repository
@@ -23,6 +24,17 @@ from schemas.workout_session_schema import (
 )
 
 
+def _as_utc(dt) -> datetime:
+    """Coerce a naive or aware datetime to UTC-aware. MongoDB returns naive datetimes."""
+    if dt is None:
+        return get_utc_now()
+    if not isinstance(dt, datetime):
+        return get_utc_now()
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 def _format_workout_session_response(ws: dict) -> WorkoutSessionResponse:
     ws_id = str(ws.get("id") or ws.get("_id"))
     session_id_val = str(ws.get("session_id")) if ws.get("session_id") else None
@@ -37,20 +49,28 @@ def _format_workout_session_response(ws: dict) -> WorkoutSessionResponse:
         athlete_id=str(ws.get("athlete_id", "")),
         source_type=str(ws.get("source_type", "PLANNED")),
         status=str(ws.get("status", "not_started")),
-        started_at=ws.get("started_at") if isinstance(ws.get("started_at"), datetime) else datetime.utcnow(),
-        paused_at=ws.get("paused_at") if isinstance(ws.get("paused_at"), datetime) else None,
-        resumed_at=ws.get("resumed_at") if isinstance(ws.get("resumed_at"), datetime) else None,
-        completed_at=ws.get("completed_at") if isinstance(ws.get("completed_at"), datetime) else None,
+        started_at=_as_utc(ws["started_at"]) if isinstance(ws.get("started_at"), datetime) else get_utc_now(),
+        paused_at=_as_utc(ws["paused_at"]) if isinstance(ws.get("paused_at"), datetime) else None,
+        resumed_at=_as_utc(ws["resumed_at"]) if isinstance(ws.get("resumed_at"), datetime) else None,
+        completed_at=_as_utc(ws["completed_at"]) if isinstance(ws.get("completed_at"), datetime) else None,
         total_duration_seconds=int(ws.get("total_duration_seconds", 0)),
         completion_percentage=float(ws.get("completion_percentage", 0.0)),
         session_notes=ws.get("session_notes"),
-        created_at=ws.get("created_at") if isinstance(ws.get("created_at"), datetime) else datetime.utcnow(),
-        updated_at=ws.get("updated_at") if isinstance(ws.get("updated_at"), datetime) else datetime.utcnow(),
+        created_at=_as_utc(ws["created_at"]) if isinstance(ws.get("created_at"), datetime) else get_utc_now(),
+        updated_at=_as_utc(ws["updated_at"]) if isinstance(ws.get("updated_at"), datetime) else get_utc_now(),
     )
 
 
 async def _verify_session_read_and_write(ws: dict, current_user: dict, require_write: bool = False):
-    role = normalize_role(current_user.get("role"))
+    active_roles = current_user.get("active_roles") or set()
+    role = normalize_role(current_user.get("role", "athlete"))
+    # Unified architecture: prefer active_roles set
+    if "admin" in active_roles or "organization" in active_roles:
+        role = "admin"
+    elif "coach" in active_roles and "athlete" not in active_roles:
+        role = "coach"
+    elif "athlete" in active_roles:
+        role = "athlete"
     user_id = str(current_user.get("id"))
     athlete_id = str(ws.get("athlete_id", ""))
 
@@ -70,9 +90,18 @@ async def _verify_session_read_and_write(ws: dict, current_user: dict, require_w
 
 
 async def start_workout_session(payload: WorkoutSessionStartRequest, current_user: dict) -> WorkoutSessionResponse:
-    role = normalize_role(current_user.get("role"))
+    active_roles = current_user.get("active_roles") or set()
+    role = normalize_role(current_user.get("role", "athlete"))
+    # Unified architecture: prefer active_roles
+    if "admin" in active_roles or "organization" in active_roles:
+        role = "admin"
+    elif "coach" in active_roles and "athlete" not in active_roles:
+        role = "coach"
+    elif "athlete" in active_roles:
+        role = "athlete"
     user_id = str(current_user.get("id"))
 
+    # Only pure coaches (without athlete role) cannot start sessions
     if role == "coach":
         raise HTTPException(status_code=403, detail="Coaches cannot start workout sessions for athletes")
     
@@ -140,7 +169,7 @@ async def start_workout_session(payload: WorkoutSessionStartRequest, current_use
         source_type = "SELF"
 
     # Create new workout session
-    now = datetime.utcnow()
+    now = get_utc_now()
     ws_doc = {
         "id": str(uuid.uuid4()),
         "session_id": final_session_id,
@@ -175,9 +204,9 @@ async def pause_workout_session(workout_session_id: str, current_user: dict) -> 
     if current_status != "in_progress":
         raise HTTPException(status_code=400, detail=f"Cannot pause workout session in state '{current_status}'")
 
-    now = datetime.utcnow()
+    now = get_utc_now()
     last_active = ws.get("resumed_at") or ws.get("started_at")
-    elapsed = int((now - last_active).total_seconds()) if isinstance(last_active, datetime) else 0
+    elapsed = int((now - _as_utc(last_active)).total_seconds()) if isinstance(last_active, datetime) else 0
     total_dur = int(ws.get("total_duration_seconds", 0)) + max(0, elapsed)
 
     changes = {
@@ -202,7 +231,7 @@ async def resume_workout_session(workout_session_id: str, current_user: dict) ->
     if current_status != "paused":
         raise HTTPException(status_code=400, detail=f"Cannot resume workout session in state '{current_status}'")
 
-    now = datetime.utcnow()
+    now = get_utc_now()
     changes = {
         "status": "in_progress",
         "resumed_at": now,
@@ -226,12 +255,12 @@ async def complete_workout_session(
     if current_status not in ["in_progress", "paused"]:
         raise HTTPException(status_code=400, detail=f"Cannot complete workout session in state '{current_status}'")
 
-    now = datetime.utcnow()
+    now = get_utc_now()
     total_dur = int(ws.get("total_duration_seconds", 0))
     if current_status == "in_progress":
         last_active = ws.get("resumed_at") or ws.get("started_at")
         if isinstance(last_active, datetime):
-            total_dur += max(0, int((now - last_active).total_seconds()))
+            total_dur += max(0, int((now - _as_utc(last_active)).total_seconds()))
 
     completion_pct = payload.completion_percentage if payload.completion_percentage is not None else 100.0
 
@@ -284,7 +313,7 @@ async def cancel_workout_session(
     if current_status in ["completed", "cancelled"]:
         raise HTTPException(status_code=400, detail=f"Cannot cancel workout session in state '{current_status}'")
 
-    now = datetime.utcnow()
+    now = get_utc_now()
     changes = {
         "status": "cancelled",
         "completed_at": now,
@@ -298,7 +327,14 @@ async def cancel_workout_session(
 
 
 async def get_active_workout_session(current_user: dict, athlete_id: Optional[str] = None) -> WorkoutSessionResponse:
-    role = normalize_role(current_user.get("role"))
+    active_roles = current_user.get("active_roles") or set()
+    role = normalize_role(current_user.get("role", "athlete"))
+    if "admin" in active_roles or "organization" in active_roles:
+        role = "admin"
+    elif "coach" in active_roles and "athlete" not in active_roles:
+        role = "coach"
+    elif "athlete" in active_roles:
+        role = "athlete"
     user_id = str(current_user.get("id"))
 
     if role == "athlete":
