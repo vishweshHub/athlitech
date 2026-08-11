@@ -197,16 +197,8 @@ export const TodayTrainingSection: React.FC<TodayTrainingSectionProps> = ({
             <Button
               label="Log Workout"
               onPress={onNavigateToLogWorkout || (() => Alert.alert('Log Workout', 'Manual workout log.'))}
-              variant="secondary"
-              size="md"
-              style={styles.halfBtn}
-            />
-            <Button
-              label="Contact Coach"
-              onPress={onNavigateToContactCoach || (() => Alert.alert('Contact Coach', 'Reaching out to coach.'))}
               variant="primary"
               size="md"
-              style={styles.halfBtn}
             />
           </View>
         </View>

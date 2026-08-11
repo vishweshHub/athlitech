@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { workoutService } from '../services/workout/workoutService';
+import { parseApiError } from '../utils/ApiError';
 import {
   WorkoutSession,
   WorkoutSessionStartRequest,
@@ -20,12 +21,12 @@ export const useWorkoutSession = (athleteId?: string) => {
       setActiveSession(session);
       return session;
     } catch (err: any) {
-      if (err.response?.status === 404) {
+      const parsed = parseApiError(err, 'Failed to fetch active workout session');
+      if (parsed.status === 404) {
         setActiveSession(null);
         return null;
       } else {
-        const msg = err.response?.data?.detail || err.message || 'Failed to fetch active workout session';
-        setError(msg);
+        setError(parsed.message);
         return null;
       }
     } finally {
@@ -53,10 +54,10 @@ export const useWorkoutSession = (athleteId?: string) => {
       setActiveSession(session);
       return session;
     } catch (err: any) {
-      const msg = err.response?.data?.detail || err.message || 'Failed to start workout session';
-      setError(msg);
+      const parsed = parseApiError(err, 'Failed to start workout session');
+      setError(parsed.message);
       // Fallback: If 400 active session conflict returned, hydrate from existing active session
-      if (err.response?.status === 400 && typeof msg === 'string' && msg.includes('already has an active workout session')) {
+      if (parsed.status === 400 && parsed.message.includes('already has an active workout session')) {
         try {
           const active = await workoutService.getActiveWorkoutSession(athleteId);
           setActiveSession(active);
@@ -70,6 +71,7 @@ export const useWorkoutSession = (athleteId?: string) => {
       setIsLoading(false);
     }
   };
+
 
   const pauseSession = async (id: string): Promise<WorkoutSession | null> => {
     setIsLoading(true);

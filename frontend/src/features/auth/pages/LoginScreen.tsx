@@ -74,7 +74,8 @@ export default function LoginScreen() {
         if (isMounted) {
           router.replace('/role-hub' as Href);
         }
-      } catch {
+      } catch (sessionErr) {
+        console.info('[LoginScreen] Session validation check:', sessionErr);
         if (isMounted) setIsCheckingSession(false);
       }
     }

@@ -19,7 +19,7 @@ export default function CompleteProfileScreen() {
   const router = useRouter();
   const colors = useThemeColors();
   const scheme = useColorScheme();
-  const { currentWorkspace, setCurrentWorkspace } = useWorkspace();
+  const { currentWorkspace, setCurrentWorkspace, refreshWorkspaceStatus } = useWorkspace();
 
 
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -65,10 +65,11 @@ export default function CompleteProfileScreen() {
     try {
       await completeProfile(token, payload);
       
-      // Refresh current user session and profile data from backend
+      // Refresh current user session, workspace status, and profile data from backend
       const [updatedUser, updatedProfile] = await Promise.all([
         fetchCurrentUser(token),
         fetchMyProfile(token).catch(() => null),
+        refreshWorkspaceStatus(),
       ]);
       setUser(updatedUser);
       if (updatedProfile) {

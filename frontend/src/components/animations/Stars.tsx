@@ -101,7 +101,7 @@ export default function Stars() {
   }, []);
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' as any }]}>
       {stars.map((star) => (
         <Star key={star.id} {...star} />
       ))}

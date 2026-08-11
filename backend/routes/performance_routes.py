@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List
-from services.auth_service import get_current_user, require_admin
+from services.auth_service import get_current_user, require_admin, normalize_role
 from services.performance_service import add_performance, get_athlete_performances
 from schemas.performance_schema import PerformanceCreate, PerformanceRead
 from models.performance_model import Performance

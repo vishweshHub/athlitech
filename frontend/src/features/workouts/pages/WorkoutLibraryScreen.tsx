@@ -140,11 +140,12 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
     setIsLoading(true);
     setError(null);
     try {
-      const [workoutsData, profileData, metadata] = await Promise.all([
+      const [workoutsData, rawProfileData, metadata] = await Promise.all([
         fetchWorkoutTemplates(token),
         fetchMyProfile(token).catch(() => null),
         fetchWorkoutMetadata(token).catch(() => null),
       ]);
+      const profileData: any = rawProfileData;
 
       setWorkouts(workoutsData);
 
@@ -210,7 +211,9 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
 
   const primarySportWorkouts = filteredWorkouts.filter((w) => isPrimarySport(w.sport));
   const generalWorkouts = filteredWorkouts.filter(
-    (w) => w.sport.toLowerCase().includes('general') || !isPrimarySport(w.sport)
+    (w) =>
+      w.sport.toLowerCase().includes('general') ||
+      ((selectedCategory !== 'All' || Boolean(searchQuery)) && !isPrimarySport(w.sport))
   );
 
   // Identify Locked Sports for Athletes
@@ -230,7 +233,7 @@ export default function WorkoutLibraryScreen({ token, userRole }: WorkoutLibrary
     setSelectedWorkout(null);
   };
 
-  const cardWidth = isLargeScreen ? 340 : isMediumScreen ? '48%' : '100%';
+  const cardWidth = isLargeScreen ? '31.8%' : isMediumScreen ? '48%' : '100%';
 
   return (
     <View style={styles.container}>

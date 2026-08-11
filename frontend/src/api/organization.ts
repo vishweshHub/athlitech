@@ -1,4 +1,5 @@
 import { API_URL } from '@/constants/api';
+import { ApiError, formatApiDetailMessage } from '@/utils/ApiError';
 
 export interface OrganizationData {
   organization_id: string;
@@ -62,27 +63,33 @@ export interface OrganizationInvitationsResponse {
   expired_invitations: any[];
 }
 
-export async function fetchMyOrganization(token: string): Promise<OrganizationData | null> {
-  try {
-    const res = await fetch(`${API_URL}/organization/my-organization`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!res.ok) {
-      if (res.status === 404) return null;
-      throw new Error(`HTTP ${res.status}`);
-    }
-
-    const data = await res.json();
-    return data.organization || null;
-  } catch (err) {
-    console.warn('[Organization API] Failed to fetch organization:', err);
-    return null;
+async function handleResponse<T>(res: Response, fallbackMessage: string): Promise<T> {
+  if (!res.ok) {
+    const errData = await res.json().catch(() => null);
+    const msg = formatApiDetailMessage(errData?.detail ?? errData?.message, fallbackMessage);
+    throw new ApiError(msg, res.status, `HTTP_${res.status}`, errData);
   }
+  return res.json();
+}
+
+export async function fetchMyOrganization(token: string): Promise<OrganizationData | null> {
+  const res = await fetch(`${API_URL}/organization/my-organization`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    const errData = await res.json().catch(() => null);
+    const msg = formatApiDetailMessage(errData?.detail ?? errData?.message, 'Failed to fetch organization details');
+    throw new ApiError(msg, res.status, `HTTP_${res.status}`, errData);
+  }
+
+  const data = await res.json();
+  return data.organization || null;
 }
 
 export async function createOrganization(
@@ -98,12 +105,7 @@ export async function createOrganization(
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.detail || 'Failed to create organization');
-  }
-
-  const data = await res.json();
+  const data = await handleResponse<{ organization: OrganizationData }>(res, 'Failed to create organization');
   return data.organization;
 }
 
@@ -121,8 +123,9 @@ export async function updateOrganizationPlan(
   });
 
   if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.detail || 'Failed to update organization plan');
+    const errData = await res.json().catch(() => null);
+    const msg = formatApiDetailMessage(errData?.detail ?? errData?.message, 'Failed to update organization plan');
+    throw new ApiError(msg, res.status, `HTTP_${res.status}`, errData);
   }
 }
 
@@ -137,11 +140,7 @@ export async function fetchOrganizationInvitations(
     },
   });
 
-  if (!res.ok) {
-    throw new Error(`Failed to fetch invitations (HTTP ${res.status})`);
-  }
-
-  return await res.json();
+  return handleResponse<OrganizationInvitationsResponse>(res, 'Failed to fetch invitations');
 }
 
 export async function createOrganizationInvitation(
@@ -157,11 +156,7 @@ export async function createOrganizationInvitation(
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.detail || 'Failed to generate invitation link');
-  }
-
-  const data = await res.json();
+  const data = await handleResponse<{ invitation: PendingInvitation }>(res, 'Failed to generate invitation link');
   return data.invitation;
 }
+

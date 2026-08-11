@@ -86,6 +86,7 @@ class WorkoutResponse(BaseModel):
     duration_minutes: int
     equipment: List[str] = Field(default_factory=list)
     instructions: Optional[str] = None
+    exercises: Optional[List[dict]] = Field(default_factory=list)
     created_by: Optional[str] = "system"
     created_by_role: Optional[str] = "admin"
     is_public: bool = True

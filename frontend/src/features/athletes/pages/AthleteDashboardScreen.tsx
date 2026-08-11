@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Platform,
   Pressable,
@@ -146,9 +147,10 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
         athleteData = await fetchAthleteById(token, athleteId);
         setAthlete(athleteData);
 
-        if (athleteData.coach_id) {
+        const targetCoachId = athleteData?.coach_id || user?.coach_id;
+        if (targetCoachId) {
           try {
-            const coachData = await fetchCoachById(token, athleteData.coach_id);
+            const coachData = await fetchCoachById(token, targetCoachId);
             setCoach(coachData);
           } catch (coachError) {
             console.warn('Failed to fetch coach details:', coachError);
@@ -207,8 +209,9 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
             : w
         )
       );
-    } catch (e) {
+    } catch (e: any) {
       console.warn('Failed to update workout status:', e);
+      Alert.alert('Update Failed', e?.message || 'Failed to update workout status. Please try again.');
     }
   };
 

@@ -1,4 +1,5 @@
 import { API_URL } from './auth';
+import { ApiError, formatApiDetailMessage } from '@/utils/ApiError';
 
 export type Exercise = {
   name: string;
@@ -32,12 +33,22 @@ export type WorkoutTemplate = {
   duration_minutes: number;
   equipment: string[];
   instructions?: string;
+  exercises?: Exercise[];
   created_by: string;
   created_by_role: string;
   is_public: boolean;
   created_at: string;
   updated_at: string;
 };
+
+async function handleResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    const msg = formatApiDetailMessage(data?.detail ?? data?.message, fallbackMessage);
+    throw new ApiError(msg, response.status, `HTTP_${response.status}`, data);
+  }
+  return response.json();
+}
 
 export async function fetchWorkoutTemplates(
   token: string,
@@ -56,11 +67,7 @@ export async function fetchWorkoutTemplates(
     },
   });
 
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    throw new Error(data?.detail ?? 'Failed to fetch workout templates');
-  }
-  return response.json();
+  return handleResponse<WorkoutTemplate[]>(response, 'Failed to fetch workout templates');
 }
 
 export async function fetchWorkoutTemplateById(token: string, id: string): Promise<WorkoutTemplate> {
@@ -70,11 +77,7 @@ export async function fetchWorkoutTemplateById(token: string, id: string): Promi
     },
   });
 
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    throw new Error(data?.detail ?? 'Failed to fetch workout template details');
-  }
-  return response.json();
+  return handleResponse<WorkoutTemplate>(response, 'Failed to fetch workout template details');
 }
 
 export async function createWorkout(
@@ -97,11 +100,7 @@ export async function createWorkout(
     },
     body: JSON.stringify(workoutData),
   });
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    throw new Error(data?.detail ?? 'Failed to create workout plan');
-  }
-  return response.json();
+  return handleResponse<{ message: string; workout_id: string }>(response, 'Failed to create workout plan');
 }
 
 export async function fetchCoachWorkouts(token: string, coachId: string): Promise<Workout[]> {
@@ -110,11 +109,7 @@ export async function fetchCoachWorkouts(token: string, coachId: string): Promis
       Authorization: `Bearer ${token}`,
     },
   });
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    throw new Error(data?.detail ?? 'Failed to fetch coach workouts');
-  }
-  return response.json();
+  return handleResponse<Workout[]>(response, 'Failed to fetch coach workouts');
 }
 
 export async function fetchAthleteWorkouts(token: string, athleteId: string): Promise<Workout[]> {
@@ -123,11 +118,7 @@ export async function fetchAthleteWorkouts(token: string, athleteId: string): Pr
       Authorization: `Bearer ${token}`,
     },
   });
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    throw new Error(data?.detail ?? 'Failed to fetch athlete workouts');
-  }
-  return response.json();
+  return handleResponse<Workout[]>(response, 'Failed to fetch athlete workouts');
 }
 
 export async function updateWorkoutStatus(
@@ -151,11 +142,7 @@ export async function updateWorkoutStatus(
       athlete_notes,
     }),
   });
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    throw new Error(data?.detail ?? 'Failed to update workout status');
-  }
-  return response.json();
+  return handleResponse<{ message: string; status: string }>(response, 'Failed to update workout status');
 }
 
 export async function fetchAllWorkouts(token: string): Promise<Workout[]> {
@@ -164,11 +151,7 @@ export async function fetchAllWorkouts(token: string): Promise<Workout[]> {
       Authorization: `Bearer ${token}`,
     },
   });
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    throw new Error(data?.detail ?? 'Failed to fetch workouts');
-  }
-  return response.json();
+  return handleResponse<Workout[]>(response, 'Failed to fetch workouts');
 }
 
 export type WorkoutMetadata = {
@@ -183,18 +166,11 @@ export async function fetchWorkoutMetadata(token?: string): Promise<WorkoutMetad
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const response = await fetch(`${API_URL}/workouts/metadata`, { headers });
-  if (!response.ok) {
-    return {
-      sports: ["Track & Field", "Football", "Basketball", "Cricket", "General Fitness"],
-      categories: ["Speed", "Endurance", "Strength", "Technique", "Mobility", "Recovery"],
-      difficulties: ["Beginner", "Intermediate", "Advanced"],
-      equipment: ["Starting Blocks", "Spikes", "Stopwatch", "Agility Cones", "Foam Roller", "Barbell", "Dumbbells"],
-    };
-  }
-  return response.json();
+  return handleResponse<WorkoutMetadata>(response, 'Failed to fetch workout metadata');
 }
 
 export async function fetchSports(token?: string): Promise<string[]> {
   const meta = await fetchWorkoutMetadata(token);
   return meta.sports;
 }
+

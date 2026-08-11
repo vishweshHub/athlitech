@@ -37,10 +37,8 @@ export default function WorkoutCard({
     <Card style={styles.card}>
       {/* Header Badges */}
       <View style={styles.headerRow}>
-        <View style={styles.badgeGroup}>
-          <Badge label={workout.sport} variant="neutral" />
-          <Badge label={workout.category} variant="info" />
-        </View>
+        <Badge label={workout.sport} variant="neutral" />
+        <Badge label={workout.category} variant="info" />
         <Badge label={workout.difficulty} variant={getDifficultyVariant(workout.difficulty)} />
       </View>
 
@@ -116,17 +114,14 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     justifyContent: 'space-between',
     height: '100%',
+    overflow: 'hidden',
   },
   headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  badgeGroup: {
-    flexDirection: 'row',
-    gap: 6,
     flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
   },
   title: {
     fontSize: 17,

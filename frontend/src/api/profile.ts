@@ -1,4 +1,5 @@
 import { API_URL } from './auth';
+import { ApiError, formatApiDetailMessage } from '@/utils/ApiError';
 
 export interface AthleteProfilePayload {
   sport: string;
@@ -25,6 +26,15 @@ export interface WorkoutRecommendation {
   tags: string[];
 }
 
+async function handleResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    const msg = formatApiDetailMessage(data?.detail ?? data?.message, fallbackMessage);
+    throw new ApiError(msg, response.status, `HTTP_${response.status}`, data);
+  }
+  return response.json();
+}
+
 export async function completeProfile(token: string, payload: AthleteProfilePayload | CoachProfilePayload) {
   const response = await fetch(`${API_URL}/profile/complete`, {
     method: 'POST',
@@ -35,12 +45,7 @@ export async function completeProfile(token: string, payload: AthleteProfilePayl
     body: JSON.stringify(payload),
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || 'Failed to save profile');
-  }
-
-  return response.json();
+  return handleResponse(response, 'Failed to save profile');
 }
 
 export async function fetchMyProfile(token: string) {
@@ -50,12 +55,7 @@ export async function fetchMyProfile(token: string) {
     },
   });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || 'Failed to fetch profile');
-  }
-
-  return response.json();
+  return handleResponse(response, 'Failed to fetch profile');
 }
 
 export async function fetchWorkoutRecommendations(token: string): Promise<WorkoutRecommendation[]> {
@@ -65,9 +65,6 @@ export async function fetchWorkoutRecommendations(token: string): Promise<Workou
     },
   });
 
-  if (!response.ok) {
-    return [];
-  }
-
-  return response.json();
+  return handleResponse<WorkoutRecommendation[]>(response, 'Failed to fetch workout recommendations');
 }
+

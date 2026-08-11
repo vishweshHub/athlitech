@@ -98,21 +98,24 @@ export default function CoachDetailsScreen({ user: propUser, token: propToken, o
         const resolvedCoachId = coachData.coach_id || coachData.id;
 
         setIsHistoryLoading(true);
-        const [userData, athletesData, workoutsData, allPerformances] = await Promise.all([
-          userPromise,
-          fetchCoachAthletes(token as string, resolvedCoachId).catch((err) => {
-            console.warn('Failed to fetch coach athletes:', err);
-            return [];
-          }),
-          fetchCoachWorkouts(token as string, resolvedCoachId).catch((err) => {
-            console.warn('Failed to fetch coach workouts:', err);
-            return [];
-          }),
-          fetchAllPerformances(token as string).catch((err) => {
-            console.warn('Failed to fetch all performances:', err);
-            return [];
-          }),
+        const results = await Promise.allSettled([
+          fetchUserById(token as string, coachId),
+          fetchCoachAthletes(token as string, resolvedCoachId),
+          fetchCoachWorkouts(token as string, resolvedCoachId),
+          fetchAllPerformances(token as string),
         ]);
+
+        const [userRes, athletesRes, workoutsRes, perfsRes] = results;
+
+        const userData = userRes.status === 'fulfilled' ? userRes.value : null;
+        const athletesData = athletesRes.status === 'fulfilled' ? athletesRes.value : [];
+        const workoutsData = workoutsRes.status === 'fulfilled' ? workoutsRes.value : [];
+        const allPerformances = perfsRes.status === 'fulfilled' ? perfsRes.value : [];
+
+        const subErrors: string[] = [];
+        if (athletesRes.status === 'rejected') subErrors.push(`Athletes: ${athletesRes.reason?.message}`);
+        if (workoutsRes.status === 'rejected') subErrors.push(`Workouts: ${workoutsRes.reason?.message}`);
+        if (perfsRes.status === 'rejected') subErrors.push(`Performances: ${perfsRes.reason?.message}`);
 
         setCoachUser(userData);
         setAthletes(athletesData);
@@ -123,6 +126,10 @@ export default function CoachDetailsScreen({ user: propUser, token: propToken, o
         );
         setPerformances(coachPerfs);
         setIsHistoryLoading(false);
+
+        if (subErrors.length > 0) {
+          setError(`Some coach details could not be loaded:\n${subErrors.join('\n')}`);
+        }
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Failed to load coach details';
         console.warn('Error loading coach details:', e);
@@ -140,7 +147,7 @@ export default function CoachDetailsScreen({ user: propUser, token: propToken, o
       propOnSignOut();
     } else {
       await clearStoredToken();
-      router.replace('/');
+      router.replace('/login');
     }
   };
 

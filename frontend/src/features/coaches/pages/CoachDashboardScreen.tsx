@@ -19,8 +19,8 @@ import {
 import type { Athlete } from '@/api/admin';
 import { fetchCoachAthletes, fetchCoachById } from '@/api/admin';
 import type { AuthUser } from '@/api/auth';
-import type { Workout, Exercise } from '@/api/workout';
-import { createWorkout, fetchCoachWorkouts } from '@/api/workout';
+import type { Workout, Exercise, WorkoutTemplate } from '@/api/workout';
+import { createWorkout, fetchCoachWorkouts, fetchWorkoutTemplates } from '@/api/workout';
 import type { PerformanceRecord } from '@/api/performance';
 import { fetchAthletePerformances, createPerformance } from '@/api/performance';
 import { completeProfile, CoachProfilePayload } from '@/api/profile';
@@ -101,6 +101,9 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
 
   // Create Workout Form State
   const [showCreateWorkoutModal, setShowCreateWorkoutModal] = useState(false);
+  const [workoutTemplates, setWorkoutTemplates] = useState<WorkoutTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
   const [isSavingWorkout, setIsSavingWorkout] = useState(false);
   const [workoutFormMessage, setWorkoutFormMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [newWorkoutTitle, setNewWorkoutTitle] = useState('');
@@ -172,15 +175,17 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
 
       setActualCoachId(coachId);
 
-      const [athletesData, workoutsData, myProfileData] = await Promise.all([
+      const [athletesData, workoutsData, templatesData, myProfileData] = await Promise.all([
         fetchCoachAthletes(token, coachId),
         fetchCoachWorkouts(token, coachId),
+        fetchWorkoutTemplates(token).catch(() => []),
         fetchMyProfile(token).catch(() => null),
       ]);
 
       setAthletes(athletesData);
       setFilteredAthletes(athletesData);
       setWorkouts(workoutsData);
+      setWorkoutTemplates(templatesData);
       if (myProfileData) {
         setCoachProfile(myProfileData);
       }
@@ -1430,6 +1435,68 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
               )}
 
               <View style={styles.formFields}>
+                {/* Workout Template selector */}
+                {workoutTemplates.length > 0 && (
+                  <View style={{ marginBottom: 4 }}>
+                    <Pressable
+                      style={[styles.formInput, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                      onPress={() => setShowTemplateDropdown(!showTemplateDropdown)}
+                    >
+                      <Text style={{ color: selectedTemplateId ? colors.emerald : colors.textMuted, fontSize: 14, fontWeight: selectedTemplateId ? '700' : '400' }}>
+                        {selectedTemplateId 
+                          ? `Template: ${workoutTemplates.find(t => t.id === selectedTemplateId)?.title}`
+                          : 'Select Workout Template (Optional)'}
+                      </Text>
+                      <Ionicons name={showTemplateDropdown ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSub} />
+                    </Pressable>
+
+                    {showTemplateDropdown && (
+                      <View style={[styles.dropdownList, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+                        <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled>
+                          <Pressable
+                            style={[styles.dropdownItem, { borderBottomColor: colors.borderSubtle }]}
+                            onPress={() => {
+                              setSelectedTemplateId(null);
+                              setShowTemplateDropdown(false);
+                            }}
+                          >
+                            <Text style={{ color: colors.textSub, fontSize: 13, fontStyle: 'italic' }}>
+                              Custom Workout (No Template)
+                            </Text>
+                          </Pressable>
+                          {workoutTemplates.map((t) => (
+                            <Pressable
+                              key={t.id}
+                              style={[styles.dropdownItem, { borderBottomColor: colors.borderSubtle }]}
+                              onPress={() => {
+                                setSelectedTemplateId(t.id);
+                                setNewWorkoutTitle(t.title);
+                                setNewWorkoutDescription(t.description || '');
+                                if (t.exercises && t.exercises.length > 0) {
+                                  setNewWorkoutExercises(t.exercises.map(ex => ({
+                                    name: ex.name,
+                                    sets: ex.sets || 3,
+                                    reps: ex.reps || 10,
+                                    duration: ex.duration || '',
+                                  })));
+                                }
+                                setShowTemplateDropdown(false);
+                              }}
+                            >
+                              <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: '700' }}>
+                                {t.title}
+                              </Text>
+                              <Text style={{ color: colors.textSub, fontSize: 12 }} numberOfLines={1}>
+                                {t.category || 'General'} • {t.exercises?.length || 0} exercises
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </View>
+                )}
+
                 <TextInput
                   style={[styles.formInput, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.inputBg }]}
                   placeholder="Workout Title *"

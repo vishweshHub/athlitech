@@ -41,7 +41,7 @@ export default function ThemeTransition({ children }: ThemeTransitionProps) {
   return (
     <Animated.View style={[styles.container, backgroundStyle]}>
       {/* Dark Theme Background */}
-      <Animated.View style={[StyleSheet.absoluteFill, darkOverlayStyle]} pointerEvents="none">
+      <Animated.View style={[StyleSheet.absoluteFill, darkOverlayStyle, { pointerEvents: 'none' as any }]}>
         <LinearGradient
           colors={['#02050a', '#0a101d']}
           style={StyleSheet.absoluteFill}
@@ -50,7 +50,7 @@ export default function ThemeTransition({ children }: ThemeTransitionProps) {
       </Animated.View>
 
       {/* Light Theme Background */}
-      <Animated.View style={[StyleSheet.absoluteFill, lightOverlayStyle]} pointerEvents="none">
+      <Animated.View style={[StyleSheet.absoluteFill, lightOverlayStyle, { pointerEvents: 'none' as any }]}>
         <LinearGradient
           colors={['#e0f2fe', '#f8fafc']}
           style={StyleSheet.absoluteFill}

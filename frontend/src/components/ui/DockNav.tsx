@@ -63,7 +63,7 @@ export default function DockNav() {
   const styles = getStyles(colors);
 
   return (
-    <View style={styles.outer} pointerEvents="box-none">
+    <View style={[styles.outer, { pointerEvents: 'box-none' as any }]}>
       {Platform.OS === 'web'
         ? React.createElement('div', {
             'aria-hidden': true,
