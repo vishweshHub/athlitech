@@ -1,4 +1,5 @@
 import { API_URL, getStoredToken } from '@/constants/api';
+import { ApiError, formatApiDetailMessage } from '@/utils/ApiError';
 
 export type RoleStatusInfo = {
   active: boolean;
@@ -20,29 +21,30 @@ export type RoleHubStatusResponse = {
   active_roles: string[];
 };
 
+async function handleResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    const msg = formatApiDetailMessage(errorBody?.detail ?? errorBody?.message, fallbackMessage);
+    throw new ApiError(msg, response.status, `HTTP_${response.status}`, errorBody);
+  }
+  return response.json();
+}
+
 export async function fetchRoleHubStatus(): Promise<RoleHubStatusResponse> {
   const token = await getStoredToken();
-  if (!token) throw new Error('Not authenticated');
+  if (!token) throw new ApiError('Not authenticated', 401, 'UNAUTHORIZED');
 
   const url = `${API_URL}/role-profiles/status`;
-  console.log('[fetchRoleHubStatus] Fetching:', url);
-
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error(`[fetchRoleHubStatus] HTTP ${response.status}:`, errorBody);
-    throw new Error(`Failed to fetch role hub status (HTTP ${response.status}).`);
-  }
-
-  return response.json();
+  return handleResponse<RoleHubStatusResponse>(response, 'Failed to fetch workspace role status');
 }
 
 export async function activateRole(role: 'athlete' | 'coach' | 'organization'): Promise<{ message: string; role: string; active: boolean }> {
   const token = await getStoredToken();
-  if (!token) throw new Error('Not authenticated');
+  if (!token) throw new ApiError('Not authenticated', 401, 'UNAUTHORIZED');
 
   const requestUrl = `${API_URL}/role-profiles/activate`;
   const response = await fetch(requestUrl, {
@@ -54,17 +56,12 @@ export async function activateRole(role: 'athlete' | 'coach' | 'organization'): 
     body: JSON.stringify({ role }),
   });
 
-  if (!response.ok) {
-    const responseText = await response.text();
-    throw new Error(`Failed to activate ${role} role (HTTP ${response.status}): ${responseText}`);
-  }
-
-  return response.json();
+  return handleResponse<{ message: string; role: string; active: boolean }>(response, `Failed to activate ${role} role`);
 }
 
 export async function deactivateRole(role: 'athlete' | 'coach' | 'organization'): Promise<{ message: string; role: string; active: boolean }> {
   const token = await getStoredToken();
-  if (!token) throw new Error('Not authenticated');
+  if (!token) throw new ApiError('Not authenticated', 401, 'UNAUTHORIZED');
 
   const requestUrl = `${API_URL}/role-profiles/deactivate`;
   const response = await fetch(requestUrl, {
@@ -76,10 +73,6 @@ export async function deactivateRole(role: 'athlete' | 'coach' | 'organization')
     body: JSON.stringify({ role }),
   });
 
-  if (!response.ok) {
-    const responseText = await response.text();
-    throw new Error(`Failed to deactivate ${role} subscription (HTTP ${response.status}): ${responseText}`);
-  }
-
-  return response.json();
+  return handleResponse<{ message: string; role: string; active: boolean }>(response, `Failed to deactivate ${role} role`);
 }
+

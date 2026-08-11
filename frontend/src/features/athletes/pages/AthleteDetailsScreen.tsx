@@ -94,45 +94,35 @@ export default function AthleteDetailsScreen({ user: propUser, token: propToken,
         const athleteData = await fetchAthleteById(token as string, athleteId);
         setAthlete(athleteData);
 
-        const userPromise = fetchUserById(token as string, athleteId).catch((err) => {
-          console.warn('Failed to fetch user email details:', err);
-          return null;
-        });
-
-        setIsCoachLoading(true);
-        setIsHistoryLoading(true);
-
-        const coachPromise = athleteData.coach_id
-          ? fetchCoachById(token as string, athleteData.coach_id).catch((err) => {
-              console.warn('Failed to fetch coach details:', err);
-              return null;
-            })
-          : Promise.resolve(null);
-
-        const workoutsPromise = fetchAthleteWorkouts(token as string, athleteId).catch((err) => {
-          console.warn('Failed to fetch athlete workouts:', err);
-          return [];
-        });
-
-        const performancesPromise = fetchAthletePerformances(token as string, athleteId).catch((err) => {
-          console.warn('Failed to fetch athlete performances:', err);
-          return [];
-        });
-
-        const [userData, workoutsData, performancesData, performanceLogsData] = await Promise.all([
-          userPromise,
-          workoutsPromise,
-          performancesPromise,
-          fetchAthletePerformanceLogs(token as string, athleteId).catch(() => []),
+        const results = await Promise.allSettled([
+          fetchUserById(token as string, athleteId),
+          fetchAthleteWorkouts(token as string, athleteId),
+          fetchAthletePerformances(token as string, athleteId),
+          fetchAthletePerformanceLogs(token as string, athleteId),
         ]);
 
+        const [userRes, workoutsRes, perfsRes, logsRes] = results;
+
+        const userData = userRes.status === 'fulfilled' ? userRes.value : null;
+        const workoutsData = workoutsRes.status === 'fulfilled' ? workoutsRes.value : [];
+        const performancesData = perfsRes.status === 'fulfilled' ? perfsRes.value : [];
+        const performanceLogsData = logsRes.status === 'fulfilled' ? logsRes.value : [];
+
+        const subErrors: string[] = [];
+        if (workoutsRes.status === 'rejected') subErrors.push(`Workouts: ${workoutsRes.reason?.message}`);
+        if (perfsRes.status === 'rejected') subErrors.push(`Performances: ${perfsRes.reason?.message}`);
+        if (logsRes.status === 'rejected') subErrors.push(`Logs: ${logsRes.reason?.message}`);
+
         const targetCoachId = athleteData?.coach_id || userData?.coach_id;
-        const coachData = targetCoachId
-          ? await fetchCoachById(token as string, targetCoachId).catch((err) => {
-              console.warn('Failed to fetch coach details:', err);
-              return null;
-            })
-          : null;
+        let coachData = null;
+        if (targetCoachId) {
+          try {
+            coachData = await fetchCoachById(token as string, targetCoachId);
+          } catch (cErr: any) {
+            console.warn('Failed to fetch coach details:', cErr);
+            subErrors.push(`Coach: ${cErr.message || 'Failed to load coach details'}`);
+          }
+        }
 
         setAthleteUser(userData);
         setCoach(coachData);
@@ -141,6 +131,10 @@ export default function AthleteDetailsScreen({ user: propUser, token: propToken,
         setPerformanceLogs(performanceLogsData);
         setIsCoachLoading(false);
         setIsHistoryLoading(false);
+
+        if (subErrors.length > 0) {
+          setError(`Some athlete data could not be retrieved:\n${subErrors.join('\n')}`);
+        }
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Failed to load athlete details';
         console.warn('Error loading athlete details:', e);

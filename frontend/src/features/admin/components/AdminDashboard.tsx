@@ -165,20 +165,39 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
       setOrganization(myOrg);
 
       if (myOrg) {
-        const [fetchedUsers, fetchedRoles, fetchedAthletes, fetchedWorkouts, fetchedPerformances, fetchedInvs] = await Promise.all([
-          fetchAllUsers(token).catch(() => []),
-          fetchAllRoles(token).catch(() => []),
-          fetchAllAthletes(token).catch(() => []),
-          fetchAllWorkouts(token).catch(() => []),
-          fetchAllPerformances(token).catch(() => []),
-          fetchOrganizationInvitations(token).catch(() => null),
+        const results = await Promise.allSettled([
+          fetchAllUsers(token),
+          fetchAllRoles(token),
+          fetchAllAthletes(token),
+          fetchAllWorkouts(token),
+          fetchAllPerformances(token),
+          fetchOrganizationInvitations(token),
         ]);
-        setUsers(fetchedUsers);
-        setRoles(fetchedRoles);
-        setAthletesData(fetchedAthletes);
-        setWorkouts(fetchedWorkouts);
-        setPerformances(fetchedPerformances);
-        if (fetchedInvs) setInvitationsData(fetchedInvs);
+
+        const [usersRes, rolesRes, athletesRes, workoutsRes, perfsRes, invsRes] = results;
+
+        const errors: string[] = [];
+
+        if (usersRes.status === 'fulfilled') setUsers(usersRes.value);
+        else errors.push(`Users: ${usersRes.reason?.message || 'Failed to fetch users'}`);
+
+        if (rolesRes.status === 'fulfilled') setRoles(rolesRes.value);
+        else errors.push(`Roles: ${rolesRes.reason?.message || 'Failed to fetch roles'}`);
+
+        if (athletesRes.status === 'fulfilled') setAthletesData(athletesRes.value);
+        else errors.push(`Athletes: ${athletesRes.reason?.message || 'Failed to fetch athletes'}`);
+
+        if (workoutsRes.status === 'fulfilled') setWorkouts(workoutsRes.value);
+        else errors.push(`Workouts: ${workoutsRes.reason?.message || 'Failed to fetch workouts'}`);
+
+        if (perfsRes.status === 'fulfilled') setPerformances(perfsRes.value);
+        else errors.push(`Performances: ${perfsRes.reason?.message || 'Failed to fetch performances'}`);
+
+        if (invsRes.status === 'fulfilled' && invsRes.value) setInvitationsData(invsRes.value);
+
+        if (errors.length > 0) {
+          setDashboardError(`Some dashboard data could not be loaded:\n${errors.join('\n')}`);
+        }
       } else {
         setUsers([]);
         setRoles([]);

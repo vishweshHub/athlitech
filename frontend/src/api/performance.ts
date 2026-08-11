@@ -1,4 +1,5 @@
 import { API_URL } from './auth';
+import { ApiError, formatApiDetailMessage } from '@/utils/ApiError';
 
 export type PerformanceRecord = {
   performance_id: string;
@@ -38,17 +39,22 @@ export type PerformanceCreateInput = {
   recorded_at?: string;
 };
 
+async function handleResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    const msg = parseApiErrorMessage(data, fallbackMessage);
+    throw new ApiError(msg, response.status, `HTTP_${response.status}`, data);
+  }
+  return response.json();
+}
+
 export async function fetchAthletePerformances(token: string, athleteId: string): Promise<PerformanceRecord[]> {
   const response = await fetch(`${API_URL}/performances/athlete/${athleteId}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    throw new Error(data?.detail ?? 'Failed to fetch athlete performance records');
-  }
-  return response.json();
+  return handleResponse<PerformanceRecord[]>(response, 'Failed to fetch athlete performance records');
 }
 
 export async function createPerformance(
@@ -63,11 +69,7 @@ export async function createPerformance(
     },
     body: JSON.stringify(performanceData),
   });
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    throw new Error(data?.detail ?? 'Failed to record performance data');
-  }
-  return response.json();
+  return handleResponse<{ message: string; performance_id: string }>(response, 'Failed to record performance data');
 }
 
 export async function fetchAllPerformances(token: string): Promise<PerformanceRecord[]> {
@@ -76,11 +78,7 @@ export async function fetchAllPerformances(token: string): Promise<PerformanceRe
       Authorization: `Bearer ${token}`,
     },
   });
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    throw new Error(data?.detail ?? 'Failed to fetch performance records');
-  }
-  return response.json();
+  return handleResponse<PerformanceRecord[]>(response, 'Failed to fetch performance records');
 }
 
 // ── SPRINT 5.1 PERFORMANCE LOG ENDPOINTS ──
@@ -182,13 +180,7 @@ export async function createPerformanceLog(
     body: JSON.stringify(payload),
   });
 
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    const message = parseApiErrorMessage(data, 'Failed to save performance log');
-    throw new Error(message);
-  }
-
-  return response.json();
+  return handleResponse<PerformanceLogResponse>(response, 'Failed to save performance log');
 }
 
 export async function fetchMyPerformanceLogs(token: string): Promise<PerformanceLogResponse[]> {
@@ -198,12 +190,7 @@ export async function fetchMyPerformanceLogs(token: string): Promise<Performance
     },
   });
 
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new Error(data?.detail || 'Failed to fetch performance logs');
-  }
-
-  return response.json();
+  return handleResponse<PerformanceLogResponse[]>(response, 'Failed to fetch performance logs');
 }
 
 export async function fetchAthletePerformanceLogs(token: string, athleteId: string): Promise<PerformanceLogResponse[]> {
@@ -213,16 +200,12 @@ export async function fetchAthletePerformanceLogs(token: string, athleteId: stri
     },
   });
 
-  if (!response.ok) {
-    return [];
-  }
-
-  return response.json();
+  return handleResponse<PerformanceLogResponse[]>(response, 'Failed to fetch athlete performance logs');
 }
 
 /**
  * Fetch performance logs for a specific workout session.
- * Returns an empty array if none exist (never throws on 404).
+ * Returns an empty array if status is 404 (none exist), but throws ApiError on 500 / 401 / 403.
  */
 export async function fetchLogBySession(
   token: string,
@@ -232,7 +215,14 @@ export async function fetchLogBySession(
     `${API_URL}/performance-logs/workout-session/${workoutSessionId}`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
-  if (!response.ok) return [];
+  if (!response.ok) {
+    if (response.status === 404) {
+      return [];
+    }
+    const data = await response.json().catch(() => null);
+    const msg = parseApiErrorMessage(data, 'Failed to fetch session performance log');
+    throw new ApiError(msg, response.status, `HTTP_${response.status}`, data);
+  }
   const data = await response.json().catch(() => []);
   return Array.isArray(data) ? data : [];
 }
@@ -253,9 +243,6 @@ export async function deletePerformanceLogsBySession(
       headers: { Authorization: `Bearer ${token}` },
     }
   );
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new Error(data?.detail || 'Failed to reset performance log');
-  }
-  return response.json();
+  return handleResponse<{ deleted: number; message: string }>(response, 'Failed to reset performance log');
 }
+

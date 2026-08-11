@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { Href, useRouter } from 'expo-router';
 import { fetchRoleHubStatus, RoleHubStatusResponse } from '@/api/roleHub';
 import { getStoredToken } from '@/constants/api';
+import { ApiError, parseApiError } from '@/utils/ApiError';
 
 export type WorkspaceRole = 'athlete' | 'coach' | 'organization';
 
@@ -13,6 +14,7 @@ interface WorkspaceContextType {
   activeRoles: WorkspaceRole[];
   statusData: RoleHubStatusResponse | null;
   isLoading: boolean;
+  error: ApiError | null;
   setCurrentWorkspace: (role: WorkspaceRole) => void;
   refreshWorkspaceStatus: () => Promise<RoleHubStatusResponse | null>;
   clearWorkspaceState: () => void;
@@ -26,6 +28,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [activeRoles, setActiveRoles] = useState<WorkspaceRole[]>([]);
   const [statusData, setStatusData] = useState<RoleHubStatusResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<ApiError | null>(null);
 
   // Helper to persist active workspace choice locally
   const persistWorkspace = (role: WorkspaceRole) => {
@@ -37,6 +40,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   const refreshWorkspaceStatus = useCallback(async (): Promise<RoleHubStatusResponse | null> => {
     setIsLoading(true);
+    setError(null);
     const token = await getStoredToken();
     if (!token) {
       setActiveRoles([]);
@@ -71,7 +75,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
       return data;
     } catch (err) {
-      console.warn('[WorkspaceContext] Failed to refresh workspace status:', err);
+      const parsedError = parseApiError(err, 'Failed to refresh workspace status');
+      console.warn('[WorkspaceContext] Failed to refresh workspace status:', parsedError);
+      setError(parsedError);
       return null;
     } finally {
       setIsLoading(false);
@@ -98,6 +104,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     setCurrentWorkspaceState(null);
     setActiveRoles([]);
     setStatusData(null);
+    setError(null);
     if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
       localStorage.removeItem(STORAGE_ACTIVE_WORKSPACE_KEY);
     }
@@ -110,6 +117,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         activeRoles,
         statusData,
         isLoading,
+        error,
         setCurrentWorkspace,
         refreshWorkspaceStatus,
         clearWorkspaceState,
@@ -119,6 +127,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     </WorkspaceContext.Provider>
   );
 }
+
 
 export function useWorkspace() {
   const context = useContext(WorkspaceContext);

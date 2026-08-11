@@ -452,13 +452,18 @@ async def seed_workouts() -> int:
 
     for tpl in CURATED_WORKOUT_TEMPLATES:
         template_doc = {**tpl}
+        if "exercises" not in template_doc or not template_doc["exercises"]:
+            template_doc["exercises"] = [
+                {"name": f"{tpl['category']} Warm-up", "sets": 3, "reps": 10, "duration": "5 mins"},
+                {"name": f"{tpl['title']} Main Drill", "sets": 4, "reps": 8, "duration": "15 mins"},
+                {"name": f"Cool-down & Stretch", "sets": 2, "reps": 10, "duration": "5 mins"},
+            ]
         template_doc["created_at"] = now
         template_doc["updated_at"] = now
 
-        # Use upsert with $setOnInsert to prevent duplicating existing templates
         res = await workouts_collection.update_one(
             {"$or": [{"id": tpl["id"]}, {"title": tpl["title"]}]},
-            {"$setOnInsert": template_doc},
+            {"$set": {"exercises": template_doc["exercises"]}},
             upsert=True,
         )
 

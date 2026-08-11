@@ -1451,45 +1451,47 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                     </Pressable>
 
                     {showTemplateDropdown && (
-                      <View style={[styles.dropdownList, { backgroundColor: colors.bgCard, borderColor: colors.border, maxHeight: 180 }]}>
-                        <Pressable
-                          style={[styles.dropdownItem, { borderBottomColor: colors.borderSubtle }]}
-                          onPress={() => {
-                            setSelectedTemplateId(null);
-                            setShowTemplateDropdown(false);
-                          }}
-                        >
-                          <Text style={{ color: colors.textSub, fontSize: 13, fontStyle: 'italic' }}>
-                            Custom Workout (No Template)
-                          </Text>
-                        </Pressable>
-                        {workoutTemplates.map((t) => (
+                      <View style={[styles.dropdownList, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+                        <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled>
                           <Pressable
-                            key={t.id}
                             style={[styles.dropdownItem, { borderBottomColor: colors.borderSubtle }]}
                             onPress={() => {
-                              setSelectedTemplateId(t.id);
-                              setNewWorkoutTitle(t.title);
-                              setNewWorkoutDescription(t.description || '');
-                              if (t.exercises && t.exercises.length > 0) {
-                                setNewWorkoutExercises(t.exercises.map(ex => ({
-                                  name: ex.name,
-                                  sets: ex.sets || 3,
-                                  reps: ex.reps || 10,
-                                  duration: ex.duration || '',
-                                })));
-                              }
+                              setSelectedTemplateId(null);
                               setShowTemplateDropdown(false);
                             }}
                           >
-                            <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: '700' }}>
-                              {t.title}
-                            </Text>
-                            <Text style={{ color: colors.textSub, fontSize: 12 }} numberOfLines={1}>
-                              {t.category || 'General'} • {t.exercises?.length || 0} exercises
+                            <Text style={{ color: colors.textSub, fontSize: 13, fontStyle: 'italic' }}>
+                              Custom Workout (No Template)
                             </Text>
                           </Pressable>
-                        ))}
+                          {workoutTemplates.map((t) => (
+                            <Pressable
+                              key={t.id}
+                              style={[styles.dropdownItem, { borderBottomColor: colors.borderSubtle }]}
+                              onPress={() => {
+                                setSelectedTemplateId(t.id);
+                                setNewWorkoutTitle(t.title);
+                                setNewWorkoutDescription(t.description || '');
+                                if (t.exercises && t.exercises.length > 0) {
+                                  setNewWorkoutExercises(t.exercises.map(ex => ({
+                                    name: ex.name,
+                                    sets: ex.sets || 3,
+                                    reps: ex.reps || 10,
+                                    duration: ex.duration || '',
+                                  })));
+                                }
+                                setShowTemplateDropdown(false);
+                              }}
+                            >
+                              <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: '700' }}>
+                                {t.title}
+                              </Text>
+                              <Text style={{ color: colors.textSub, fontSize: 12 }} numberOfLines={1}>
+                                {t.category || 'General'} • {t.exercises?.length || 0} exercises
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </ScrollView>
                       </View>
                     )}
                   </View>

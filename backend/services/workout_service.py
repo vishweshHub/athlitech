@@ -38,6 +38,7 @@ def _format_workout_response(w: dict) -> WorkoutResponse:
         duration_minutes=int(w.get("duration_minutes") or 0),
         equipment=w.get("equipment") or [],
         instructions=w.get("instructions"),
+        exercises=w.get("exercises") or [],
         created_by=w.get("created_by") or "system",
         created_by_role=w.get("created_by_role") or "admin",
         is_public=bool(w.get("is_public", True)),
