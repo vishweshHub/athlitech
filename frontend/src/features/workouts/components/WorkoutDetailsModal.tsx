@@ -121,7 +121,7 @@ export default function WorkoutDetailsModal({
     );
   };
 
-  const modalWidth = isLargeScreen ? 780 : isMediumScreen ? 640 : '94%';
+  const modalWidth = Math.min(width - 32, isLargeScreen ? 780 : isMediumScreen ? 640 : 560);
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
@@ -166,8 +166,12 @@ export default function WorkoutDetailsModal({
             showsVerticalScrollIndicator={true}
           >
             {/* 3. Duration & Metrics Bar */}
-            <View style={[styles.metricsBar, { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle }]}>
-              <View style={styles.metricCell}>
+            <View style={[
+              styles.metricsBar,
+              { backgroundColor: colors.bgMid, borderColor: colors.borderSubtle },
+              width < 480 && { flexDirection: 'column', alignItems: 'stretch', gap: 12, paddingVertical: 12 }
+            ]}>
+              <View style={[styles.metricCell, width < 480 && { justifyContent: 'flex-start' }]}>
                 <Ionicons name="time-outline" size={22} color={colors.emerald} />
                 <View>
                   <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Duration</Text>
@@ -175,9 +179,9 @@ export default function WorkoutDetailsModal({
                 </View>
               </View>
 
-              <View style={[styles.metricDivider, { backgroundColor: colors.borderSubtle }]} />
+              {width >= 480 && <View style={[styles.metricDivider, { backgroundColor: colors.borderSubtle }]} />}
 
-              <View style={styles.metricCell}>
+              <View style={[styles.metricCell, width < 480 && { justifyContent: 'flex-start' }]}>
                 <Ionicons name="trophy-outline" size={22} color={colors.info} />
                 <View>
                   <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Sport</Text>
@@ -185,9 +189,9 @@ export default function WorkoutDetailsModal({
                 </View>
               </View>
 
-              <View style={[styles.metricDivider, { backgroundColor: colors.borderSubtle }]} />
+              {width >= 480 && <View style={[styles.metricDivider, { backgroundColor: colors.borderSubtle }]} />}
 
-              <View style={styles.metricCell}>
+              <View style={[styles.metricCell, width < 480 && { justifyContent: 'flex-start' }]}>
                 <Ionicons name="layers-outline" size={22} color={colors.warning} />
                 <View>
                   <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Category</Text>

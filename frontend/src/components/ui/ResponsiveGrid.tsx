@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, StyleProp, ViewStyle, Platform, DimensionValue } from 'react-native';
+import { View, StyleSheet, StyleProp, ViewStyle, Platform, DimensionValue, useWindowDimensions } from 'react-native';
 
 interface GridProps {
   children: React.ReactNode;
@@ -32,8 +32,12 @@ export function StatsGridItem({
   minWidth = 260,
   flex = 1,
 }: StatsGridItemProps) {
+  const { width } = useWindowDimensions();
+  const isSmallMobile = width < 480;
+  const effectiveMinWidth = isSmallMobile && typeof minWidth === 'number' ? '100%' : minWidth;
+
   return (
-    <View style={[{ minWidth, flex, flexGrow: flex }, style]}>
+    <View style={[{ minWidth: effectiveMinWidth, maxWidth: '100%', flex, flexGrow: flex, flexShrink: 1 }, style]}>
       {children}
     </View>
   );
@@ -64,8 +68,12 @@ export function CollectionGridItem({
   style,
   itemWidth = 320,
 }: CollectionGridItemProps) {
+  const { width } = useWindowDimensions();
+  const isSmallMobile = width < 480;
+  const effectiveWidth = isSmallMobile && typeof itemWidth === 'number' ? '100%' : itemWidth;
+
   return (
-    <View style={[{ width: itemWidth, maxWidth: '100%', flexGrow: 0, flexShrink: 1 }, style]}>
+    <View style={[{ width: effectiveWidth, maxWidth: '100%', flexGrow: 0, flexShrink: 1 }, style]}>
       {children}
     </View>
   );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { DimensionValue, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
 import { useThemeColors, RADIUS } from '@/styles/tokens';
 
@@ -7,10 +7,11 @@ interface TableProps {
   headers: string[];
   data: any[];
   renderRow: (item: any, index: number) => React.ReactNode;
+  columnWidths?: DimensionValue[];
   style?: StyleProp<ViewStyle>;
 }
 
-export default function Table({ headers, data, renderRow, style }: TableProps) {
+export default function Table({ headers, data, renderRow, columnWidths, style }: TableProps) {
   const colors = useThemeColors();
 
   return (
@@ -19,13 +20,16 @@ export default function Table({ headers, data, renderRow, style }: TableProps) {
         <View style={styles.table}>
           {/* Header Row */}
           <View style={[styles.headerRow, { backgroundColor: colors.bgMid, borderBottomColor: colors.border }]}>
-            {headers.map((header, index) => (
-              <View key={index} style={styles.headerCell}>
-                <Text style={[styles.headerText, { color: colors.textSub }]}>
-                  {header}
-                </Text>
-              </View>
-            ))}
+            {headers.map((header, index) => {
+              const widthStyle = columnWidths?.[index] !== undefined ? { width: columnWidths[index], flex: 0, minWidth: columnWidths[index] } : null;
+              return (
+                <View key={index} style={[styles.headerCell, widthStyle]}>
+                  <Text style={[styles.headerText, { color: colors.textSub }]}>
+                    {header}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
 
           {/* Data Rows */}

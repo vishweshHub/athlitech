@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { WorkoutTemplate } from '@/api/workout';
 import { Card, Badge, Button } from '@/components/ui';
@@ -19,6 +19,8 @@ export default function WorkoutCard({
   isSaving,
 }: WorkoutCardProps) {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isSmallMobile = width < 400;
 
   const getDifficultyVariant = (diff: string) => {
     switch (diff) {
@@ -85,13 +87,13 @@ export default function WorkoutCard({
       )}
 
       {/* Action Buttons Row */}
-      <View style={styles.actionRow}>
+      <View style={[styles.actionRow, isSmallMobile && { flexDirection: 'column' }]}>
         <Button
           label="View Details"
           onPress={() => onViewDetails(workout)}
           variant="secondary"
           size="sm"
-          style={onAddToMyWorkouts ? styles.halfBtn : styles.fullBtn}
+          style={onAddToMyWorkouts ? (isSmallMobile ? styles.fullBtn : styles.halfBtn) : styles.fullBtn}
         />
         {onAddToMyWorkouts && (
           <Button
@@ -100,7 +102,7 @@ export default function WorkoutCard({
             variant="outline"
             size="sm"
             isLoading={isSaving}
-            style={styles.halfBtn}
+            style={isSmallMobile ? styles.fullBtn : styles.halfBtn}
           />
         )}
       </View>

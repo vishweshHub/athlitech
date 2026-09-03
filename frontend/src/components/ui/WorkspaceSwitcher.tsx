@@ -5,6 +5,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter, Href } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,15 +13,16 @@ import { RADIUS, SHADOW, useThemeColors } from '@/styles/tokens';
 import { useWorkspace, WorkspaceRole } from '@/context/WorkspaceContext';
 
 const WORKSPACE_META = {
-  athlete: { label: 'Athlete Workspace', icon: 'fitness' as const, color: '#10B981' },
-  coach: { label: 'Coach Platform', icon: 'clipboard' as const, color: '#3B82F6' },
-  organization: { label: 'Organization Hub', icon: 'business' as const, color: '#8B5CF6' },
+  athlete: { label: 'Athlete Workspace', shortLabel: 'Athlete', icon: 'fitness' as const, color: '#10B981' },
+  coach: { label: 'Coach Platform', shortLabel: 'Coach', icon: 'clipboard' as const, color: '#3B82F6' },
+  organization: { label: 'Organization Hub', shortLabel: 'Org', icon: 'business' as const, color: '#8B5CF6' },
 };
 
 export default function WorkspaceSwitcher() {
   const router = useRouter();
   const colors = useThemeColors();
-  const styles = getStyles(colors);
+  const { width } = useWindowDimensions();
+  const styles = getStyles(colors, width);
   const { currentWorkspace, activeRoles, setCurrentWorkspace } = useWorkspace();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -50,7 +52,9 @@ export default function WorkspaceSwitcher() {
       >
         <View style={[styles.badgeDot, { backgroundColor: meta.color }]} />
         <Ionicons name={meta.icon} size={16} color={meta.color} />
-        <Text style={styles.switcherText}>{meta.label}</Text>
+        <Text style={styles.switcherText}>
+          {width < 480 ? meta.shortLabel : meta.label}
+        </Text>
         <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textMuted} />
       </TouchableOpacity>
 
@@ -107,7 +111,7 @@ export default function WorkspaceSwitcher() {
   );
 }
 
-const getStyles = (colors: ReturnType<typeof useThemeColors>) =>
+const getStyles = (colors: ReturnType<typeof useThemeColors>, width: number = 1024) =>
   StyleSheet.create({
     container: {
       position: 'relative',
@@ -124,11 +128,11 @@ const getStyles = (colors: ReturnType<typeof useThemeColors>) =>
     switcherBtn: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: 6,
       backgroundColor: colors.bgGlass,
       borderWidth: 1,
       borderRadius: RADIUS.md,
-      paddingHorizontal: 12,
+      paddingHorizontal: width < 480 ? 8 : 12,
       paddingVertical: 8,
     },
     badgeDot: {
@@ -145,7 +149,8 @@ const getStyles = (colors: ReturnType<typeof useThemeColors>) =>
       position: 'absolute',
       top: 44,
       right: 0,
-      minWidth: 240,
+      minWidth: width < 400 ? 200 : 240,
+      maxWidth: width - 32,
       backgroundColor: colors.bgGlass,
       borderWidth: 1,
       borderColor: colors.border,

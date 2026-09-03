@@ -175,7 +175,7 @@ export default function CompleteProfileScreen() {
             </Text>
           </Pressable>
 
-          <Text style={[styles.headerTag, { color: colors.emerald }]}>
+          <Text style={[styles.headerTag, { color: colors.emerald }]} numberOfLines={1}>
             {user.name} ({role?.toUpperCase()})
           </Text>
         </View>
@@ -261,6 +261,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 20,
     width: '100%',
   },
@@ -275,6 +277,8 @@ const styles = StyleSheet.create({
   headerTag: {
     fontSize: 13,
     fontWeight: '700',
+    minWidth: 0,
+    flexShrink: 1,
   },
   modalOverlay: {
     flex: 1,

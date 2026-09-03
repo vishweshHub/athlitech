@@ -16,6 +16,7 @@ export default function PerformanceScreen() {
 
   const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
+  const styles = getStyles(width);
 
   const [logs, setLogs] = useState<PerformanceLogResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -165,7 +166,8 @@ export default function PerformanceScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (width: number = 1024) =>
+  StyleSheet.create({
   centerBox: {
     flex: 1,
     alignItems: 'center',
@@ -245,11 +247,12 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
   },
   statTile: {
     flex: 1,
-    minWidth: 150,
+    minWidth: width < 480 ? '100%' : 140,
+    maxWidth: '100%',
     padding: 12,
     borderRadius: RADIUS.md,
     borderWidth: 1,

@@ -182,7 +182,7 @@ export default function UserDetails({
             <View style={styles.headerInfo}>
               <View style={styles.titleBadgeRow}>
                 <Text style={[styles.fullName, { color: colors.textPrimary }]}>{profile.name}</Text>
-                <View style={{ gap: 8, flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ gap: 6, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
                   <Badge
                     label={profile.role.toUpperCase()}
                     variant={role === 'admin' ? 'error' : role === 'coach' ? 'success' : 'info'}
@@ -768,12 +768,12 @@ const styles = StyleSheet.create({
   headerInfo: {
     flex: 1,
     gap: 6,
-    minWidth: 260,
+    minWidth: 0,
   },
   titleBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 8,
     flexWrap: 'wrap',
   },
   fullName: {

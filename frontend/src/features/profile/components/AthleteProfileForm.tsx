@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Card, Input, Button, Badge } from '@/components/ui';
@@ -19,6 +19,7 @@ const DEFAULT_SPORTS = ['Track & Field', 'Football', 'Basketball', 'Cricket', 'G
 
 export default function AthleteProfileForm({ onSubmit, isLoading, error, initialData }: AthleteProfileFormProps) {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
 
   // Dynamic Sports from Backend
   const [availableSports, setAvailableSports] = useState<string[]>(DEFAULT_SPORTS);
@@ -189,7 +190,7 @@ export default function AthleteProfileForm({ onSubmit, isLoading, error, initial
           <Badge label="Recommended" variant="info" />
         </View>
 
-        <View style={styles.row}>
+        <View style={[styles.row, width < 400 && { flexDirection: 'column' }]}>
           <View style={styles.flex1}>
             <Input
               label="Height (cm)"
@@ -359,10 +360,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   timelinePill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: RADIUS.sm,
     borderWidth: 1,
+    flexGrow: 1,
+    alignItems: 'center',
   },
   timelinePillText: {
     fontSize: 13,

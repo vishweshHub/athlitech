@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, Alert } from 'react-native';
+import { StyleSheet, Text, View, Alert, useWindowDimensions } from 'react-native';
 import { useRouter, Href } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenContainer } from '../../../components/ui/ScreenContainer';
@@ -16,6 +16,7 @@ import { useThemeColors } from '../../../styles/tokens';
 export const MyWorkoutsScreen: React.FC = () => {
   const router = useRouter();
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
   const { savedWorkouts, isLoading, error, refetch, removeWorkout } = useSavedWorkouts();
   const { startSession } = useWorkoutSession();
 
@@ -129,14 +130,14 @@ export const MyWorkoutsScreen: React.FC = () => {
                   {description}
                 </Text>
 
-                <View style={styles.actionRow}>
+                <View style={[styles.actionRow, width < 400 && { flexDirection: 'column' }]}>
                   <Button
                     label="▶ Start Workout"
                     onPress={() => handleStartWorkout(templateId)}
                     variant="primary"
                     size="sm"
                     isLoading={startingId === templateId}
-                    style={styles.halfBtn}
+                    style={width < 400 ? { width: '100%' } : styles.halfBtn}
                   />
                   <Button
                     label="Remove"
@@ -144,7 +145,7 @@ export const MyWorkoutsScreen: React.FC = () => {
                     variant="outline"
                     size="sm"
                     isLoading={removingId === templateId}
-                    style={styles.halfBtn}
+                    style={width < 400 ? { width: '100%' } : styles.halfBtn}
                   />
                 </View>
               </Card>
@@ -203,9 +204,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   badgeRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 6,
   },
   metaItem: {

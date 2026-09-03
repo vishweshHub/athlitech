@@ -76,13 +76,12 @@ const isWeb = Platform.OS === 'web';
 
 export default function AdminDashboard({ user, token, onSignOut }: AdminDashboardProps) {
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const isLargeScreen = width > 768;
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isLargeScreen = width >= 1024;
+  const styles = getStyles(colors, isLargeScreen, width);
   const scheme = useColorScheme();
   
-  const styles = getStyles(colors, isLargeScreen);
-
   // Navigation state
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(isLargeScreen);
@@ -1966,7 +1965,7 @@ export default function AdminDashboard({ user, token, onSignOut }: AdminDashboar
   );
 }
 
-const getStyles = (colors: any, isLargeScreen: boolean) => StyleSheet.create({
+const getStyles = (colors: any, isLargeScreen: boolean, width: number = 1024) => StyleSheet.create({
   wrapper: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -2407,7 +2406,8 @@ const getStyles = (colors: any, isLargeScreen: boolean) => StyleSheet.create({
   roleDetailCard: {
     flex: isLargeScreen ? 1 : undefined,
     width: isLargeScreen ? undefined : '100%',
-    minWidth: 280,
+    minWidth: width < 480 ? '100%' : 280,
+    maxWidth: '100%',
   },
   roleHeaderRow: {
     flexDirection: 'row',
@@ -2479,7 +2479,8 @@ const getStyles = (colors: any, isLargeScreen: boolean) => StyleSheet.create({
   },
   coachCard: {
     width: isLargeScreen ? '31%' : '100%',
-    minWidth: 260,
+    minWidth: width < 480 ? '100%' : 260,
+    maxWidth: '100%',
   },
   coachHeader: {
     flexDirection: 'row',
@@ -2532,7 +2533,8 @@ const getStyles = (colors: any, isLargeScreen: boolean) => StyleSheet.create({
   },
   athleteCard: {
     width: isLargeScreen ? '31%' : '100%',
-    minWidth: 280,
+    minWidth: width < 480 ? '100%' : 280,
+    maxWidth: '100%',
   },
   athleteHeader: {
     flexDirection: 'row',

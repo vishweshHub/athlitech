@@ -70,11 +70,11 @@ const isWeb = Platform.OS === 'web';
 export default function AthleteDashboardScreen({ user, token, onSignOut }: AthleteDashboardScreenProps) {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const isLargeScreen = width > 768;
+  const isLargeScreen = width >= 1024;
   const colors = useThemeColors();
   const scheme = useColorScheme();
 
-  const styles = getStyles(colors, isLargeScreen);
+  const styles = getStyles(colors, isLargeScreen, width);
 
   // Navigation state
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
@@ -416,8 +416,8 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                 <Ionicons name="menu" size={24} color={colors.textPrimary} />
               </Pressable>
             )}
-            <View style={styles.headerInfo}>
-              <Text style={styles.headerTitle}>
+            <View style={[styles.headerInfo, { minWidth: 0 }]}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
                 {activeTab === 'dashboard' ? 'My Dashboard' : null}
                 {activeTab === 'library' ? 'Workout Library' : null}
                 {activeTab === 'workouts' ? 'Assigned Workouts' : null}
@@ -425,10 +425,14 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                 {activeTab === 'profile' ? 'My Profile' : null}
               </Text>
 
-              <Text style={styles.headerSubtitle}>{user?.email || 'Athlete'}</Text>
+              {width >= 400 && (
+                <Text style={styles.headerSubtitle} numberOfLines={1}>
+                  {user?.email || 'Athlete'}
+                </Text>
+              )}
             </View>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: width < 400 ? 6 : 10, flexShrink: 0 }}>
               <WorkspaceSwitcher />
               <ThemeToggle />
               <Pressable onPress={loadDashboardData} style={styles.refreshBtn}>
@@ -534,7 +538,7 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
 
                     {/* Stat Cards */}
                     <StatsGrid gap={16} style={{ marginBottom: 24 }}>
-                      <StatsGridItem minWidth={300}>
+                      <StatsGridItem minWidth={width < 480 ? '100%' : 260}>
                         <SummaryCard
                           title="Dashboard Summary"
                           iconName="stats-chart-outline"
@@ -555,7 +559,7 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
 
                     {/* Workout Breakdown Card */}
                     <StatsGrid gap={16} style={{ marginBottom: 24 }}>
-                      <StatsGridItem minWidth={300}>
+                      <StatsGridItem minWidth={width < 480 ? '100%' : 260}>
                         <Card style={{ flex: 1, height: '100%' }}>
                           <View style={styles.metricHeader}>
                             <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>Workout Status</Text>
@@ -581,7 +585,7 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
                       </StatsGridItem>
 
                       {/* Coach Card */}
-                      <StatsGridItem minWidth={300}>
+                      <StatsGridItem minWidth={width < 480 ? '100%' : 260}>
                         <Card style={{ flex: 1, height: '100%' }}>
                           <View style={styles.metricHeader}>
                             <Text style={[styles.metricLabel, { color: colors.textPrimary }]}>My Coach</Text>
@@ -1042,7 +1046,7 @@ export default function AthleteDashboardScreen({ user, token, onSignOut }: Athle
   );
 }
 
-function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boolean) {
+function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boolean, width: number = 1024) {
   return StyleSheet.create({
     wrapper: {
       flex: 1,
@@ -1595,7 +1599,8 @@ function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boo
       padding: 16,
     },
     modalCard: {
-      width: Math.min(480, isWeb ? 480 : 360),
+      width: Math.min(width - 32, 480),
+      maxWidth: '100%',
       borderRadius: 12,
       borderWidth: 1,
       padding: 24,

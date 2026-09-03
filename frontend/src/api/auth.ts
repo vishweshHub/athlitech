@@ -1,4 +1,6 @@
 import { API_URL } from '@/constants/api';
+import { formatApiDetailMessage } from '@/utils/ApiError';
+
 export { API_URL, TOKEN_KEY, getStoredToken, storeToken, clearStoredToken } from '@/constants/api';
 
 export type AuthUser = {
@@ -32,6 +34,28 @@ async function parseJsonResponse(response: Response) {
   }
 }
 
+function throwHttpResponseError(status: number, data: any, default401Message: string): never {
+  if (status === 401) {
+    const message = formatApiDetailMessage(data?.detail, default401Message);
+    throw new Error(message);
+  }
+
+  if (status === 422) {
+    const message = formatApiDetailMessage(data?.detail, 'Validation error. Please check your input.');
+    throw new Error(message);
+  }
+
+  if (status >= 500) {
+    const message = data?.detail
+      ? formatApiDetailMessage(data.detail, `Server error (${status}).`)
+      : `Server error (${status}). Please try again later.`;
+    throw new Error(message);
+  }
+
+  const message = formatApiDetailMessage(data?.detail, `Request failed (${status}).`);
+  throw new Error(message);
+}
+
 export async function login(email: string, password: string): Promise<LoginResult> {
   let response: Response;
 
@@ -47,24 +71,13 @@ export async function login(email: string, password: string): Promise<LoginResul
       }),
     });
   } catch {
-    throw new Error('Unable to connect to the backend.');
+    throw new Error('Unable to connect to the backend server. Please check your connection.');
   }
 
   const data = await parseJsonResponse(response);
 
   if (!response.ok) {
-    let message = 'Invalid email or password.';
-    if (data) {
-      if (typeof data.detail === 'string') {
-        message = data.detail;
-      } else if (Array.isArray(data.detail) && data.detail.length > 0) {
-        // FastAPI validation errors are arrays of objects with 'msg'
-        message = data.detail[0].msg ?? JSON.stringify(data.detail);
-      } else if (typeof data.detail === 'object' && data.detail !== null) {
-        message = data.detail.msg ?? JSON.stringify(data.detail);
-      }
-    }
-    throw new Error(message);
+    throwHttpResponseError(response.status, data, 'Invalid email or password.');
   }
 
   if (!data?.access_token) {
@@ -93,23 +106,13 @@ export async function registerUser(user: RegisterInput) {
       }),
     });
   } catch {
-    throw new Error('Unable to connect to the backend.');
+    throw new Error('Unable to connect to the backend server. Please check your connection.');
   }
 
   const data = await parseJsonResponse(response);
 
   if (!response.ok) {
-    let message = 'Registration failed.';
-    if (data) {
-      if (typeof data.detail === 'string') {
-        message = data.detail;
-      } else if (Array.isArray(data.detail) && data.detail.length > 0) {
-        message = data.detail[0].msg ?? JSON.stringify(data.detail);
-      } else if (typeof data.detail === 'object' && data.detail !== null) {
-        message = data.detail.msg ?? JSON.stringify(data.detail);
-      }
-    }
-    throw new Error(message);
+    throwHttpResponseError(response.status, data, 'Registration failed.');
   }
 
   return data;
@@ -125,23 +128,13 @@ export async function fetchCurrentUser(token: string): Promise<AuthUser> {
       },
     });
   } catch {
-    throw new Error('Unable to connect to the backend.');
+    throw new Error('Unable to connect to the backend server. Please check your connection.');
   }
 
   const data = await parseJsonResponse(response);
 
   if (!response.ok) {
-    let message = 'Session expired.';
-    if (data) {
-      if (typeof data.detail === 'string') {
-        message = data.detail;
-      } else if (Array.isArray(data.detail) && data.detail.length > 0) {
-        message = data.detail[0].msg ?? JSON.stringify(data.detail);
-      } else if (typeof data.detail === 'object' && data.detail !== null) {
-        message = data.detail.msg ?? JSON.stringify(data.detail);
-      }
-    }
-    throw new Error(message);
+    throwHttpResponseError(response.status, data, 'Session expired.');
   }
 
   return data;

@@ -86,7 +86,7 @@ export default function RoleCard({
 }: RoleCardProps) {
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
-  const styles = getStyles(colors);
+  const styles = getStyles(colors, width);
   const data = CARD_DATA[type];
 
   const translateY = useSharedValue(0);
@@ -279,7 +279,7 @@ export default function RoleCard({
   );
 }
 
-const getStyles = (colors: ReturnType<typeof useThemeColors>) =>
+const getStyles = (colors: ReturnType<typeof useThemeColors>, width: number = 1024) =>
   StyleSheet.create({
     card: {
       width: '100%',
@@ -287,7 +287,7 @@ const getStyles = (colors: ReturnType<typeof useThemeColors>) =>
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: RADIUS.xl,
-      padding: 24,
+      padding: width < 480 ? 16 : 24,
       marginBottom: 24,
       ...SHADOW.card,
     },
@@ -313,7 +313,8 @@ const getStyles = (colors: ReturnType<typeof useThemeColors>) =>
     },
     rightSection: {
       flex: 1,
-      minWidth: 320,
+      minWidth: width < 480 ? '100%' : 320,
+      maxWidth: '100%',
       justifyContent: 'center',
     },
     fullPreviewSection: {
@@ -334,111 +335,79 @@ const getStyles = (colors: ReturnType<typeof useThemeColors>) =>
       gap: 14,
     },
     iconWrap: {
-      width: 48,
-      height: 48,
+      width: 44,
+      height: 44,
       borderRadius: RADIUS.md,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    cardTitle: {
+    roleTitle: {
       color: colors.textPrimary,
-      fontSize: 22,
+      fontSize: 20,
       fontWeight: '800',
       letterSpacing: -0.5,
     },
-    cardSubtitle: {
-      color: colors.textSub,
-      fontSize: 12,
-      fontWeight: '600',
+    roleSubtitle: {
+      color: colors.textMuted,
+      fontSize: 13,
       marginTop: 2,
     },
-
     statusBadge: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
       borderRadius: RADIUS.full,
     },
-    badgeActive: {
-      backgroundColor: colors.emeraldDim,
-      borderColor: 'rgba(16, 185, 129, 0.3)',
-      borderWidth: 1,
+    activeBadge: {
+      backgroundColor: 'rgba(16, 185, 129, 0.15)',
     },
-    badgeWarning: {
-      backgroundColor: 'rgba(245, 158, 11, 0.12)',
-      borderColor: 'rgba(245, 158, 11, 0.3)',
-      borderWidth: 1,
-    },
-    badgeInactive: {
-      backgroundColor: 'rgba(255, 255, 255, 0.04)',
-      borderColor: colors.border,
-      borderWidth: 1,
+    inactiveBadge: {
+      backgroundColor: colors.bgMid,
     },
     statusDot: {
-      width: 7,
-      height: 7,
+      width: 6,
+      height: 6,
       borderRadius: 99,
     },
-    dotActive: {
+    activeDot: {
       backgroundColor: colors.emerald,
     },
-    dotWarning: {
-      backgroundColor: '#F59E0B',
+    inactiveDot: {
+      backgroundColor: colors.textMuted,
     },
-    dotInactive: {
-      backgroundColor: colors.textDimmed,
-    },
-    statusBadgeText: {
-      fontSize: 12,
+    statusText: {
+      fontSize: 11,
       fontWeight: '700',
+      letterSpacing: 0.5,
     },
-    textActive: {
+    activeStatusText: {
       color: colors.emerald,
     },
-    textWarning: {
-      color: '#F59E0B',
-    },
-    textInactive: {
+    inactiveStatusText: {
       color: colors.textMuted,
     },
-
-    cardOutcome: {
+    description: {
       color: colors.textSub,
       fontSize: 14,
       lineHeight: 22,
       marginBottom: 16,
     },
-
-    capabilitiesBox: {
-      backgroundColor: 'rgba(255, 255, 255, 0.02)',
-      borderColor: colors.borderSubtle,
-      borderWidth: 1,
-      padding: 16,
-      borderRadius: RADIUS.md,
-      gap: 10,
+    checklistContainer: {
+      gap: 8,
       marginBottom: 20,
     },
-    capabilitiesTitle: {
-      color: colors.textDimmed,
-      fontSize: 10,
-      fontWeight: '800',
-      letterSpacing: 1,
-      marginBottom: 2,
-    },
-    capabilityRow: {
+    checkItem: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
     },
-    capabilityText: {
+    checkText: {
       color: colors.textPrimary,
       fontSize: 13,
       fontWeight: '500',
-      flex: 1,
     },
-
     previewContainerHeader: {
       marginBottom: 8,
     },
@@ -451,14 +420,13 @@ const getStyles = (colors: ReturnType<typeof useThemeColors>) =>
     previewWrap: {
       width: '100%',
     },
-
     cardFooter: {
       marginTop: 'auto',
       paddingTop: 12,
     },
     actionRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: width < 480 ? 'column' : 'row',
+      alignItems: width < 480 ? 'stretch' : 'center',
       gap: 12,
       width: '100%',
       flexWrap: 'wrap',
@@ -473,6 +441,7 @@ const getStyles = (colors: ReturnType<typeof useThemeColors>) =>
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: RADIUS.md,
+      width: width < 480 ? '100%' : 'auto',
       backgroundColor: 'rgba(255, 255, 255, 0.02)',
     },
     subBtnLinkText: {
@@ -508,5 +477,87 @@ const getStyles = (colors: ReturnType<typeof useThemeColors>) =>
     actionBtnOutlineText: {
       fontSize: 14,
       fontWeight: '800',
+    },
+    cardTitle: {
+      color: colors.textPrimary,
+      fontSize: 22,
+      fontWeight: '800',
+      letterSpacing: -0.5,
+    },
+    cardSubtitle: {
+      color: colors.textSub,
+      fontSize: 12,
+      fontWeight: '600',
+      marginTop: 2,
+    },
+    badgeActive: {
+      backgroundColor: colors.emeraldDim,
+      borderColor: 'rgba(16, 185, 129, 0.3)',
+      borderWidth: 1,
+    },
+    badgeWarning: {
+      backgroundColor: 'rgba(245, 158, 11, 0.12)',
+      borderColor: 'rgba(245, 158, 11, 0.3)',
+      borderWidth: 1,
+    },
+    badgeInactive: {
+      backgroundColor: 'rgba(255, 255, 255, 0.04)',
+      borderColor: colors.border,
+      borderWidth: 1,
+    },
+    dotActive: {
+      backgroundColor: colors.emerald,
+    },
+    dotWarning: {
+      backgroundColor: '#F59E0B',
+    },
+    dotInactive: {
+      backgroundColor: colors.textDimmed,
+    },
+    statusBadgeText: {
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    textActive: {
+      color: colors.emerald,
+    },
+    textWarning: {
+      color: '#F59E0B',
+    },
+    textInactive: {
+      color: colors.textMuted,
+    },
+    cardOutcome: {
+      color: colors.textSub,
+      fontSize: 14,
+      lineHeight: 22,
+      marginBottom: 16,
+    },
+    capabilitiesBox: {
+      backgroundColor: 'rgba(255, 255, 255, 0.02)',
+      borderColor: colors.borderSubtle,
+      borderWidth: 1,
+      padding: 16,
+      borderRadius: RADIUS.md,
+      gap: 10,
+      marginBottom: 20,
+    },
+    capabilitiesTitle: {
+      color: colors.textDimmed,
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 1,
+      marginBottom: 2,
+    },
+    capabilityRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    capabilityText: {
+      color: colors.textPrimary,
+      fontSize: 13,
+      fontWeight: '500',
+      flex: 1,
     },
   });

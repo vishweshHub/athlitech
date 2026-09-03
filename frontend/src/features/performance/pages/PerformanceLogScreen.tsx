@@ -36,9 +36,9 @@ export default function PerformanceLogScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ workout_session_id?: string }>();
   const { width } = useWindowDimensions();
-
   const isDesktop = width >= 1024;
-  const isTablet  = width >= 768 && width < 1024;
+  const isTablet = width >= 768 && width < 1024;
+  const styles = getStyles(width);
 
   const workoutSessionId = params.workout_session_id;
 
@@ -476,9 +476,10 @@ export default function PerformanceLogScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (width: number = 1024) =>
+  StyleSheet.create({
   centerBox:          { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  scrollContent:      { paddingVertical: 24, paddingHorizontal: 24, flexGrow: 1, width: '100%' },
+  scrollContent:      { paddingVertical: 24, paddingHorizontal: width < 480 ? 12 : 24, flexGrow: 1, width: '100%' },
   shell:              { width: '100%', gap: 20 },
   topNavigationRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start' },
   header:             { flexDirection: 'row', alignItems: 'center', gap: 16 },
@@ -506,10 +507,10 @@ const styles = StyleSheet.create({
   gridRow:            { width: '100%' },
   gridDesktop:        { flexDirection: 'row', gap: 20, alignItems: 'flex-start' },
   gridMobile:         { flexDirection: 'column', gap: 20 },
-  colSummary:         { width: '35%', minWidth: 280 },
-  colForm:            { flex: 1, minWidth: 320 },
+  colSummary:         { width: '35%', minWidth: width < 480 ? '100%' : 280, maxWidth: '100%' },
+  colForm:            { flex: 1, minWidth: width < 480 ? '100%' : 320, maxWidth: '100%' },
   colFull:            { width: '100%' },
-  card:               { padding: 24, borderRadius: RADIUS.lg },
+  card:               { padding: width < 480 ? 16 : 24, borderRadius: RADIUS.lg },
   cardHeaderTitle:    { fontSize: 18, fontWeight: '700' },
   divider:            { height: 1, marginVertical: 16, width: '100%' },
   summaryList:        { gap: 16 },
@@ -520,8 +521,8 @@ const styles = StyleSheet.create({
   sectionHeaderRow:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
   sectionTitle:       { fontSize: 16, fontWeight: '700', flex: 1 },
   sectionHint:        { fontSize: 13 },
-  effortPillGrid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
-  effortPill:         { width: 44, height: 44, borderRadius: RADIUS.md, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  effortPillGrid:     { flexDirection: 'row', flexWrap: 'wrap', gap: width < 400 ? 6 : 8, marginTop: 6 },
+  effortPill:         { width: width < 400 ? 38 : 44, height: width < 400 ? 38 : 44, borderRadius: RADIUS.md, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   effortPillText:     { fontSize: 16, fontWeight: '700' },
   starsRow:           { flexDirection: 'row', gap: 12, alignItems: 'center', marginTop: 4 },
   starBtn:            { padding: 4 },

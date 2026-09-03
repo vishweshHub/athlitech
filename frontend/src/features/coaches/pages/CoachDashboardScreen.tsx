@@ -65,11 +65,11 @@ const isWeb = Platform.OS === 'web';
 export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDashboardScreenProps) {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const isLargeScreen = width > 768;
+  const isLargeScreen = width >= 1024;
   const colors = useThemeColors();
   const scheme = useColorScheme();
 
-  const styles = getStyles(colors, isLargeScreen);
+  const styles = getStyles(colors, isLargeScreen, width);
 
   // Navigation state
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
@@ -583,8 +583,8 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                 <Ionicons name="menu" size={24} color={colors.textPrimary} />
               </Pressable>
             )}
-            <View style={styles.headerInfo}>
-              <Text style={styles.headerTitle}>
+            <View style={[styles.headerInfo, { minWidth: 0 }]}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
                 {activeTab === 'dashboard' ? 'Coach Dashboard' : null}
                 {activeTab === 'athletes' ? 'My Athletes' : null}
                 {activeTab === 'workouts' ? 'Workout Plans' : null}
@@ -592,9 +592,13 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
                 {activeTab === 'profile' ? 'My Profile' : null}
               </Text>
 
-              <Text style={styles.headerSubtitle}>{user?.email || 'Coach'}</Text>
+              {width >= 400 && (
+                <Text style={styles.headerSubtitle} numberOfLines={1}>
+                  {user?.email || 'Coach'}
+                </Text>
+              )}
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: width < 400 ? 6 : 10, flexShrink: 0 }}>
               <WorkspaceSwitcher />
               <ThemeToggle />
               <Pressable onPress={loadDashboardData} style={styles.refreshBtn}>
@@ -1743,7 +1747,7 @@ export default function CoachDashboardScreen({ user, token, onSignOut }: CoachDa
   );
 }
 
-function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boolean) {
+function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boolean, width: number = 1024) {
   return StyleSheet.create({
     wrapper: {
       flex: 1,
@@ -2074,7 +2078,8 @@ function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boo
       marginTop: 12,
     },
     actionCard: {
-      minWidth: 260,
+      minWidth: width < 480 ? '100%' : 260,
+      maxWidth: '100%',
       backgroundColor: colors.bgCard,
       borderColor: colors.border,
       borderWidth: 1,
@@ -2102,7 +2107,8 @@ function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boo
     },
     athleteCard: {
       width: isLargeScreen ? '31%' : '100%',
-      minWidth: 260,
+      minWidth: width < 480 ? '100%' : 260,
+      maxWidth: '100%',
     },
     athleteHeader: {
       flexDirection: 'row',
@@ -2255,7 +2261,8 @@ function getStyles(colors: ReturnType<typeof useThemeColors>, isLargeScreen: boo
       padding: 16,
     },
     modalMenu: {
-      width: Math.min(560, isWeb ? 560 : 400),
+      width: Math.min(width - 32, 560),
+      maxWidth: '100%',
       maxHeight: '90%',
       borderRadius: 12,
       borderWidth: 1,
